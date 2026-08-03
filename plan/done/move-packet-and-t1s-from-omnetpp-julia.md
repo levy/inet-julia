@@ -1,6 +1,6 @@
 # Move the packet/chunk API and the 10BASE-T1S model into `inet-julia`
 
-**Status:** in progress.
+**Status:** done.
 **Scope:** extract `Omnetpp.PacketModule` (the packet & chunk API) and
 `Omnetpp.T1sModule` + `T1sModel` (the 10BASE-T1S/PLCA multidrop model) out of
 `omnetpp-julia` and into a new `Inet` package in `inet-julia`, together with
@@ -106,9 +106,13 @@ Plus `@document` from `ProjecturedKernel.DocumentModule`.
   strip `src/Omnetpp.jl`, `src/lifecycle/Workbench.jl`, `test/runtests.jl`.
   Remaining suite green; grep proves no `Inet`/`Packet`/`T1s` reference
   survives. `README.md` needed no edit — it never named the moved subtrees.
-- [ ] **S5** — `inet-julia` README, then land: merge the worktree branch into
+- [x] **S5** — `inet-julia` README, then land: merge the worktree branch into
   `omnetpp-julia` master (ff-only) and verify the full `inet-julia` suite
-  against the merged checkout.
+  against the merged checkout. `omnetpp-julia` pushed; `inet-julia` is committed
+  locally but **not pushed** — `levy/inet-julia` is readable yet rejects writes
+  from both the `omnetpp-julia` deploy key and the `projectured` account, so it
+  needs its own deploy key (or push rights) before `git push -u origin main`
+  will go through.
 
 ## 7. Testing
 
