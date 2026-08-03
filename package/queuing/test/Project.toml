@@ -1,0 +1,29 @@
+name = "InetQueuingTest"
+uuid = "f714c29c-95bc-4097-b59d-ac4adcca3229"
+version = "0.1.0"
+authors = []
+entryfile = "InetQueuingTest.jl"
+
+# Test package for InetQueuing — one phase per wave of
+# plan/pending/queuing-model-migration.md, each driving elements inside a real
+# SequentialSimulator. It also covers InetCommon's lookup (phase0), whose tests
+# are written against the packet protocol and so belong on this side of the
+# dependency edge.
+
+[deps]
+InetCommon = "3e5f522d-74dd-49cc-880c-be4fb7395c4f"
+InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
+InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
+OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+InetCommon = {path = "../../common/main"}
+InetPacket = {path = "../../packet/main"}
+InetQueuing = {path = "../main"}
+OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
+ProjecturedKernel = {path = "../../../../projectured-julia/package/kernel/main"}
+
+[compat]
+julia = "1.11"

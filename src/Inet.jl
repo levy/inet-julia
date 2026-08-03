@@ -1,77 +1,35 @@
 module Inet
 
 # ============================================================================
-# `Inet` — the model library that sits on top of `OmnetppSimulator`.
+# `Inet` — the umbrella over the network-model library.
 #
-# The split mirrors the C++ world: `OmnetppSimulator` is the discrete-event kernel (the
-# engine, the lifecycle, result recording) and `Inet` is the network-model
-# library (packet representation, protocol models). The dependency runs one
-# way only — `Inet` uses `OmnetppSimulator`, never the reverse.
+# The split mirrors the C++ world: `OmnetppSimulator` is the discrete-event
+# kernel (the engine, the lifecycle, result recording) and `Inet` is what you
+# model networks *with*. The dependency runs one way only — `Inet` uses
+# `OmnetppSimulator`, never the reverse.
+#
+# The library itself is four packages, each usable on its own:
+#
+#   InetPacket     the packet & chunk API — depends on nothing
+#   InetCommon     module lookup, the infrastructure the models share
+#   InetQueuing    the queuing elements and the packet protocol they speak
+#   InetLinkLayer  10BASE-T1S / PLCA and the model that runs it
+#
+# This package re-exports their modules and owns the one thing none of them
+# can: `inet_simulation_catalog`, which has to know every model there is.
 #
 # Nothing from `OmnetppSimulator` is re-exported. A script that needs both says
 # `using OmnetppSimulator, Inet`, so it stays visible which layer a name comes from.
 # ============================================================================
 
-# Packet & chunk API (plan/done/packet-chunk-api.md). Its own package, because
-# it depends on neither `OmnetppSimulator` nor the rest of this library.
-using InetPacket.PacketModule
-
-# --- what the protocol models need from the kernel --------------------------
-# Time, scheduling and the engine/model interface.
-using OmnetppSimulator: SimTime, TIME_UNIT, to_simtime, MersenneTwister,
-    ScheduleContext, schedule!, schedule_root!, stop!,
-    AbstractEngine, AbstractParallelEngine, AbstractModel, SimTimeLimit
-# Parameterization: a model declares its degrees of freedom, the lifecycle
-# resolves them and hands back a `ResolvedParameters`.
-using OmnetppSimulator: Parameter, ParameterSpace, AbstractResolvedParameters,
-    StructuralDOF, StochasticDOF, IterationDOF
-# Result recording.
-using OmnetppSimulator: Recorder, VectorFileWriter, begin_recording!,
-    register_indexed_vector!, emit_indexed_vector!, record_scalar!
-# The workbench's model catalog, which `inet_simulation_catalog` extends.
-using OmnetppSimulator: SimulationType, default_simulation_catalog
-# The model interface itself — `import`, not `using`, because `Inet`'s models
-# add methods to these.
-import OmnetppSimulator: model_module_count, model_barrier_module, model_delay_edges,
-    model_description, model_parameter_space, build_model, reset_model!,
-    schedule_initial_events!, make_recorder, finalize_model!
-# Models are `@document`s so a running simulation can be viewed reactively: the
-# sim runs on the native (mutable) variant at full speed and a reactive variant
-# is refreshed for the UI. The macro's expansion needs `Reference` and the cell
-# primitives in scope, which is why they are imported alongside it.
-using ProjecturedKernel.DocumentModule: Document, sync_document!, @document
-using ProjecturedKernel.ReferenceModule: Reference
-using ProjecturedKernel.CellModule: ImmutableCell, set_cell_function!
-
-# Module lookup: how a module gets hold of another that offers an interface,
-# by walking the connections or by evaluating a reference. Independent of what
-# is being looked for, so it comes before the models that look things up.
-include("lookup/Lookup.jl")
-using .LookupModule
-
-# Queuing model elements, and the packet protocol they speak
-# (plan/pending/queuing-model-migration.md).
-include("queuing/QueuingLayer.jl")
-using .PacketProtocolModule
-using .StatisticsModule
-using .PacketSourceModule
-using .ActivePacketSourceElement
-using .PassivePacketSourceElement
-using .PassivePacketSinkElement
-using .ActivePacketSinkElement
-using .PacketQueueElement
-using .PacketServerElement
-using .InstantServerElement
-using .PacketClassifierElement
-using .PacketSchedulerElement
-using .PacketFilterElement
-using .PacketPlumbingElement
-using .PriorityQueueElement
-
-# 10BASE-T1S / PLCA multidrop model — its own package (InetLinkLayer).
+using InetPacket
+using InetCommon
+using InetQueuing
 using InetLinkLayer
 
-include("model/QueuingModel.jl")       # QueuingModel — the canonical chain as a model
+# The workbench's model catalog, which `inet_simulation_catalog` extends.
+using OmnetppSimulator: SimulationType, default_simulation_catalog
+
 include("model/Catalog.jl")            # inet_simulation_catalog — the kernel's, extended
 
 export
@@ -91,9 +49,10 @@ export
     PacketPlumbingElement, PriorityQueueElement,
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
     T1sModule,
-    # the model interface implementation the lifecycle drives
+    # the model interface implementations the lifecycle drives
     QueuingModel, AbstractQueuingModel, QueuingModelMut,
     T1sModel, AbstractT1sModel, T1sModelMut,
+    # every model there is, offered to a workbench
     inet_simulation_catalog
 
 end # module Inet

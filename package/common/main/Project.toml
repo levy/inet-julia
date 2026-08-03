@@ -1,0 +1,21 @@
+name = "InetCommon"
+uuid = "3e5f522d-74dd-49cc-880c-be4fb7395c4f"
+version = "0.1.0"
+authors = []
+entryfile = "InetCommon.jl"
+
+# Infrastructure shared by every model library above it — INET's src/inet/common
+# in spirit. One mechanism today: module-interface lookup, which is
+# deliberately independent of what is being looked up, so it sits below both
+# the queuing elements and the protocol models rather than inside either.
+
+[deps]
+OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
+
+[sources]
+OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
+ProjecturedKernel = {path = "../../../../projectured-julia/package/kernel/main"}
+
+[compat]
+julia = "1.11"
