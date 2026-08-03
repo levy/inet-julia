@@ -6,6 +6,7 @@
 [deps]
 Inet = "e0528acb-81c4-485d-8c9f-a32e8325f910"
 InetCommon = "3e5f522d-74dd-49cc-880c-be4fb7395c4f"
+InetExample = "36dabbcc-7d99-425e-af93-62d296f18444"
 InetLinkLayer = "6936b046-6a37-41be-850a-5641ac0f1d4b"
 InetLinkLayerTest = "ec40c984-7b58-4740-b4ec-f962705a1dbf"
 InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
@@ -16,10 +17,12 @@ InetQueuingTest = "f714c29c-95bc-4097-b59d-ac4adcca3229"
 InetTest = "2f44235d-4d1e-46a7-bad9-542c69a24442"
 OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
 ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
 Inet = {path = "package/inet/main"}
+InetExample = {path = "package/inet/example"}
 InetTest = {path = "package/inet/test"}
 InetCommon = {path = "package/common/main"}
 InetLinkLayer = {path = "package/linklayer/main"}

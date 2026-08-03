@@ -1,0 +1,17 @@
+name = "InetExample"
+uuid = "36dabbcc-7d99-425e-af93-62d296f18444"
+version = "0.1.0"
+authors = []
+entryfile = "InetExample.jl"
+
+# Example umbrella over the component example packages. Today that is
+# `InetPacketExample` alone; new component example packages join here.
+
+[deps]
+InetPacketExample = "1ba5b435-6844-4ce9-8e6f-b4cbb0509b94"
+
+[sources]
+InetPacketExample = {path = "../../packet/example"}
+
+[compat]
+julia = "1.11"
