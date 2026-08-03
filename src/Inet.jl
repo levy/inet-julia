@@ -63,6 +63,9 @@ using .ActivePacketSinkElement
 using .PacketQueueElement
 using .PacketServerElement
 using .InstantServerElement
+using .PacketClassifierElement
+using .PacketSchedulerElement
+using .PacketFilterElement
 
 # 10BASE-T1S / PLCA multidrop model (plan/done/ten-base-t1s-plca.md +
 # plan/done/ten-base-t1s-statistics.md).
@@ -83,6 +86,7 @@ export
     ActivePacketSourceElement, PassivePacketSourceElement,
     PassivePacketSinkElement, ActivePacketSinkElement,
     PacketQueueElement, PacketServerElement, InstantServerElement,
+    PacketClassifierElement, PacketSchedulerElement, PacketFilterElement,
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
     T1sModule,
     # the model interface implementation the lifecycle drives

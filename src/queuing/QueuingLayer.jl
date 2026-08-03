@@ -19,3 +19,6 @@ include("sink/ActivePacketSink.jl")       # pulls, on its own schedule
 include("queue/PacketQueue.jl")           # holds packets between the two
 include("server/PacketServer.jl")         # serves one at a time, taking time
 include("server/InstantServer.jl")        # moves them on, taking none
+include("classifier/PacketClassifier.jl") # one way in, several ways out
+include("scheduler/PacketScheduler.jl")   # several ways in, one way out
+include("filter/PacketFilter.jl")         # passes some on, drops the rest

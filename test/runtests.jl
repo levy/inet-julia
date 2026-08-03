@@ -42,4 +42,6 @@ end
     include("queuing/support.jl")
     include("queuing/phase0_lookup.jl")
     include("queuing/phase1_sources_sinks.jl")
+    include("queuing/phase2_queue_server.jl")
+    include("queuing/phase3_classify_schedule_filter.jl")
 end
