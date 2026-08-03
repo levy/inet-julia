@@ -1,0 +1,20 @@
+name = "InetPacketTest"
+uuid = "772aa187-4962-422d-ab89-8597970a7f70"
+version = "0.1.0"
+authors = []
+entryfile = "InetPacketTest.jl"
+
+# Test package for InetPacket — the phased conformance suite, ported behaviour
+# by behaviour from INET's own unit tests. It depends on nothing but the
+# package it tests, so this environment resolves without the simulator.
+
+[deps]
+InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+InetPacket = {path = "../main"}
+
+[compat]
+julia = "1.11"

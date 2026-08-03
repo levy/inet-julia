@@ -1,0 +1,17 @@
+name = "InetPacketExample"
+uuid = "1ba5b435-6844-4ce9-8e6f-b4cbb0509b94"
+version = "0.1.0"
+authors = []
+entryfile = "InetPacketExample.jl"
+
+# Example package for InetPacket: the runnable demonstrations of the packet &
+# chunk API, each a standalone entry point.
+
+[deps]
+InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
+
+[sources]
+InetPacket = {path = "../main"}
+
+[compat]
+julia = "1.11"

@@ -1,0 +1,13 @@
+name = "InetPacket"
+uuid = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
+version = "0.1.0"
+authors = []
+entryfile = "InetPacket.jl"
+
+# InetPacket has no dependencies at all — not the simulator, not the ProjecturEd
+# kernel. The packet & chunk API is a data model; nothing in it knows that a
+# simulation exists. Keeping it a package of its own is what makes that
+# checkable rather than merely intended.
+
+[compat]
+julia = "1.11"

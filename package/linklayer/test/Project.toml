@@ -1,0 +1,24 @@
+name = "InetLinkLayerTest"
+uuid = "ec40c984-7b58-4740-b4ec-f962705a1dbf"
+version = "0.1.0"
+authors = []
+entryfile = "InetLinkLayerTest.jl"
+
+# Test package for InetLinkLayer — the phased 10BASE-T1S / PLCA conformance
+# suite, ported behaviour by behaviour from INET, plus the golden network
+# hashes that pin reproducibility. `inet-reference/` holds the .vec files INET
+# itself produced; `compare_t1s_vectors.jl` diffs a run against them.
+
+[deps]
+InetLinkLayer = "6936b046-6a37-41be-850a-5641ac0f1d4b"
+InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
+OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+InetLinkLayer = {path = "../main"}
+InetPacket = {path = "../../packet/main"}
+OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
+
+[compat]
+julia = "1.11"

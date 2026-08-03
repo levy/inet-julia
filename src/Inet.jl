@@ -12,10 +12,9 @@ module Inet
 # `using OmnetppSimulator, Inet`, so it stays visible which layer a name comes from.
 # ============================================================================
 
-# Packet & chunk API (plan/done/packet-chunk-api.md). Standalone: depends on
-# neither `OmnetppSimulator` nor the rest of this package, so it comes first.
-include("packet/Packet.jl")
-using .PacketModule
+# Packet & chunk API (plan/done/packet-chunk-api.md). Its own package, because
+# it depends on neither `OmnetppSimulator` nor the rest of this library.
+using InetPacket.PacketModule
 
 # --- what the protocol models need from the kernel --------------------------
 # Time, scheduling and the engine/model interface.
@@ -69,11 +68,10 @@ using .PacketFilterElement
 using .PacketPlumbingElement
 using .PriorityQueueElement
 
-# 10BASE-T1S / PLCA multidrop model (plan/done/ten-base-t1s-plca.md +
-# plan/done/ten-base-t1s-statistics.md).
-include("t1s/T1s.jl")
+# 10BASE-T1S / PLCA multidrop model — its own package (InetLinkLayer).
+using InetLinkLayer
+
 include("model/QueuingModel.jl")       # QueuingModel — the canonical chain as a model
-include("model/T1sModel.jl")           # T1sModel — plugs T1sModule into the model interface
 include("model/Catalog.jl")            # inet_simulation_catalog — the kernel's, extended
 
 export
