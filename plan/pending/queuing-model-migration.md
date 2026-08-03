@@ -18,7 +18,7 @@ directory name `queueing` is deliberately renamed to the standard spelling).
 Two deliverables:
 
 1. A **general migration recipe** (§6) — how to migrate any INET module.
-2. The **`src/queuing/` package** plus the module framework it needs (§7), built in waves.
+2. The **`package/queuing/` package** plus the module framework it needs (§7), built in waves.
 
 ## 2. Source material (what the design is derived from)
 
@@ -102,7 +102,7 @@ pattern):
   dependencies with **`using` — never `import`**. Methods of another module's generic
   function are added via qualified definition (`function Omnetpp.model_delay_edges(m::…)`),
   which works under plain `using`. (Supersedes the `import Omnetpp:` convention in
-  `src/Inet.jl` for new code.)
+  `package/inet/main/Inet.jl` for new code.)
 - An interface that is implemented multiple times and is extensible gets a **separate
   interface specification file** (generic-function declarations, docstrings, error stubs).
 - An interface with default implementations gets a **separate defaults file**.
@@ -147,9 +147,9 @@ init hooks), data types + core operations, `ModuleDefaults.jl`. Details:
 
 **inet-julia** keeps the INET half:
 
-- `src/queuing/contract/` — one interface specification file per protocol interface plus a
+- `package/queuing/main/contract/` — one interface specification file per protocol interface plus a
   contract defaults file (§3.3).
-- `src/lookup/` — the lookup mechanism (§3.5): claim types (stored in gate `annotations`),
+- `package/common/main/lookup/` — the lookup mechanism (§3.5): claim types (stored in gate `annotations`),
   `find_module_interface`, reference resolution.
 
 ### 3.3 The packet protocol — generic functions, not interface types
@@ -172,7 +172,7 @@ handle_can_pull_packet_changed!(ctx, m, gate)
 handle_pull_packet_processed!(ctx, m, gate, pk, successful)
 ```
 
-- Each role is specified in its **own interface file** under `src/queuing/contract/`
+- Each role is specified in its **own interface file** under `package/queuing/main/contract/`
   (`PassivePacketSink.jl`, `ActivePacketSource.jl`, `PassivePacketSource.jl`,
   `ActivePacketSink.jl`, later `PacketCollection.jl` …), mirroring INET's `contract/`
   folder; shared **default implementations** (trivial `can_*` answers, backpressure
@@ -214,13 +214,13 @@ handle_pull_packet_processed!(ctx, m, gate, pk, successful)
 
 ### 3.5 Lookup — a separate mechanism (the infrastructure-branch design)
 
-Lives in inet-julia `src/lookup/` (own Julia module; interface + defaults files as the
+Lives in inet-julia `package/common/main/lookup/` (own Julia module; interface + defaults files as the
 mechanism grows), independent of the packet protocol. Two addressing modes:
 
 **(a) Connection-relative lookup** — the `findModuleInterface` port:
 
 ```julia
-abstract type ModuleInterface end            # lookup tokens, not supertypes (src/lookup/)
+abstract type ModuleInterface end            # lookup tokens, not supertypes (InetCommon)
 # the packet-role tokens are declared by their contract files (§3.3):
 abstract type PassivePacketSink  <: ModuleInterface end
 abstract type ActivePacketSource <: ModuleInterface end
@@ -304,7 +304,7 @@ network builder:
   `reset_model!` resets states/statistics and reseeds RNGs; `finalize_model!` derives
   end-of-run scalars from terminal state. New code extends these via qualified definition
   (`function Omnetpp.finalize_model!(…)`) under plain `using` (§3.2) — `finalize_model!`
-  is in the interface but absent from `src/Inet.jl`'s legacy import list.
+  is in the interface but absent from the umbrella's legacy import list.
 - **RNG**: per-module `MersenneTwister` seeded from the model seed + stable module index
   (t1s rule), stored in `StemStates`.
 
@@ -439,8 +439,8 @@ The INET stage system collapses to two (more only when a future model demands it
 | INET / OMNeT++ | Julia port |
 |---|---|
 | `cModule` / `cGate` (omnetpp kernel) | omnetpp-julia `src/model/module/` (`AbstractModule`, `Gate`) |
-| `queueing/` | inet-julia `src/queuing/` |
-| `queueing/contract/*.h` | `src/queuing/contract/*.jl` interface specification files (tokens + method vocabularies) |
+| `queueing/` | inet-julia `package/queuing/main/` |
+| `queueing/contract/*.h` | `package/queuing/main/contract/*.jl` interface specification files (tokens + method vocabularies) |
 | `PacketProcessorBase` etc. base classes | `ContractDefaults.jl` + shared helpers + composition — no base-class towers |
 | `pushPacket(packet, gate)` | `push_packet!(ctx, m, gate, packet)` |
 | `PassivePacketSinkRef` + `pushOrSendPacket` | cached `(module, gate)` refs + `push_or_schedule!` |
@@ -491,11 +491,11 @@ Each phase = one commit series in the worktree; check off + append implementatio
       unchanged
 
 ### Phase 0b — contract & lookup (inet-julia)
-- [x] `src/queuing/contract/`: one interface specification file per role
+- [x] `package/queuing/main/contract/`: one interface specification file per role
       (`PassivePacketSink.jl`, `ActivePacketSource.jl`, `PassivePacketSource.jl`,
       `ActivePacketSink.jl`) + `ContractDefaults.jl` (default `can_*` answers,
       backpressure propagation, `push_or_schedule!`)
-- [x] `src/lookup/`: `find_module_interface`, `InterfaceClaim`/`ForwardClaim` (stored in
+- [x] `package/common/main/lookup/`: `find_module_interface`, `InterfaceClaim`/`ForwardClaim` (stored in
       gate `annotations`), `lookup_module_interface` hook, `resolve_module` (reference
       mode)
 - [x] `check_packet_connections` init validation (named for what it checks)
@@ -567,9 +567,11 @@ elements, `MarkovClassifier`/`Scheduler`, `EmptyPacketSource`/`FullPacketSink`,
 Where it landed. omnetpp-julia gained `package/simulator/main/src/model/module/` —
 `ModuleLayer.jl` including `TimerModule`, `VolatileModule` and `NetworkModule` (the last
 split into `ModuleInterface.jl` / `Gate.jl` / `Network.jl` / `ModuleDefaults.jl`).
-inet-julia gained `src/lookup/`, `src/queuing/{contract,base,source,sink,queue,server,
-classifier,scheduler,filter,common}/` and `src/model/QueuingModel.jl`. Every file is its own
-Julia module, `using`-linked, extending other modules' generics by qualified definition.
+inet-julia gained the lookup mechanism, the queuing contract and elements, and
+`QueuingModel`. Every file is its own Julia module, `using`-linked, extending other modules'
+generics by qualified definition. (They were written under `src/`; the component split that
+followed — plan/done/component-package-split.md — moved them to `package/common/main/lookup/`
+and `package/queuing/main/`, which is where the paths in this plan now point.)
 
 Results: omnetpp-julia 5027 pass / 0 fail (baseline 4966 + 61 new; the 22 pre-existing
 `test_presentation()` errors unchanged), inet-julia 1680 + 414 unchanged plus **203 new
