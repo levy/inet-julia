@@ -44,6 +44,17 @@ using ProjecturedKernel.DocumentModule: Document, sync_document!, @document
 using ProjecturedKernel.ReferenceModule: Reference
 using ProjecturedKernel.CellModule: ImmutableCell, set_cell_function!
 
+# Module lookup: how a module gets hold of another that offers an interface,
+# by walking the connections or by evaluating a reference. Independent of what
+# is being looked for, so it comes before the models that look things up.
+include("lookup/Lookup.jl")
+using .LookupModule
+
+# Queuing model elements, and the packet protocol they speak
+# (plan/pending/queuing-model-migration.md).
+include("queuing/QueuingLayer.jl")
+using .PacketProtocolModule
+
 # 10BASE-T1S / PLCA multidrop model (plan/done/ten-base-t1s-plca.md +
 # plan/done/ten-base-t1s-statistics.md).
 include("t1s/T1s.jl")
@@ -53,6 +64,10 @@ include("model/Catalog.jl")            # inet_simulation_catalog — the kernel'
 export
     # packet & chunk API — a submodule, so `using Inet.PacketModule` to get its names
     PacketModule,
+    # finding a module that offers an interface, by connection or by reference
+    LookupModule,
+    # the four roles a module plays at a gate, and how packets move between them
+    PacketProtocolModule,
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
     T1sModule,
     # the model interface implementation the lifecycle drives

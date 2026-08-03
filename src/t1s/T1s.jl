@@ -21,6 +21,9 @@ using ..PacketModule
 using OmnetppSimulator: SimTime, to_simtime, schedule!, schedule_root!, ScheduleContext,
                MersenneTwister,
                emit_indexed_vector!, record_scalar!, TIME_UNIT
+# Cancellable timers are a kernel utility rather than a 10BASE-T1S one; they are
+# re-exported below so this module's names stay in a single list.
+using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, cancel!, schedule_timer!
 
 export
     # Ethernet frame chunks + helpers

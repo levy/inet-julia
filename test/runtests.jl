@@ -1,4 +1,7 @@
 using Test
+using OmnetppSimulator
+using Inet
+using ProjecturedKernel.ReferenceModule: Reference, FieldReferenceStep, ElementReferenceStep
 
 # Packet & chunk API (plan/done/packet-chunk-api.md) — phased conformance
 # suite; each phase adds a file.
@@ -31,4 +34,10 @@ end
     include("t1s/phase6_stats_phy.jl")
     include("t1s/phase7_vec_reader.jl")
     include("t1s/phase8_compare_harness.jl")
+end
+
+# Queuing model elements and the framework they rest on
+# (plan/pending/queuing-model-migration.md).
+@testset "queuing" begin
+    include("queuing/phase0_lookup.jl")
 end
