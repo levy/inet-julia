@@ -10,7 +10,7 @@ timer: it stops, and waits to be told there is something to pull again.
 """
 module ActivePacketSinkElement
 
-using OmnetppSimulator: SimTime, TIME_UNIT, to_simtime, MersenneTwister, NetworkModule
+using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, input_gate, module_id
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
 using OmnetppSimulator.VolatileModule: evaluate
@@ -112,7 +112,7 @@ function NetworkModule.finalize_module!(m::ActivePacketSinkModule, ::Any)
     record_statistic!(statistics.recording, "packetLengths:sum", statistics.total_length)
     statistics.num_packets == 0 && return nothing
     record_statistic!(statistics.recording, "packetLifeTime:mean",
-                      statistics.total_life_time / statistics.num_packets / TIME_UNIT)
+                      seconds(statistics.total_life_time / statistics.num_packets))
     nothing
 end
 

@@ -182,7 +182,7 @@ function _enter_data!(ctx, plca::PlcaState, s::PlcaDataState)
         _emit_time!(plca, ctx, :packetPendingDelay,
                     SimTime(ctx.timestamp - d.packet_arrival_time))
         # Emit packetInterval: gap since last tx (0 for first tx).
-        if d.last_tx_time > 0
+        if d.last_tx_time > zero(d.last_tx_time)
             _emit_time!(plca, ctx, :packetInterval,
                         SimTime(ctx.timestamp - d.last_tx_time))
         end

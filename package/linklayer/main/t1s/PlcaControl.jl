@@ -403,7 +403,7 @@ function _step_control_fsm!(ctx, plca::PlcaState)::Bool
         if !plca.crs && !is_scheduled(plca.syncing_timer)
             # Emit cycleLength for the cycle we just finished (skip the very
             # first cycle where cycle_start_time is still 0).
-            if plca.cycle_start_time > 0
+            if plca.cycle_start_time > zero(plca.cycle_start_time)
                 _emit_time!(plca, ctx, :cycleLength,
                             SimTime(ctx.timestamp - plca.cycle_start_time))
                 _emit_count!(plca, ctx, :numPacketsPerCycle, plca.packets_in_cycle)

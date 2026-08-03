@@ -21,7 +21,7 @@ modelled.
 """
 module PacketServerElement
 
-using OmnetppSimulator: SimTime, TIME_UNIT, to_simtime, MersenneTwister, NetworkModule
+using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network,
     input_gate, output_gate, module_id
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
@@ -141,7 +141,7 @@ function NetworkModule.finalize_module!(m::PacketServerModule, ::Any)
     record_statistic!(recording, "packetLengths:sum", statistics.total_length)
     statistics.num_packets == 0 && return nothing
     record_statistic!(recording, "processingTime:mean",
-                      statistics.total_service_time / statistics.num_packets / TIME_UNIT)
+                      seconds(statistics.total_service_time / statistics.num_packets))
     nothing
 end
 

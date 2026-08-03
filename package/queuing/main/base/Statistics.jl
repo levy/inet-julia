@@ -21,7 +21,7 @@ no recorder, and every emission returns immediately.
 """
 module StatisticsModule
 
-using OmnetppSimulator: SimTime, TIME_UNIT, Recorder,
+using OmnetppSimulator: SimTime, Recorder,
     register_indexed_vector!, emit_indexed_vector!, record_scalar!
 
 export ModuleStatistics, register_statistics!, emit_statistic!, emit_time_statistic!,

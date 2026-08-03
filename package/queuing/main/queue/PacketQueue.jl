@@ -21,7 +21,7 @@ comparator ranks first rather than whatever arrived first.
 """
 module PacketQueueElement
 
-using OmnetppSimulator: SimTime, TIME_UNIT, to_simtime, NetworkModule
+using OmnetppSimulator: SimTime, seconds, to_simtime, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network,
     input_gate, output_gate, module_id
 using InetPacket.PacketModule: Packet, BitLength, Bits, Bytes, bits, data_length
@@ -209,12 +209,12 @@ function NetworkModule.finalize_module!(m::PacketQueueModule, ::Any)
     record_statistic!(recording, "droppedPacketsQueueOverflow:count", statistics.num_dropped)
     # The mean length over the run, from the integral kept as the queue changed
     # rather than from samples — exact, and free.
-    duration = Float64(states.last_change) / TIME_UNIT
+    duration = seconds(states.last_change)
     duration > 0 && record_statistic!(recording, "queueLength:timeavg",
                                       states.length_area / duration)
     statistics.num_pulled == 0 && return nothing
     record_statistic!(recording, "queueingTime:mean",
-                      statistics.total_queueing_time / statistics.num_pulled / TIME_UNIT)
+                      seconds(statistics.total_queueing_time / statistics.num_pulled))
     nothing
 end
 
@@ -329,7 +329,7 @@ end
 # stretch of time the queue has just spent at its current length.
 function _advance_length_integral!(states::PacketQueueStates, now::SimTime)
     elapsed = now - states.last_change
-    elapsed > 0 && (states.length_area += length(states.packets) * (Float64(elapsed) / TIME_UNIT))
+    elapsed > zero(elapsed) && (states.length_area += length(states.packets) * seconds(elapsed))
     states.last_change = now
     nothing
 end

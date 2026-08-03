@@ -101,7 +101,7 @@ mutable struct PhyState
     node_idx::Int                       # 1-based
     stat_handles::Dict{Symbol,Int}
     # busUsed accumulator: total simtime the wire was TX or RX on our end.
-    bus_used_ns::Int64
+    bus_used::SimTime
     # Timestamp of the last TX/RX span start; used to close spans on end.
     tx_span_start::SimTime
     rx_span_start::SimTime
@@ -115,7 +115,7 @@ function PhyState(module_id::Int; bitrate::Float64 = 10.0e6,
              RxSignal[], TimerHandle(), TimerHandle(),
              upcalls, downlink, upper_ptr, bitrate,
              nothing, 0, Dict{Symbol,Int}(),
-             Int64(0), SimTime(0), SimTime(0))
+             SimTime(0), SimTime(0), SimTime(0))
 end
 
 # ---------- statistics-emit helpers -----------------------------------------
@@ -273,7 +273,7 @@ function _do_end_tx!(ctx, phy::PhyState)
     # (INET emits both edges of the tx interval) + busUsed accumulator.
     _phy_emit!(phy, ctx, :transmitting, 0)
     _phy_emit!(phy, ctx, :transmittedSignalType, 0)
-    phy.bus_used_ns += Int64(ctx.timestamp - phy.tx_span_start)
+    phy.bus_used += ctx.timestamp - phy.tx_span_start
     phy.tx_span_start = SimTime(0)
 
     if phy.fsm === PHY_TRANSMITTING
@@ -309,7 +309,7 @@ function phy_rx_start!(ctx, phy::PhyState, sig::WireEvent)
     # concurrent rx is going).
     # INET only emits receivedSignalType (not separate started/ended flags).
     _phy_emit!(phy, ctx, :receivedSignalType, UInt8(sig.kind))
-    if phy.rx_span_start == 0
+    if iszero(phy.rx_span_start)
         phy.rx_span_start = ctx.timestamp
     end
 
@@ -373,8 +373,8 @@ function _handle_rx_end_timer!(ctx, phy::PhyState)
     # State transitions
     if isempty(still_active)
         # bus_used accumulator: close the rx span.
-        if phy.rx_span_start > 0
-            phy.bus_used_ns += Int64(ctx.timestamp - phy.rx_span_start)
+        if phy.rx_span_start > zero(phy.rx_span_start)
+            phy.bus_used += ctx.timestamp - phy.rx_span_start
             phy.rx_span_start = SimTime(0)
         end
         if phy.fsm === PHY_RECEIVING
