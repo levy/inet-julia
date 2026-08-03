@@ -27,7 +27,7 @@ using OmnetppSimulator: SimTime, to_simtime, ScheduleContext, schedule!,
 using OmnetppSimulator: Parameter, ParameterSpace, AbstractResolvedParameters,
     StructuralDOF, StochasticDOF, IterationDOF
 # Result recording.
-using OmnetppSimulator: Recorder, VectorFileWriter, begin_recording!,
+using OmnetppSimulator: Recorder, attach_sink!, OmnetppTextSink,
     register_indexed_vector!, emit_indexed_vector!
 # The model interface itself — `import`, not `using`, because the models here
 # add methods to these.

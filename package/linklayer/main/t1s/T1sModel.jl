@@ -486,13 +486,13 @@ function _wire_recorder!(m::AbstractT1sModel, recorder)
     return nothing
 end
 
-# Attach a VectorFileWriter when `:vec_path` is set (matches RoutingModel).
+# Attach a result sink when `:vec_path` is set (matches RoutingModel).
 function make_recorder(m::AbstractT1sModel, engine::AbstractEngine)
-    writer = _t1s_vec_path(m) === nothing ? nothing : VectorFileWriter(_t1s_vec_path(m))
-    rec = Recorder(; writer = writer)
-    if writer !== nothing
+    rec = Recorder()
+    path = _t1s_vec_path(m)
+    if path !== nothing
         run_name = engine isa AbstractParallelEngine ? "parallel" : "sequential"
-        begin_recording!(writer, run_name)
+        attach_sink!(rec, OmnetppTextSink(path; run_name = run_name))
     end
     rec
 end
