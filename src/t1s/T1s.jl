@@ -1,5 +1,5 @@
 # ============================================================================
-# The `T1s` module — INET's 10BASE-T1S + PLCA multidrop model, on the Omnetpp
+# The `T1s` module — INET's 10BASE-T1S + PLCA multidrop model, on the OmnetppSimulator
 # discrete-event kernel.
 # Design: plan/done/ten-base-t1s-plca.md.
 #
@@ -18,7 +18,7 @@
 module T1sModule
 
 using ..PacketModule
-using Omnetpp: SimTime, to_simtime, schedule!, schedule_root!, ScheduleContext,
+using OmnetppSimulator: SimTime, to_simtime, schedule!, schedule_root!, ScheduleContext,
                MersenneTwister,
                emit_indexed_vector!, record_scalar!, TIME_UNIT
 

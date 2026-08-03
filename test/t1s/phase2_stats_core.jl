@@ -5,7 +5,7 @@
 # + 5 * 3.2 µs TOs = 18.001 µs = 18_001_000 ps. curID cycles 0..4 per cycle.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet
 using Inet.PacketModule, Inet.T1sModule
 

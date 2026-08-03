@@ -13,7 +13,7 @@
 #
 # Exit code 0 if all comparisons pass; 1 if any mismatch.
 # ============================================================================
-using Omnetpp
+using OmnetppSimulator
 
 Base.length(ARGS) == 2 || (println(stderr, "usage: $(PROGRAM_FILE) <left.vec> <right.vec>"); exit(2))
 left_path, right_path = ARGS[1], ARGS[2]

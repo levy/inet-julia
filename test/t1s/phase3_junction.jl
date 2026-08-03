@@ -6,7 +6,7 @@
 # "correct" is the sum of segment delays from source to receiver.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet.PacketModule
 using Inet.T1sModule
 

@@ -2,7 +2,7 @@
 # Phase 8 conformance — App layer (source + sink + queue).
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet.PacketModule
 using Inet.T1sModule
 
@@ -35,7 +35,7 @@ end
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> app_generate!(ctx, app))
     schedule_root!(sim, to_simtime(500e-6), 2,
-                   ctx -> stop!(ctx.sim, Omnetpp.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
     run!(sim)
 
     # 500 µs / 100 µs interval = 5 generations at t=0, 100, 200, 300, 400 µs.

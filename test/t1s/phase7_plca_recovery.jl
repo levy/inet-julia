@@ -8,7 +8,7 @@
 # the DS state trajectory and its timing.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet.PacketModule
 using Inet.T1sModule
 
@@ -36,7 +36,7 @@ _build_sim(n::Int) = SequentialSimulator(n)
     schedule_root!(sim, to_simtime(45e-6), 2,
                    ctx -> (ds_at_45[] = plca_data(plca).ds))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, Omnetpp.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
     run!(sim)
 
     # After hold_timer (default 40 µs = 400 bits @ 10 Mb), DS_HOLD → DS_COLLIDE.
@@ -69,7 +69,7 @@ end
     schedule_root!(sim, to_simtime(100e-6), 2,
                    ctx -> (ds_late[] = plca_data(plca).ds))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, Omnetpp.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
     run!(sim)
 
     # At t=50µs, we're in DS_DELAY_PENDING (started at t=45µs, pending_timer=51.2µs).
@@ -104,7 +104,7 @@ end
     schedule_root!(sim, to_simtime(5e-6), 2,
                    ctx -> plca_start_frame_transmission!(ctx, plca, frame))
     schedule_root!(sim, to_simtime(100e-6), 2,
-                   ctx -> stop!(ctx.sim, Omnetpp.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
     run!(sim)
 
     # Frame should have been sent from DS_TRANSMIT.

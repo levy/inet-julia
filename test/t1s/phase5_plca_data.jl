@@ -6,7 +6,7 @@
 # lands in Phase 7 once MAC (Phase 6) closes the collision loop.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet.PacketModule
 using Inet.T1sModule
 
@@ -57,7 +57,7 @@ end
     schedule_root!(sim, to_simtime(0.5e-6), 2,
                    ctx -> plca_start_frame_transmission!(ctx, plca, frame))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, Omnetpp.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
     run!(sim)
 
     # A DATA frame should have been sent on the wire (via start_frame_tx).
@@ -99,7 +99,7 @@ end
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> plca_start_frame_transmission!(ctx, plca, frame))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, Omnetpp.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
     run!(sim)
 
     # DS_HOLD should have held the packet across the BEACON emission

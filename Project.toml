@@ -4,11 +4,11 @@ version = "0.1.0"
 authors = []
 
 [deps]
-Omnetpp = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
 ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
 
 [sources]
-Omnetpp = {path = "../omnetpp-julia"}
+OmnetppSimulator = {path = "../omnetpp-julia/package/simulator/main"}
 ProjecturedKernel = {path = "../projectured-julia/package/kernel/main"}
 
 [compat]

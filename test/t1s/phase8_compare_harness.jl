@@ -5,7 +5,7 @@
 # guard for INET-comparison tests.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet
 using Inet.T1sModule
 

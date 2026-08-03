@@ -1,39 +1,39 @@
 module Inet
 
 # ============================================================================
-# `Inet` — the model library that sits on top of `Omnetpp`.
+# `Inet` — the model library that sits on top of `OmnetppSimulator`.
 #
-# The split mirrors the C++ world: `Omnetpp` is the discrete-event kernel (the
+# The split mirrors the C++ world: `OmnetppSimulator` is the discrete-event kernel (the
 # engine, the lifecycle, result recording) and `Inet` is the network-model
 # library (packet representation, protocol models). The dependency runs one
-# way only — `Inet` uses `Omnetpp`, never the reverse.
+# way only — `Inet` uses `OmnetppSimulator`, never the reverse.
 #
-# Nothing from `Omnetpp` is re-exported. A script that needs both says
-# `using Omnetpp, Inet`, so it stays visible which layer a name comes from.
+# Nothing from `OmnetppSimulator` is re-exported. A script that needs both says
+# `using OmnetppSimulator, Inet`, so it stays visible which layer a name comes from.
 # ============================================================================
 
 # Packet & chunk API (plan/done/packet-chunk-api.md). Standalone: depends on
-# neither `Omnetpp` nor the rest of this package, so it comes first.
+# neither `OmnetppSimulator` nor the rest of this package, so it comes first.
 include("packet/Packet.jl")
 using .PacketModule
 
 # --- what the protocol models need from the kernel --------------------------
 # Time, scheduling and the engine/model interface.
-using Omnetpp: SimTime, TIME_UNIT, to_simtime, MersenneTwister,
+using OmnetppSimulator: SimTime, TIME_UNIT, to_simtime, MersenneTwister,
     ScheduleContext, schedule!, schedule_root!, stop!,
     AbstractEngine, AbstractParallelEngine, AbstractModel, SimTimeLimit
 # Parameterization: a model declares its degrees of freedom, the lifecycle
 # resolves them and hands back a `ResolvedParameters`.
-using Omnetpp: Parameter, ParameterSpace, AbstractResolvedParameters,
+using OmnetppSimulator: Parameter, ParameterSpace, AbstractResolvedParameters,
     StructuralDOF, StochasticDOF, IterationDOF
 # Result recording.
-using Omnetpp: Recorder, VectorFileWriter, begin_recording!,
+using OmnetppSimulator: Recorder, VectorFileWriter, begin_recording!,
     register_indexed_vector!, emit_indexed_vector!, record_scalar!
 # The workbench's model catalog, which `inet_simulation_catalog` extends.
-using Omnetpp: SimulationType, default_simulation_catalog
+using OmnetppSimulator: SimulationType, default_simulation_catalog
 # The model interface itself — `import`, not `using`, because `Inet`'s models
 # add methods to these.
-import Omnetpp: model_module_count, model_barrier_module, model_delay_edges,
+import OmnetppSimulator: model_module_count, model_barrier_module, model_delay_edges,
     model_description, model_parameter_space, build_model, reset_model!,
     schedule_initial_events!, make_recorder
 # Models are `@document`s so a running simulation can be viewed reactively: the

@@ -1,7 +1,7 @@
 # ============================================================================
 # The model catalog `Inet` offers, on top of the kernel's own.
 #
-# `Omnetpp.default_simulation_catalog()` lists the models that ship with the
+# `OmnetppSimulator.default_simulation_catalog()` lists the models that ship with the
 # kernel. That catalog is deliberately a VALUE rather than a global registry,
 # which is exactly what lets a model library extend it without the kernel
 # having to know the library exists.

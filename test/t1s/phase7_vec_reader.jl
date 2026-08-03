@@ -2,7 +2,7 @@
 # T1S stats phase 7 — VectorFileReader round-trip.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 
 @testset "read own writer output — round trip" begin
     mktempdir() do tmp
@@ -16,10 +16,10 @@ using Omnetpp
                          attributes = ["network" => "MultidropNetwork"])
         # Emit a few samples on each.
         for (t, v) in ((0.0, 0.0), (5e-6, 1.0), (10e-6, 2.0))
-            record!(w, h_curid, Omnetpp.to_simtime(t), Omnetpp.vec_fmt(v, 14))
+            record!(w, h_curid, OmnetppSimulator.to_simtime(t), OmnetppSimulator.vec_fmt(v, 14))
         end
         for (t, v) in ((3e-6, 231.6e-6), (20e-6, 40.0e-6))
-            record!(w, h_delay, Omnetpp.to_simtime(t), Omnetpp.vec_fmt(v, 14))
+            record!(w, h_delay, OmnetppSimulator.to_simtime(t), OmnetppSimulator.vec_fmt(v, 14))
         end
         end_recording!(w)
 
@@ -54,8 +54,8 @@ end
         h = register_vector!(w, "Net.node[0]", "queueLength";
                              record_event_numbers = true)
         begin_recording!(w, "etv-test")
-        record!(w, h, Omnetpp.to_simtime(1e-6), "5.0"; event_number = 42)
-        record!(w, h, Omnetpp.to_simtime(2e-6), "7.0"; event_number = 43)
+        record!(w, h, OmnetppSimulator.to_simtime(1e-6), "5.0"; event_number = 42)
+        record!(w, h, OmnetppSimulator.to_simtime(2e-6), "7.0"; event_number = 43)
         end_recording!(w)
 
         file = read_vec_file(path)

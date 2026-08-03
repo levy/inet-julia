@@ -6,7 +6,7 @@
 # PHY told the layer above / the wire.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet.PacketModule
 using Inet.T1sModule
 

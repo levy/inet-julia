@@ -4,7 +4,7 @@
 # / per change.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet
 using Inet.PacketModule, Inet.T1sModule
 

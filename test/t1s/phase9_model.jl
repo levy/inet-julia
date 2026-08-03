@@ -14,7 +14,7 @@
 # same seed → same hash, repeatably.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet
 using Inet.PacketModule
 using Inet.T1sModule

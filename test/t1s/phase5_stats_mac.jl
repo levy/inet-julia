@@ -2,7 +2,7 @@
 # T1S stats phase 5 — MAC statistics.
 # ============================================================================
 using Test
-using Omnetpp
+using OmnetppSimulator
 using Inet
 using Inet.PacketModule, Inet.T1sModule
 

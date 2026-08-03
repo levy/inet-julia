@@ -163,7 +163,7 @@ mutable struct PlcaState
     # Recorder is set by T1sModel.make_recorder at build time. When nothing,
     # every _emit_stat! short-circuits and the hot path stays untouched.
     recorder::Any                       # Union{Nothing,Recorder}, but Recorder
-                                        # lives in the Omnetpp toplevel so Any
+                                        # lives in the OmnetppSimulator toplevel so Any
                                         # here avoids the type-order pain.
     node_idx::Int                       # 1-based node index; 0 = no recorder
     # Map from signal name → indexed_vector handle. Populated by make_recorder.
