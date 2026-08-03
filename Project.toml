@@ -1,0 +1,22 @@
+name = "Inet"
+uuid = "e0528acb-81c4-485d-8c9f-a32e8325f910"
+version = "0.1.0"
+authors = []
+
+[deps]
+Omnetpp = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
+
+[sources]
+Omnetpp = {path = "../omnetpp-julia"}
+ProjecturedKernel = {path = "../projectured-julia/package/kernel/main"}
+
+[compat]
+julia = "1.10"
+
+[extras]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Random", "Test"]

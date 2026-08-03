@@ -1,0 +1,5 @@
+# Generated simulation + benchmark output (vectors, CSVs, plots).
+results/
+
+# Julia resolved dependency lockfiles (each environment resolves its own).
+Manifest.toml
