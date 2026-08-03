@@ -16,4 +16,5 @@ provides. Hand it to a workbench to offer them:
     SimulationWorkbench(; catalog = inet_simulation_catalog())
 """
 inet_simulation_catalog() = Any[default_simulation_catalog()...,
+                                SimulationType(QueuingModel),
                                 SimulationType(T1sModel)]

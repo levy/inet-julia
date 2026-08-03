@@ -44,4 +44,5 @@ end
     include("queuing/phase1_sources_sinks.jl")
     include("queuing/phase2_queue_server.jl")
     include("queuing/phase3_classify_schedule_filter.jl")
+    include("queuing/phase4_plumbing_compound.jl")
 end

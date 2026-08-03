@@ -22,3 +22,5 @@ include("server/InstantServer.jl")        # moves them on, taking none
 include("classifier/PacketClassifier.jl") # one way in, several ways out
 include("scheduler/PacketScheduler.jl")   # several ways in, one way out
 include("filter/PacketFilter.jl")         # passes some on, drops the rest
+include("common/PacketPlumbing.jl")       # merging, splitting, delaying
+include("queue/PriorityQueue.jl")         # a queue made of queues

@@ -35,7 +35,7 @@ using OmnetppSimulator: SimulationType, default_simulation_catalog
 # add methods to these.
 import OmnetppSimulator: model_module_count, model_barrier_module, model_delay_edges,
     model_description, model_parameter_space, build_model, reset_model!,
-    schedule_initial_events!, make_recorder
+    schedule_initial_events!, make_recorder, finalize_model!
 # Models are `@document`s so a running simulation can be viewed reactively: the
 # sim runs on the native (mutable) variant at full speed and a reactive variant
 # is refreshed for the UI. The macro's expansion needs `Reference` and the cell
@@ -66,10 +66,13 @@ using .InstantServerElement
 using .PacketClassifierElement
 using .PacketSchedulerElement
 using .PacketFilterElement
+using .PacketPlumbingElement
+using .PriorityQueueElement
 
 # 10BASE-T1S / PLCA multidrop model (plan/done/ten-base-t1s-plca.md +
 # plan/done/ten-base-t1s-statistics.md).
 include("t1s/T1s.jl")
+include("model/QueuingModel.jl")       # QueuingModel — the canonical chain as a model
 include("model/T1sModel.jl")           # T1sModel — plugs T1sModule into the model interface
 include("model/Catalog.jl")            # inet_simulation_catalog — the kernel's, extended
 
@@ -87,9 +90,11 @@ export
     PassivePacketSinkElement, ActivePacketSinkElement,
     PacketQueueElement, PacketServerElement, InstantServerElement,
     PacketClassifierElement, PacketSchedulerElement, PacketFilterElement,
+    PacketPlumbingElement, PriorityQueueElement,
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
     T1sModule,
     # the model interface implementation the lifecycle drives
+    QueuingModel, AbstractQueuingModel, QueuingModelMut,
     T1sModel, AbstractT1sModel, T1sModelMut,
     inet_simulation_catalog
 
