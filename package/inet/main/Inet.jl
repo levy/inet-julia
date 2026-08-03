@@ -30,7 +30,7 @@ using InetLinkLayer
 # The workbench's model catalog, which `inet_simulation_catalog` extends.
 using OmnetppSimulator: SimulationType, default_simulation_catalog
 
-include("model/Catalog.jl")            # inet_simulation_catalog — the kernel's, extended
+include("Catalog.jl")            # inet_simulation_catalog — the kernel's, extended
 
 export
     # packet & chunk API — a submodule, so `using Inet.PacketModule` to get its names

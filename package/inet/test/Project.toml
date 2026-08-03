@@ -1,0 +1,29 @@
+name = "InetTest"
+uuid = "2f44235d-4d1e-46a7-bad9-542c69a24442"
+version = "0.1.0"
+authors = []
+entryfile = "InetTest.jl"
+
+# Test package for the Inet umbrella: what only holds once the components are
+# assembled — the model catalog today, cross-component integration as it
+# arrives. Each component's own suite lives in its own test package.
+
+[deps]
+Inet = "e0528acb-81c4-485d-8c9f-a32e8325f910"
+InetCommon = "3e5f522d-74dd-49cc-880c-be4fb7395c4f"
+InetLinkLayer = "6936b046-6a37-41be-850a-5641ac0f1d4b"
+InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
+InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
+OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+Inet = {path = "../main"}
+InetCommon = {path = "../../common/main"}
+InetLinkLayer = {path = "../../linklayer/main"}
+InetPacket = {path = "../../packet/main"}
+InetQueuing = {path = "../../queuing/main"}
+OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
+
+[compat]
+julia = "1.11"
