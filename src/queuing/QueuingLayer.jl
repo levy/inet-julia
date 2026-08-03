@@ -16,3 +16,6 @@ include("source/ActivePacketSource.jl")   # produces and pushes
 include("source/PassivePacketSource.jl")  # has one ready to be pulled
 include("sink/PassivePacketSink.jl")      # accepts what is pushed at it
 include("sink/ActivePacketSink.jl")       # pulls, on its own schedule
+include("queue/PacketQueue.jl")           # holds packets between the two
+include("server/PacketServer.jl")         # serves one at a time, taking time
+include("server/InstantServer.jl")        # moves them on, taking none
