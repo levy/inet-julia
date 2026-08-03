@@ -1,7 +1,9 @@
 # Migrating INET C++ models to inet-julia — the module framework and the queuing package
 
-Status: **pending** (design draft, 2026-08-03). Implementation to be done in a dedicated git
-worktree, phase by phase, marking checkboxes and recording decisions here as we go.
+Status: **wave 1 implemented** (design 2026-08-03, wave 1 built the same day). Phases 0a-4
+are done and green; wave 2 and the blocked list remain. Built in the worktrees
+`omnetpp-julia-queuing` (branch `module-kernel`) and `inet-julia-queuing` (branch
+`queuing-wave1`).
 
 ## 1. Goal
 
@@ -479,55 +481,55 @@ element:
 Each phase = one commit series in the worktree; check off + append implementation notes here.
 
 ### Phase 0a — module kernel (omnetpp-julia, `src/model/module/`)
-- [ ] `AbstractModule`, `Gate`, `GateDirection`, `connect!`, chain traversal, compound
+- [x] `AbstractModule`, `Gate`, `GateDirection`, `connect!`, chain traversal, compound
       boundary gates, `annotations` slot — separate Julia-module source files,
       `using`-linked, with the `ModuleInterface.jl` / `ModuleDefaults.jl` split
-- [ ] `TimerHandle` moved here from `T1sModule` (t1s updated; tests still green)
-- [ ] Network-builder helpers: modid assignment, `model_delay_edges` from connections,
-      two-stage init driver
-- [ ] Unit tests: chain traversal, compound boundaries, builder; existing golden hashes
+- [x] `TimerHandle` moved here from `T1sModule` (t1s updated; tests still green)
+- [x] Network-builder helpers: modid assignment, `model_delay_edges` from connections,
+      two-stage init driver, plus a per-run statistics-declaration hook
+- [x] Unit tests: chain traversal, compound boundaries, builder; existing golden hashes
       unchanged
 
 ### Phase 0b — contract & lookup (inet-julia)
-- [ ] `src/queuing/contract/`: one interface specification file per role
+- [x] `src/queuing/contract/`: one interface specification file per role
       (`PassivePacketSink.jl`, `ActivePacketSource.jl`, `PassivePacketSource.jl`,
       `ActivePacketSink.jl`) + `ContractDefaults.jl` (default `can_*` answers,
       backpressure propagation, `push_or_schedule!`)
-- [ ] `src/lookup/`: `find_module_interface`, `InterfaceClaim`/`ForwardClaim` (stored in
+- [x] `src/lookup/`: `find_module_interface`, `InterfaceClaim`/`ForwardClaim` (stored in
       gate `annotations`), `lookup_module_interface` hook, `resolve_module` (reference
       mode)
-- [ ] `check_gate_compatibility` init validation
-- [ ] Unit tests: lookup (incl. forward claims), compatibility errors
+- [x] `check_packet_connections` init validation (named for what it checks)
+- [x] Unit tests: lookup (incl. forward claims), compatibility errors
 
 ### Phase 1 — sources & sinks (push and pull endpoints)
-- [ ] `ActivePacketSource` (periodic push producer; `Volatile`-valued interval; retry on
+- [x] `ActivePacketSource` (periodic push producer; `Volatile`-valued interval; retry on
       `handle_can_push_packet_changed!`)
-- [ ] `PassivePacketSink` (consumption interval variant deferred if trivial-first)
-- [ ] `PassivePacketSource`, `ActivePacketSink` (the pull pair)
-- [ ] Shared packet-fabrication helper (`packetLengthParameter`, creation-time tag)
-- [ ] Chain test: producer → consumer (push) and provider → collector (pull), golden hashes
+- [x] `PassivePacketSink`, consumption interval included
+- [x] `PassivePacketSource`, `ActivePacketSink` (the pull pair)
+- [x] Shared packet-fabrication helper (`PacketTemplate`, `CreationTimeTag`)
+- [x] Chain test: producer → consumer (push) and provider → collector (pull), golden hashes
 
 ### Phase 2 — queue & server (the canonical chain)
-- [ ] `PacketQueue` (capacity by packets/bits, overflow drop via dropper function,
-      comparator ordering; `bufferModule` deferred) + `DropTailQueue`/`DropHeadQueue`
+- [x] `PacketQueue` (capacity by packets/bits, overflow drop via dropper function,
+      comparator ordering; `bufferModule` deferred) + `drop_tail_queue`/`drop_head_queue`
       presets
-- [ ] `PacketServer` (`Volatile`-valued processing time/bitrate), `InstantServer`
-- [ ] Canonical chain test **source → queue → server → sink** with M/M/1 sanity check
-      against `mm1k_v2` results + golden hash
-- [ ] `queueLength`/`queueingTime`/drop statistics, `.vec` output cross-checked
+- [x] `PacketServer` (`Volatile`-valued processing time/bitrate), `InstantServer`
+- [x] Canonical chain test **source → queue → server → sink**, checked against the
+      closed-form M/M/1 results and Little's law
+- [x] `queueLength`/`queueBitLength`/`queueingTime`/drop statistics (`.vec` cross-check
+      against INET reference files still to do)
 
 ### Phase 3 — classification, scheduling, filtering
-- [ ] `PriorityClassifier`, `ContentBasedClassifier` (predicate closures)
-- [ ] `PriorityScheduler`
-- [ ] `ContentBasedFilter` (drop statistics; `backpressure` parameter)
-- [ ] Fan-out/fan-in chain tests
+- [x] `priority_classifier`, `content_based_classifier` — one element, two functions
+- [x] `priority_scheduler`
+- [x] `PacketFilter` with a predicate (drop statistics; `backpressure` parameter)
+- [x] Fan-out/fan-in chain tests
 
 ### Phase 4 — plumbing & first compound
-- [ ] `PacketMultiplexer`, `PacketDemultiplexer`, `PacketDelayer`
-- [ ] Compound module support proven: `PriorityQueue` (classifier → queue[n] → scheduler)
+- [x] `PacketMultiplexer`, `PacketDemultiplexer`, `PacketDelayer`
+- [x] Compound module support proven: `PriorityQueue` (classifier → queue[n] → scheduler)
       with aggregated statistics
-- [ ] Catalog entry: a demo queuing network as a `SimulationType` in
-      `inet_simulation_catalog()`
+- [x] Catalog entry: `QueuingModel` in `inet_simulation_catalog()`
 
 ### Wave 2 (breadth, own plan when reached)
 Wrr/Label classifier+scheduler+filter, markers/taggers, token subsystem (`TokenBucket` value
@@ -560,4 +562,76 @@ elements, `MarkovClassifier`/`Scheduler`, `EmptyPacketSource`/`FullPacketSink`,
 
 ## Implementation log
 
-(append per phase: decisions, deviations, golden hashes)
+### Wave 1 (phases 0a–4)
+
+Where it landed. omnetpp-julia gained `package/simulator/main/src/model/module/` —
+`ModuleLayer.jl` including `TimerModule`, `VolatileModule` and `NetworkModule` (the last
+split into `ModuleInterface.jl` / `Gate.jl` / `Network.jl` / `ModuleDefaults.jl`).
+inet-julia gained `src/lookup/`, `src/queuing/{contract,base,source,sink,queue,server,
+classifier,scheduler,filter,common}/` and `src/model/QueuingModel.jl`. Every file is its own
+Julia module, `using`-linked, extending other modules' generics by qualified definition.
+
+Results: omnetpp-julia 5027 pass / 0 fail (baseline 4966 + 61 new; the 22 pre-existing
+`test_presentation()` errors unchanged), inet-julia 1680 + 414 unchanged plus **203 new
+queuing tests**, 0 fail.
+
+**Decisions taken during the build**
+
+- **Element structs stay plain mutable, not `@document`** (deviates from §3.11). The model
+  wrapper `QueuingModel` is `@document`, as the lifecycle needs; parameters, states,
+  statistics and the module itself are plain, following the t1s precedent where the model is
+  reactive and the layer structs are not. `search_references` walks plain structs, so
+  reference lookup is unaffected. Revisit when the editor needs to show a live network.
+- **Stage names**: the kernel calls the two stages `initialize_module!` (topology, at build)
+  and `start_module!` (behaviour, as a root event), not the plan's `initialize_refs!` /
+  `initialize_protocol!` — "refs" and "protocol" are INET words in a kernel API. A module
+  opts into the second with `module_starts`, so one needing no kick costs no event.
+- **A third kernel hook**, `register_module_statistics!(m, path, recorder)`, because the
+  recorder belongs to the run and cannot be given to a module when it is built.
+- **Four gate pairings, not three** (§3.2 said three): a compound may also connect its own
+  input boundary to its own output boundary — the pass-through an omitted module is. Only
+  joining one module's input to *another's* output is rejected.
+- **The lookup walk continues only where connections do.** A module that neither claims nor
+  answers ends the walk when nothing leads on from the gate it arrived at; passing through
+  needs a real connection (a compound boundary, or a pass-through). This is faithful to
+  `findModuleInterface`, and was a wrong assumption in the first draft of the tests.
+- **Capacities are `nothing`, not `-1`** — INET's sentinel becomes `Union{Nothing,Int}` /
+  `Union{Nothing,BitLength}`.
+- **One element per INET *shape*, not per INET strategy.** `PacketClassifier`,
+  `ContentBasedClassifier` and `PriorityClassifier` become one element and two prepared
+  functions; likewise the schedulers and the filters. This is §3.9's "strategy classes become
+  Julia functions" taken to its conclusion.
+- **`Volatile` proved out.** Volatile parameters are `Volatile(exponential(0.1))` values read
+  with `evaluate(value, rng)`; a bare distribution at a use site is an error naming the fix.
+  No `@document` field ever holds a bare `Function`, so the thunk trap never arises.
+- **Statistics per module under INET's names and paths** (`queueLength:vector`,
+  `Queuing.queue`), scalars derived in `finalize_module!`. Queue length is *integrated* as the
+  queue changes rather than sampled, so `queueLength:timeavg` is exact and costs nothing.
+
+**Two deliberate departures from INET's behaviour**, both fixing something:
+
+- **A queue that refused now tells its producer when it has room again.** INET's `PacketQueue`
+  notifies its producer only at initialization, so a full queue with no dropper stalls its
+  producer for the rest of the run. Covered by "a queue with a capacity and no dropper pushes
+  back".
+- **A server marks itself busy before taking a packet, not after.** Taking one frees room
+  upstream, and with the fix above that news reaches the server again *before* its timer is
+  armed — without the flag it would start serving a second packet on top of the one it holds.
+  This is the reentrancy hazard §3.3 anticipated, and it appeared exactly where predicted.
+
+**Also fixed**: `OmnetppSimulatorBlackBoxOptimExt` still declared `module
+OmnetppBlackBoxOptimExt` after the rename, so the extension failed to load and took the
+repository-wide suite down with it whenever BlackBoxOptim was present. One-word fix, its own
+commit.
+
+**Gaps left for wave 2**: `.vec` cross-checking against INET reference files (the harness
+exists, the reference files do not); the rich sink statistics family (jitter, delay variation,
+out-of-order); `bufferModule`; pushing *through* a scheduler (only the pull side is built);
+streaming/preemption and clocks, as planned.
+
+**Test premises that were wrong, not the code** — worth remembering: a filter's
+`backpressure` does not affect a source that only asks "any room?" (it changes the answer to
+"can you take *this* packet", which a server asks); a multiplexer offers room to producers in
+index order, so the first starves the rest, exactly as INET does; and a packet arriving at an
+empty queue with an idle server is pulled straight back out in the same event, so its queueing
+time is legitimately zero.
