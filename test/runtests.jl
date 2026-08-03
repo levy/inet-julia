@@ -39,5 +39,7 @@ end
 # Queuing model elements and the framework they rest on
 # (plan/pending/queuing-model-migration.md).
 @testset "queuing" begin
+    include("queuing/support.jl")
     include("queuing/phase0_lookup.jl")
+    include("queuing/phase1_sources_sinks.jl")
 end

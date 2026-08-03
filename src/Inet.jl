@@ -54,6 +54,12 @@ using .LookupModule
 # (plan/pending/queuing-model-migration.md).
 include("queuing/QueuingLayer.jl")
 using .PacketProtocolModule
+using .StatisticsModule
+using .PacketSourceModule
+using .ActivePacketSourceElement
+using .PassivePacketSourceElement
+using .PassivePacketSinkElement
+using .ActivePacketSinkElement
 
 # 10BASE-T1S / PLCA multidrop model (plan/done/ten-base-t1s-plca.md +
 # plan/done/ten-base-t1s-statistics.md).
@@ -68,6 +74,11 @@ export
     LookupModule,
     # the four roles a module plays at a gate, and how packets move between them
     PacketProtocolModule,
+    # what queuing elements share: recording, and the packets a source makes
+    StatisticsModule, PacketSourceModule,
+    # the queuing elements, each its own submodule
+    ActivePacketSourceElement, PassivePacketSourceElement,
+    PassivePacketSinkElement, ActivePacketSinkElement,
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
     T1sModule,
     # the model interface implementation the lifecycle drives

@@ -5,5 +5,14 @@
 # `queueing`; here it is the standard spelling.
 #
 # The contract comes first — the four roles a module plays at a gate and the
-# methods each answers — and every element is its own submodule below it.
+# methods each answers — then what elements share, then every element as its own
+# submodule.
 include("contract/PacketProtocol.jl")
+
+include("base/Statistics.jl")           # what a module records about its run
+include("base/PacketSource.jl")         # the packets a source hands out
+
+include("source/ActivePacketSource.jl")   # produces and pushes
+include("source/PassivePacketSource.jl")  # has one ready to be pulled
+include("sink/PassivePacketSink.jl")      # accepts what is pushed at it
+include("sink/ActivePacketSink.jl")       # pulls, on its own schedule
