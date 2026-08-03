@@ -11,3 +11,24 @@ using Test
     include("packet/phase6_buffers.jl")
     include("packet/phase7_inspect.jl")
 end
+
+# 10BASE-T1S / PLCA multidrop model (plan/done/ten-base-t1s-plca.md).
+@testset "10BASE-T1S / PLCA" begin
+    include("t1s/phase1_frame.jl")
+    include("t1s/phase2_phy.jl")
+    include("t1s/phase3_junction.jl")
+    include("t1s/phase4_plca_control.jl")
+    include("t1s/phase5_plca_data.jl")
+    include("t1s/phase6_mac.jl")
+    include("t1s/phase7_plca_recovery.jl")
+    include("t1s/phase8_app.jl")
+    include("t1s/phase9_model.jl")
+    # Statistics phases (plan/done/ten-base-t1s-statistics.md)
+    include("t1s/phase2_stats_core.jl")
+    include("t1s/phase3_stats_fsm.jl")
+    include("t1s/phase4_stats_counts.jl")
+    include("t1s/phase5_stats_mac.jl")
+    include("t1s/phase6_stats_phy.jl")
+    include("t1s/phase7_vec_reader.jl")
+    include("t1s/phase8_compare_harness.jl")
+end

@@ -1,0 +1,85 @@
+# ============================================================================
+# Phase 9 conformance — T1sModel wrapping + golden hashes.
+#
+# The three target scenarios from the plan:
+#   - :notraffic  — coordinator + N-1 followers, no traffic.
+#                   Only PLCA control-FSM activity.
+#   - :bestcase   — every node has traffic (placeholder fixed 10 µs cadence).
+#   - :worstcase  — same topology, follower packet arrives past its own TO
+#                   (placeholder — full worstcase-offset scheduling is a
+#                   follow-up).
+#
+# The golden hashes pinned here are this model's own hashes, NOT INET's —
+# cross-comparison against INET is the F3 follow-up. What we guarantee is:
+# same seed → same hash, repeatably.
+# ============================================================================
+using Test
+using Omnetpp
+using Inet
+using Inet.PacketModule
+using Inet.T1sModule
+
+@testset "T1sModel — notraffic pins hash" begin
+    t = SimulationType(T1sModel)
+    a = ParameterAssignment(Dict{Symbol,Any}(
+        :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
+    run = expand_simulation(configure_simulation(t, a))[1]
+    inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
+    run_simulation!(inst)
+    res = finish_simulation!(inst)
+
+    # Pin the golden hash. Any behavioural change to PLCA control FSM /
+    # PHY / junction fan-out will shift this.
+    @test res.network_hash == 0x429fe1b7ab8d705cbaaa4926d57e103b
+    @test total_event_count(simulation_engine(inst)) == 299
+end
+
+@testset "T1sModel — notraffic is deterministic across runs" begin
+    t = SimulationType(T1sModel)
+    a = ParameterAssignment(Dict{Symbol,Any}(
+        :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
+    hashes = UInt128[]
+    for _ in 1:3
+        run = expand_simulation(configure_simulation(t, a))[1]
+        inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
+        run_simulation!(inst)
+        push!(hashes, finish_simulation!(inst).network_hash)
+    end
+    @test Base.length(unique(hashes)) == 1
+end
+
+@testset "T1sModel — n_nodes changes hash" begin
+    t = SimulationType(T1sModel)
+    hashes = UInt128[]
+    for n in (3, 5, 7)
+        a = ParameterAssignment(Dict{Symbol,Any}(
+            :n_nodes => n, :time_limit => 50e-6, :scenario => :notraffic))
+        run = expand_simulation(configure_simulation(t, a))[1]
+        inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
+        run_simulation!(inst)
+        push!(hashes, finish_simulation!(inst).network_hash)
+    end
+    @test Base.length(unique(hashes)) == 3   # each n produces a distinct trace
+end
+
+@testset "T1sModel — bestcase runs and produces events (placeholder)" begin
+    t = SimulationType(T1sModel)
+    a = ParameterAssignment(Dict{Symbol,Any}(
+        :n_nodes => 4, :time_limit => 100e-6, :scenario => :bestcase))
+    run = expand_simulation(configure_simulation(t, a))[1]
+    inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
+    run_simulation!(inst)
+    res = finish_simulation!(inst)
+    @test total_event_count(simulation_engine(inst)) > 0
+end
+
+@testset "T1sModel — model interface plumbs through cleanly" begin
+    m = build_model(T1sModel, resolve_parameters(model_parameter_space(T1sModel),
+                                                  ParameterAssignment()))
+    @test m isa AbstractT1sModel
+    @test model_module_count(m) == 1 + 5 + 4    # barrier + 5 nodes + 4 junctions
+                                                 # (INET: one junction per follower;
+                                                 # coord shares j[0] with node[0])
+    @test model_barrier_module(m) == 1
+    @test isempty(model_delay_edges(m))         # single-cluster
+end

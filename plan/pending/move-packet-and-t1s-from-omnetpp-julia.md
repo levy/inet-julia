@@ -98,14 +98,14 @@ Plus `@document` from `ProjecturedKernel.DocumentModule`.
   + `documentation/packet.md` + `plan/done/packet-chunk-api.md`; rewrite
   `Omnetpp.PacketModule` → `Inet.PacketModule` at every call site. Packet tests
   green (needs no `Omnetpp`).
-- [ ] **S3** — move `src/t1s/`, `src/model/T1sModel.jl`, `test/t1s/`,
+- [x] **S3** — move `src/t1s/`, `src/model/T1sModel.jl`, `test/t1s/`,
   `scripts/compare_t1s_vectors.jl`, `documentation/ten-base-t1s.md` and the two
   T1S plans; wire the `Omnetpp` imports listed in §5; add
   `inet_simulation_catalog()`. Full `inet-julia` suite green.
-- [ ] **S4** — omnetpp-julia removal in the worktree: delete the moved files,
-  strip `src/Omnetpp.jl`, `src/lifecycle/Workbench.jl`, `test/runtests.jl`,
-  `README.md`. Remaining suite green; grep proves no `Inet`/`Packet`/`T1s`
-  reference survives.
+- [x] **S4** — omnetpp-julia removal in the worktree: delete the moved files,
+  strip `src/Omnetpp.jl`, `src/lifecycle/Workbench.jl`, `test/runtests.jl`.
+  Remaining suite green; grep proves no `Inet`/`Packet`/`T1s` reference
+  survives. `README.md` needed no edit — it never named the moved subtrees.
 - [ ] **S5** — `inet-julia` README, then land: merge the worktree branch into
   `omnetpp-julia` master (ff-only) and verify the full `inet-julia` suite
   against the merged checkout.
@@ -137,3 +137,29 @@ Plus `@document` from `ProjecturedKernel.DocumentModule`.
   the code came to be; their `omnetpp-julia`-era paths and module names are left
   untouched. Only the live documentation under `documentation/` is rewritten to
   describe where the code is now.
+- **`@document` needs more than the macro imported.** The expansion of
+  `@document struct T1sModel` references `Reference` and the cell primitives by
+  name, so `Inet.jl` imports `Document`, `sync_document!`, `Reference`,
+  `ImmutableCell` and `set_cell_function!` alongside the macro — the same set
+  `Omnetpp.jl` imports. Importing only `@document` fails at precompile with
+  `UndefVarError: Reference not defined in Inet`.
+- **`T1sModule` now imports `Omnetpp` absolutely.** Inside `Omnetpp` it said
+  `using ..Omnetpp: …`; as a submodule of `Inet` that relative path would resolve
+  to `Main`, so it is `using Omnetpp: …` (a package dependency). The sibling
+  `using ..PacketModule` is unchanged — `PacketModule` is still a sibling.
+- **`Pkg.test()` was already broken in `omnetpp-julia`** — `test/runtests.jl`
+  opens `using Statistics` with no such test dependency declared, so the
+  documented command died before running anything. Fixed in its own commit on
+  the worktree branch, since the removal cannot otherwise be verified.
+- **Cross-repo testing before the merge.** Until the removal lands on
+  `omnetpp-julia` master, both packages export `T1sModel` and the test files
+  clash. The full `inet-julia` suite was therefore run from a throwaway
+  environment whose `[sources]` point `Omnetpp` at the worktree.
+
+## 9. Result
+
+Behaviour-preserving: the moved suites report exactly the counts they did inside
+`omnetpp-julia` — 1680 packet checks and 414 T1S checks — and `T1sModel`'s
+pinned golden hash (`0x429fe1b7ab8d705cbaaa4926d57e103b`) reproduces through the
+lifecycle from the new package. `omnetpp-julia`'s remaining suite is green under
+`-t 8` (the parallel-engine stage assertions need more than one thread).

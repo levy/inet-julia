@@ -7,6 +7,9 @@ module Inet
 # engine, the lifecycle, result recording) and `Inet` is the network-model
 # library (packet representation, protocol models). The dependency runs one
 # way only — `Inet` uses `Omnetpp`, never the reverse.
+#
+# Nothing from `Omnetpp` is re-exported. A script that needs both says
+# `using Omnetpp, Inet`, so it stays visible which layer a name comes from.
 # ============================================================================
 
 # Packet & chunk API (plan/done/packet-chunk-api.md). Standalone: depends on
@@ -14,6 +17,46 @@ module Inet
 include("packet/Packet.jl")
 using .PacketModule
 
-export PacketModule
+# --- what the protocol models need from the kernel --------------------------
+# Time, scheduling and the engine/model interface.
+using Omnetpp: SimTime, TIME_UNIT, to_simtime, MersenneTwister,
+    ScheduleContext, schedule!, schedule_root!, stop!,
+    AbstractEngine, AbstractParallelEngine, AbstractModel, SimTimeLimit
+# Parameterization: a model declares its degrees of freedom, the lifecycle
+# resolves them and hands back a `ResolvedParameters`.
+using Omnetpp: Parameter, ParameterSpace, AbstractResolvedParameters,
+    StructuralDOF, StochasticDOF, IterationDOF
+# Result recording.
+using Omnetpp: Recorder, VectorFileWriter, begin_recording!,
+    register_indexed_vector!, emit_indexed_vector!, record_scalar!
+# The workbench's model catalog, which `inet_simulation_catalog` extends.
+using Omnetpp: SimulationType, default_simulation_catalog
+# The model interface itself — `import`, not `using`, because `Inet`'s models
+# add methods to these.
+import Omnetpp: model_module_count, model_barrier_module, model_delay_edges,
+    model_description, model_parameter_space, build_model, reset_model!,
+    schedule_initial_events!, make_recorder
+# Models are `@document`s so a running simulation can be viewed reactively: the
+# sim runs on the native (mutable) variant at full speed and a reactive variant
+# is refreshed for the UI. The macro's expansion needs `Reference` and the cell
+# primitives in scope, which is why they are imported alongside it.
+using ProjecturedKernel.DocumentModule: Document, sync_document!, @document
+using ProjecturedKernel.ReferenceModule: Reference
+using ProjecturedKernel.CellModule: ImmutableCell, set_cell_function!
+
+# 10BASE-T1S / PLCA multidrop model (plan/done/ten-base-t1s-plca.md +
+# plan/done/ten-base-t1s-statistics.md).
+include("t1s/T1s.jl")
+include("model/T1sModel.jl")           # T1sModel — plugs T1sModule into the model interface
+include("model/Catalog.jl")            # inet_simulation_catalog — the kernel's, extended
+
+export
+    # packet & chunk API — a submodule, so `using Inet.PacketModule` to get its names
+    PacketModule,
+    # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
+    T1sModule,
+    # the model interface implementation the lifecycle drives
+    T1sModel, AbstractT1sModel, T1sModelMut,
+    inet_simulation_catalog
 
 end # module Inet
