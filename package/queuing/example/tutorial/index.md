@@ -9,6 +9,11 @@ The models are Julia. Where INET's tutorial shows a NED network and an INI
 config, this one shows the code that builds the network and the values the step
 sets, because in this port the Julia form *is* the model.
 
+## Sources and sinks
+
+- [An active source and a passive sink](sources/ActiveSourcePassiveSink.md) —
+  the smallest network there is, and the arrival process every later step uses.
+
 ## Queues
 
 - [A single queue](queues/Queue.md) — packets arrive, wait their turn, are

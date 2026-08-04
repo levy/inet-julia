@@ -22,8 +22,15 @@ which is what gives each target one canonical name, and one interned document.
 module InetQueuingExample
 
 using InetQueuing
+using InetPacket
+using OmnetppSimulator
 using OmnetppPresentation: register_doctype_module!
 import Projectured
+# `@document`'s expansion names these, so they must be in scope where a step
+# model is declared.
+using Projectured.DocumentModule: @document
+using Projectured.ReferenceModule: Reference
+using Projectured.CellModule: ImmutableCell
 
 export tutorial_directory, load_tutorial, load_tutorial_page, test_tutorial
 
@@ -61,6 +68,10 @@ function load_tutorial_page(name::AbstractString = "index.md"; force::Bool = tru
     force && Projectured.resolve_stubs!(page)
     page
 end
+
+# The models the steps run — example code, embedded by name from the pages that
+# explain them.
+include("steps/sources.jl")
 
 # The tutorial as one navigable thing: the steps down the left, the step you
 # are reading on the right.

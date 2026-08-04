@@ -1,0 +1,12 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "An active source and a passive sink",
+  "model": "ActiveSourcePassiveSinkModel",
+  "parameters": {
+    "production_interval": 0.1,
+    "random_intervals": false,
+    "packet_bytes": 100,
+    "time_limit": 10.0
+  },
+  "limit": { "sim_time": 10.0 }
+}

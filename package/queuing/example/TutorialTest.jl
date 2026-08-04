@@ -122,17 +122,36 @@ function test_tutorial()
                        if b.name === :packet_capacity) == 10
             embed_finish!(embed)
             @test embed_status(embed) === :Finished
-            result = workbench_result(embed.workbench)
-            @test result !== nothing
-            @test length(result.scalars) > 0
+            scalars = Dict(workbench_result(embed.workbench).scalars)
+            # Real numbers, not an empty result: 100 s of arrivals at 5/s is
+            # about 500 packets, and a queue served at 10/s passes nearly all
+            # of them on.
+            served = scalars[Symbol("Queuing.sink.packets:count")]
+            @test 400 <= served <= 600
+            @test scalars[Symbol("Queuing.queue.droppedPacketsQueueOverflow:count")] < 50
+        end
+
+        @testset "the first step's arrivals are the ones it claims" begin
+            page = load_tutorial_page("sources/ActiveSourcePassiveSink.md")
+            embed = only(e for e in _tutorial_embeds(page) if e isa SimulationEmbed)
+            @test embed.model === ActiveSourcePassiveSinkModel
+            embed_finish!(embed)
+            scalars = Dict(workbench_result(embed.workbench).scalars)
+            # Clockwork: 10 s at one packet every 0.1 s, and the sink counts
+            # every one of them. This is the step's whole point, so it is
+            # asserted exactly rather than in a range.
+            @test scalars[Symbol("SourceSink.source.packets:count")] == 100
+            @test scalars[Symbol("SourceSink.sink.packets:count")] == 100
         end
 
         @testset "the shell lists the steps and opens one" begin
             shell = load_tutorial()
             # The navigator is the index's own links — the navigation is not
             # declared twice.
-            @test [s.title for s in shell.steps] == ["A single queue"]
-            @test [s.path for s in shell.steps] == ["queues/Queue.md"]
+            @test [s.title for s in shell.steps] ==
+                  ["An active source and a passive sink", "A single queue"]
+            @test [s.path for s in shell.steps] ==
+                  ["sources/ActiveSourcePassiveSink.md", "queues/Queue.md"]
             @test Projectured.filename(shell.page) == "index.md"
 
             drawn = _shell_drawn(shell)
@@ -140,7 +159,7 @@ function test_tutorial()
             @test any(t -> occursin("A single queue", t), drawn)
             @test any(t -> occursin("queueing network", t), drawn)
 
-            open_step!(shell, 1)
+            open_step!(shell, 2)
             @test Projectured.filename(shell.page) == "queues/Queue.md"
             drawn = _shell_drawn(shell)
             # The page arrives with its embeds live: prose, the model's source,
@@ -156,7 +175,7 @@ function test_tutorial()
             page = shell.page
             open_step!(shell, 0)
             @test Projectured.filename(shell.page) == "index.md"
-            open_step!(shell, 1)
+            open_step!(shell, 2)
             @test shell.page === page
         end
 
@@ -173,7 +192,7 @@ function test_tutorial()
             # The reader RETURNS the action rather than performing it.
             @test Projectured.filename(shell.page) == "index.md"
             operation.action.callback(nothing)
-            @test Projectured.filename(shell.page) == "queues/Queue.md"
+            @test Projectured.filename(shell.page) == "sources/ActiveSourcePassiveSink.md"
         end
 
         @testset "the step's diagram is derived from its own wiring" begin

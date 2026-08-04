@@ -10,6 +10,7 @@ entryfile = "InetQueuingExample.jl"
 # depend on the presentation stack, and this does.
 
 [deps]
+InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
 InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
 OmnetppPresentation = "87a68c42-f795-440d-9b5e-f3293ccf51cf"
 OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
@@ -17,6 +18,7 @@ Projectured = "92922de3-b970-4d9a-8b2a-9d6f361397b5"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
+InetPacket = {path = "../../packet/main"}
 InetQueuing = {path = "../main"}
 OmnetppPresentation = {path = "../../../../omnetpp-julia-tutorial/package/presentation/main"}
 OmnetppSimulator = {path = "../../../../omnetpp-julia-tutorial/package/simulator/main"}
