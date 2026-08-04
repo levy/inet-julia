@@ -13,13 +13,22 @@ InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
 InetPacketExample = "1ba5b435-6844-4ce9-8e6f-b4cbb0509b94"
 InetPacketTest = "772aa187-4962-422d-ab89-8597970a7f70"
 InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
+InetQueuingExample = "f0a6f2c1-7b3d-4f2e-9a58-6c4d1e2b8a37"
 InetQueuingTest = "f714c29c-95bc-4097-b59d-ac4adcca3229"
 InetTest = "2f44235d-4d1e-46a7-bad9-542c69a24442"
+OmnetppPresentation = "87a68c42-f795-440d-9b5e-f3293ccf51cf"
 OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+Projectured = "92922de3-b970-4d9a-8b2a-9d6f361397b5"
 ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+OmnetppUnits = "9affc4b9-111a-4929-bbfb-901be4983719"
+ProjecturedAdaptagrams = "c86b9063-147e-43d0-b3a0-65343fae9a66"
+ProjecturedBase = "b83f0000-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
+ProjecturedDomain = "e0912940-0f50-4a55-a142-7b4aed3d6e35"
+ProjecturedDomainExample = "5393e5bd-6135-44b9-9645-408b92f5eb98"
+ProjecturedVisual = "c94a1234-2b3c-4d5e-8f6a-7b8c9d0e1f23"
 [sources]
 Inet = {path = "package/inet/main"}
 InetExample = {path = "package/inet/example"}
@@ -31,6 +40,15 @@ InetPacket = {path = "package/packet/main"}
 InetPacketExample = {path = "package/packet/example"}
 InetPacketTest = {path = "package/packet/test"}
 InetQueuing = {path = "package/queuing/main"}
+InetQueuingExample = {path = "package/queuing/example"}
 InetQueuingTest = {path = "package/queuing/test"}
+OmnetppPresentation = {path = "../omnetpp-julia/package/presentation/main"}
 OmnetppSimulator = {path = "../omnetpp-julia/package/simulator/main"}
+Projectured = {path = "../projectured-julia/package/projectured/main"}
 ProjecturedKernel = {path = "../projectured-julia/package/kernel/main"}
+OmnetppUnits = {path = "../omnetpp-julia/package/units/main"}
+ProjecturedAdaptagrams = {path = "../projectured-julia/package/adaptagrams/main"}
+ProjecturedBase = {path = "../projectured-julia/package/base/main"}
+ProjecturedDomain = {path = "../projectured-julia/package/domain/main"}
+ProjecturedDomainExample = {path = "../projectured-julia/package/domain/example"}
+ProjecturedVisual = {path = "../projectured-julia/package/visual/main"}

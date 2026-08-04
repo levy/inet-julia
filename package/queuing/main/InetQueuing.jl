@@ -28,7 +28,7 @@ using OmnetppSimulator: Parameter, ParameterSpace, AbstractResolvedParameters,
 # adds methods to these.
 import OmnetppSimulator: model_module_count, model_barrier_module, model_delay_edges,
     model_description, model_parameter_space, build_model, reset_model!,
-    schedule_initial_events!, finalize_model!
+    schedule_initial_events!, finalize_model!, model_topology
 # Models are `@document`s so a running simulation can be viewed reactively: the
 # sim runs on the native (mutable) variant at full speed and a reactive variant
 # is refreshed for the UI. The macro's expansion needs `Reference` and the cell

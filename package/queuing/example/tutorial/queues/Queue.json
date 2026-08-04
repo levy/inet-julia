@@ -1,0 +1,12 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "A single queue",
+  "model": "QueuingModel",
+  "parameters": {
+    "arrival_rate": 5.0,
+    "service_rate": 10.0,
+    "packet_capacity": 10,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

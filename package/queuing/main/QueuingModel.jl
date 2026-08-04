@@ -17,7 +17,7 @@ using .PacketQueueElement: PacketQueueModule, PacketQueueParameters, drop_at_end
 using .PacketServerElement: PacketServerModule, PacketServerParameters
 using .PassivePacketSinkElement: PassivePacketSinkModule
 using OmnetppSimulator.NetworkModule: Network, add_module!, connect!,
-    network_module_count, network_barrier, network_delay_edges,
+    network_module_count, network_barrier, network_delay_edges, network_topology,
     initialize_network!, register_network_statistics!, start_network!,
     reset_network!, finalize_network!
 using OmnetppSimulator.VolatileModule: Volatile, exponential
@@ -47,6 +47,9 @@ end
 model_module_count(m::AbstractQueuingModel)   = network_module_count(m.network)
 model_barrier_module(m::AbstractQueuingModel) = network_barrier(m.network)
 model_delay_edges(m::AbstractQueuingModel)    = network_delay_edges(m.network)
+# The diagram comes from the same wiring the engine reads, so it cannot drift
+# from the model it describes.
+model_topology(m::AbstractQueuingModel)       = network_topology(m.network)
 
 model_description(::Type{QueuingModel}) =
     "A single queue served by one server: packets arrive, wait, are served, and leave."
