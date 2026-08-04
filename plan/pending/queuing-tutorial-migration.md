@@ -365,13 +365,12 @@ content. Each phase = one commit series; tick + log here.
       live card among its prose, the same file embedded raw shows the JSON, and a
       caret walks into a parameter and back
 
-### Phase D — tutorial scaffold (inet-julia) — **shell + second step outstanding**
+### Phase D — tutorial scaffold (inet-julia) — **second step + PacketTemplate.data outstanding**
 - [x] D1a: `package/queuing/example/` package (`InetQueuingExample`), `tutorial/`
       with `index.md` and one step, `run.jl`
-- [ ] D1b: `tutorial/root.json` + the master–detail shell (navigator parsed from
-      `index.md`, link-based step switching). The entry point today is `index.md`
-      itself; the shell needs a document of its own, which is what `root.json`
-      would name
+- [x] D1b: `tutorial/root.json` + the master–detail shell — `TutorialShell`,
+      navigator built from `index.md`'s own links, `open_step!` switching pages
+      through the tutorial's load session
 - [ ] D2: `PacketTemplate` gains `data` (+ data tag; content predicates/comparator read
       it) — in `InetQueuing` main
 - [x] D3a: `Queue` end-to-end — prose, the model's own source as a fragment, the
@@ -432,8 +431,8 @@ New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance
 
 ## 9. Follow-up plans
 
-- **Remove `FileReferenceStep` and `IdentityReferenceStep` (and `IdentityDocument`) from
-  the kernel** — neither is a reference step in the sense the others are: a step descends
+- ~~**Remove `FileReferenceStep` and `IdentityReferenceStep` (and `IdentityDocument`) from
+  the kernel**~~ — **done 2026-08-04**, on `tutorial-embeds`. — neither is a reference step in the sense the others are: a step descends
   one structural level, which is what selection propagation walks and iomaps map;
   `FileReferenceStep` is an entry-point locator with no default evaluation, and
   `IdentityReferenceStep` is an arbitrary-depth search over wrappers no domain produces.
@@ -633,3 +632,34 @@ worktrees (`inet-julia-tutorial`'s root and its example package,
 `omnetpp-julia-tutorial`'s root) carry **uncommitted** path overrides so each
 env resolves against the phase-A/B/C work. They go away when the branches land
 on `main`; the committed paths are the ordinary sibling ones.
+
+### D1b — the shell, and what it needed
+
+`root.json` realises to a `TutorialShell` (the same `realize(file(…))` pair a
+page uses), whose navigator is built from `index.md`'s **own links** — the index
+is ordinary prose, and its links are what a reader would click anyway, so the
+navigation is not declared twice.
+
+Two things fell out of building it:
+
+- **A doctype needs the load session.** Opening a step is `file(path)`, and it
+  has to happen in the *tutorial's* session or a page reopened later would be a
+  second document with a second simulation. `LoadCtx` now carries the
+  `LoaderContext` a realisation was reached through, and `doctype_file(ctx,
+  path)` is `file(path)` from inside a `_from_json`. Reopening a step now yields
+  the `===` page, tested.
+- **The content pane holds the page document, not a projection of it.** That is
+  what keeps a page's embeds live inside the shell: the renderer routes the
+  markdown by type, the block split gives the card a widget slot, and its Run
+  button works — with the shell knowing nothing about simulations.
+
+The shell renders as `ChainingProjection(RecursiveProjection(TutorialShellToWidget()),
+NaturalToGraphics(…))` — the workbench's own shape (`run.jl` uses exactly this).
+
+Tests: `test_tutorial` 33/33 — the navigator lists the steps, opening one shows
+its prose, its model source and its live card with the navigator beside it,
+reopening a step yields the same document, and a click on a row returns the
+action that opens it.
+
+**Wart worth knowing:** a `WidgetScrollPane`'s size is explicit — a viewport
+with width 0 clips its content away entirely rather than filling what is left.
