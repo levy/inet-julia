@@ -127,6 +127,25 @@ end
     @test all(ev.packet === nothing for ev in cap.buffer.payloads)
 end
 
+@testset "T1S capture — peer vantage derived from the MAC boundaries" begin
+    # Scope one protocol's boundary at the two ends: what one MAC handed
+    # down pairs with what the peer MAC delivered up — the peer-level
+    # exchange, derived from the frame's identity surviving the whole
+    # PLCA/PHY/wire crossing. In the 100 µs bestcase exactly one frame
+    # completes: node[0]'s first, delivered to the controller.
+    cap = Capture(scope = pt -> endswith(pt.path, "mac.protocol.down") ||
+                                endswith(pt.path, "mac.service.up"))
+    _t1s_captured_bestcase([cap])
+    exchanges = peer_exchanges(cap)
+    @test length(exchanges) == 1
+    sent     = capture_record(cap, exchanges[1].sent)
+    received = capture_record(cap, exchanges[1].received)
+    @test sent.point.path == "MultidropNetwork.node[0].eth[0].mac.protocol.down"
+    @test received.point.path == "MultidropNetwork.controller.eth[0].mac.service.up"
+    @test sent.payload === received.payload
+    @test sent.deliver_time < received.deliver_time     # the wire crossing took time
+end
+
 @testset "T1S capture — pcapng export of the MAC protocol vantage" begin
     mktempdir() do dir
         path = joinpath(dir, "t1s-bestcase.pcapng")

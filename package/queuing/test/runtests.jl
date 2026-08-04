@@ -12,4 +12,7 @@ using Test
     include("phase2_queue_server.jl")
     include("phase3_classify_schedule_filter.jl")
     include("phase4_plumbing_compound.jl")
+    # Communication capture over the ModuleRef seams
+    # (omnetpp-julia plan/pending/observable-communication.md, Phase 3).
+    include("phase5_capture.jl")
 end

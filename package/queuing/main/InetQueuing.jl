@@ -76,6 +76,10 @@ using .PacketPlumbingElement
 using .PriorityQueueElement
 
 include("QueuingModel.jl")              # the canonical chain as a model
+# The library's observation seams: every resolved ModuleRef becomes an
+# observation point; packets crossing push/pull are recorded by a
+# forwarding proxy (omnetpp-julia plan/pending/observable-communication.md P3).
+include("QueuingCapture.jl")
 
 export
     # the four roles a module plays at a gate, and how packets move between them
