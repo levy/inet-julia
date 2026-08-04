@@ -17,7 +17,7 @@ follows its inputs as they fill and empty.
 """
 module PacketSchedulerElement
 
-using OmnetppSimulator: NetworkModule
+using OmnetppSimulator: NetworkModule, MersenneTwister
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateInput, Network,
     output_gate, gate_vector, module_id
 using InetPacket.PacketModule: Packet, bits, data_length
@@ -30,7 +30,8 @@ using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic
     record_statistic!
 
 export PacketSchedulerParameters, PacketSchedulerStatistics, PacketSchedulerModule,
-       priority_scheduler, scheduler_inputs
+       priority_scheduler, weighted_round_robin_scheduler, markov_scheduler,
+       scheduler_inputs
 
 """
     PacketSchedulerParameters(; scheduler)
@@ -105,6 +106,94 @@ priority_scheduler(name::Symbol, inputs::Int) =
             end
             0
         end))
+
+"""
+    weighted_round_robin_scheduler(name, weights) -> PacketSchedulerModule
+
+A scheduler that takes a run of `weights[i]` packets from input `i` before
+moving on, cycling forever, and skips an input with nothing to give rather than
+stalling on it.
+
+That last part is the difference from the classifier: a scheduler is asked
+whether it *can* pull at all, so an input that is empty must not be able to
+block the ones behind it. An empty input therefore forfeits the rest of its
+run.
+"""
+function weighted_round_robin_scheduler(name::Symbol, weights::AbstractVector{<:Integer})
+    all(w -> w >= 0, weights) ||
+        error("weighted_round_robin_scheduler: weights must not be negative, got $weights")
+    any(w -> w > 0, weights) ||
+        error("weighted_round_robin_scheduler: at least one weight must be positive")
+    input = Ref(0)
+    remaining = Ref(0)
+    PacketSchedulerModule(name, length(weights), PacketSchedulerParameters(
+        scheduler = function (m)
+            providers = m.providers
+            # The input whose turn it is, when it has something.
+            if remaining[] > 0 && can_pull_some_packet(providers[input[]])
+                remaining[] -= 1
+                return input[]
+            end
+            # Otherwise walk the cycle looking for one that has. A full turn
+            # with nothing anywhere means there is nothing to pull.
+            for _ in 1:length(weights)
+                input[] = input[] % length(weights) + 1
+                weights[input[]] == 0 && continue
+                if can_pull_some_packet(providers[input[]])
+                    remaining[] = weights[input[]] - 1
+                    return input[]
+                end
+            end
+            remaining[] = 0
+            0
+        end))
+end
+
+"""
+    markov_scheduler(name, transitions; initial = 1, seed = 0) -> PacketSchedulerModule
+
+A scheduler whose choice is a random walk over its inputs: it takes from the
+input its state names and then moves on according to `transitions[state]`.
+
+Like the Markov classifier it produces bursts rather than an even interleaving.
+Unlike it, a state whose input is empty cannot simply be honoured — the
+scheduler is asked whether it can pull at all — so the walk advances and the
+next state that has something is used. The state machine therefore drifts
+towards the inputs that actually have traffic, which is the honest reading of
+"take from this one next".
+"""
+function markov_scheduler(name::Symbol, transitions::AbstractVector;
+                          initial::Int = 1, seed::Int = 0)
+    states = length(transitions)
+    all(row -> length(row) == states, transitions) ||
+        error("markov_scheduler: each of the $states rows must give $states probabilities")
+    (1 <= initial <= states) ||
+        error("markov_scheduler: initial state $initial is not one of the $states states")
+    state = Ref(initial)
+    rng = MersenneTwister(seed)
+    PacketSchedulerModule(name, states, PacketSchedulerParameters(
+        scheduler = function (m)
+            providers = m.providers
+            for _ in 1:states
+                current = state[]
+                state[] = _markov_scheduler_step(transitions[current], rng)
+                can_pull_some_packet(providers[current]) && return current
+            end
+            0
+        end))
+end
+
+# One draw from a row of probabilities, by cumulative sum; a row that does not
+# quite add up to one lands on the last state.
+function _markov_scheduler_step(row, rng::MersenneTwister)
+    draw = rand(rng)
+    total = 0.0
+    for index in 1:length(row)
+        total += row[index]
+        draw <= total && return index
+    end
+    length(row)
+end
 
 function NetworkModule.initialize_module!(::Network, m::PacketSchedulerModule)
     m.providers = [resolve_interface(gate, PassivePacketSource) for gate in m.in]

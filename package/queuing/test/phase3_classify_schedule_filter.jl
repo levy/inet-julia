@@ -2,6 +2,20 @@
 # chain branch: a classifier forking it, a scheduler joining it again, and a
 # filter thinning it out.
 
+# Consecutive equal values, as the runs a bursty classifier produces.
+function _runs(values)
+    runs, current = Vector{Int}[], Int[]
+    for value in values
+        if isempty(current) || value == current[end]
+            push!(current, value)
+        else
+            push!(runs, current); current = Int[value]
+        end
+    end
+    isempty(current) || push!(runs, current)
+    runs
+end
+
 using InetQueuing.ActivePacketSourceElement
 using InetQueuing.PassivePacketSinkElement
 using InetQueuing.PacketQueueElement
@@ -88,6 +102,76 @@ end
         @test queue_length(second) > 0
         @test fork.statistics.per_output[1] == 3        # two held, one in the server
         @test fork.statistics.per_output[2] == queue_length(second)
+    end
+
+    @testset "a weighted round robin gives each output its share" begin
+        # The shares are the point, so the classifier is asked directly: it
+        # consults nothing, which is exactly what distinguishes it from the
+        # priority one.
+        classifier = weighted_round_robin_classifier(:classifier, [3, 1])
+        picks = [classifier.parameters.classifier(classifier, nothing) for _ in 1:12]
+        @test picks == [1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2]
+
+        # Equal weights are plain round robin.
+        plain = weighted_round_robin_classifier(:plain, [1, 1, 1])
+        @test [plain.parameters.classifier(plain, nothing) for _ in 1:6] == [1, 2, 3, 1, 2, 3]
+
+        # A zero weight means an output that never gets a turn.
+        skewed = weighted_round_robin_classifier(:skewed, [2, 0, 1])
+        @test [skewed.parameters.classifier(skewed, nothing) for _ in 1:6] ==
+              [1, 1, 3, 1, 1, 3]
+
+        @test_throws ErrorException weighted_round_robin_classifier(:bad, [1, -1])
+        @test_throws ErrorException weighted_round_robin_classifier(:zero, [0, 0])
+    end
+
+    @testset "a weighted round robin scheduler skips what is empty" begin
+        # Two queues, only the second ever filled: the scheduler must not stall
+        # on the first input's turn, or nothing would ever be pulled.
+        network = Network(:Wrr)
+        source = add_module!(network, ActivePacketSourceModule(:source,
+            ActivePacketSourceParameters(production_interval = 0.1)))
+        first = add_module!(network, PacketQueueModule(:first))
+        second = add_module!(network, PacketQueueModule(:second))
+        join = add_module!(network, weighted_round_robin_scheduler(:scheduler, [1, 1]))
+        server = add_module!(network, PacketServerModule(:server,
+            PacketServerParameters(processing_time = 0.01)))
+        sink = add_module!(network, PassivePacketSinkModule(:sink))
+        connect!(source.out, second.in)          # the FIRST queue is never fed
+        connect!(first.out, join.in[1])
+        connect!(second.out, join.in[2])
+        connect!(join.out, server.in)
+        connect!(server.out, sink.in)
+        run_network!(network; until = 1.0)
+
+        @test source.statistics.num_packets == 11
+        # Everything that arrived was pulled — the empty first input never got
+        # to hold the second one up. The last packet is still in the server
+        # when the run ends, which is why the sink is one short.
+        @test queue_length(second) == 0
+        # (The counters record COMPLETED work, so the packet the server is
+        # holding when the run ends is in neither of them.)
+        @test sink.statistics.num_packets == 10
+    end
+
+    @testset "a Markov classifier walks its states" begin
+        # Bursty rather than interleaved: a state that mostly returns to itself
+        # sends runs one way before switching. Over many packets the shares
+        # approach the chain's stationary distribution — (2/3, 1/3) here.
+        classifier = markov_classifier(:classifier, [[0.9, 0.1], [0.2, 0.8]]; seed = 3)
+        picks = [classifier.parameters.classifier(classifier, nothing) for _ in 1:2000]
+        @test all(pick -> pick in (1, 2), picks)
+        @test 0.6 <= count(==(1), picks) / length(picks) <= 0.73
+        # It really does switch, and it really does run.
+        @test 1 in picks && 2 in picks
+        @test maximum(length(run) for run in _runs(picks)) >= 5
+
+        # The first packet leaves by the INITIAL state, not the one after it.
+        starts_second = markov_classifier(:second, [[0.9, 0.1], [0.2, 0.8]]; initial = 2)
+        @test starts_second.parameters.classifier(starts_second, nothing) == 2
+
+        @test_throws ErrorException markov_classifier(:ragged, [[1.0], [0.5, 0.5]])
+        @test_throws ErrorException markov_classifier(:nostate, [[1.0]]; initial = 2)
     end
 
     @testset "a priority scheduler drains the first input first" begin

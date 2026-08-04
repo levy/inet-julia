@@ -19,7 +19,7 @@ nowhere to put.
 """
 module PacketClassifierElement
 
-using OmnetppSimulator: NetworkModule
+using OmnetppSimulator: NetworkModule, MersenneTwister
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateOutput, Network,
     input_gate, gate_vector, module_id
 using InetPacket.PacketModule: Packet, bits, data_length
@@ -32,7 +32,8 @@ using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic
     record_statistic!
 
 export PacketClassifierParameters, PacketClassifierStatistics, PacketClassifierModule,
-       priority_classifier, content_based_classifier, classifier_outputs
+       priority_classifier, content_based_classifier, weighted_round_robin_classifier,
+       markov_classifier, classifier_outputs
 
 """
     PacketClassifierParameters(; classifier)
@@ -127,6 +128,82 @@ function content_based_classifier(name::Symbol, predicates::AbstractVector;
             end
             default_output
         end))
+end
+
+"""
+    weighted_round_robin_classifier(name, weights) -> PacketClassifierModule
+
+A classifier that gives each output a run of `weights[i]` packets before moving
+on to the next, cycling forever. With equal weights that is plain round robin;
+with `[3, 1]` the first output gets three packets for every one the second
+gets.
+
+Unlike a priority classifier this one does not ask whether an output will take
+the packet — the share each output receives is the point, and a full output
+loses its turn rather than passing it on. Pair it with queues that refuse when
+full if the shares must be exact even under overload.
+"""
+function weighted_round_robin_classifier(name::Symbol, weights::AbstractVector{<:Integer})
+    all(w -> w >= 0, weights) ||
+        error("weighted_round_robin_classifier: weights must not be negative, got $weights")
+    any(w -> w > 0, weights) ||
+        error("weighted_round_robin_classifier: at least one weight must be positive")
+    # Where the cycle currently is: which output, and how many of its run are
+    # left. Held in the closure, so the state travels with the classifier.
+    output = Ref(0)
+    remaining = Ref(0)
+    PacketClassifierModule(name, length(weights), PacketClassifierParameters(
+        classifier = function (_, _packet)
+            while remaining[] <= 0
+                output[] = output[] % length(weights) + 1
+                remaining[] = weights[output[]]
+            end
+            remaining[] -= 1
+            output[]
+        end))
+end
+
+"""
+    markov_classifier(name, transitions; initial = 1) -> PacketClassifierModule
+
+A classifier whose choice is a random walk: it is in one of `n` states, sends
+each packet out of the output its state names, and then moves on according to
+`transitions[state]` — a vector of probabilities over the next state.
+
+Where a weighted round robin gives exact shares in a fixed order, this gives
+the same long-run shares in a *bursty* order: a state that mostly returns to
+itself sends runs of packets one way before switching, which is what makes
+traffic clumped rather than evenly interleaved.
+"""
+function markov_classifier(name::Symbol, transitions::AbstractVector;
+                           initial::Int = 1, seed::Int = 0)
+    states = length(transitions)
+    all(row -> length(row) == states, transitions) ||
+        error("markov_classifier: each of the $states rows must give $states probabilities")
+    (1 <= initial <= states) ||
+        error("markov_classifier: initial state $initial is not one of the $states states")
+    state = Ref(initial)
+    rng = MersenneTwister(seed)
+    PacketClassifierModule(name, states, PacketClassifierParameters(
+        classifier = function (_, _packet)
+            current = state[]
+            # Move first or last? Last: the packet leaves by the state the
+            # classifier was IN, so the initial state is the first one used.
+            state[] = _markov_step(transitions[current], rng)
+            current
+        end))
+end
+
+# One draw from a row of probabilities, by cumulative sum. A row that does not
+# quite add up to one lands on the last state, which is the forgiving reading.
+function _markov_step(row, rng::MersenneTwister)
+    draw = rand(rng)
+    total = 0.0
+    for index in 1:length(row)
+        total += row[index]
+        draw <= total && return index
+    end
+    length(row)
 end
 
 function NetworkModule.initialize_module!(::Network, m::PacketClassifierModule)
