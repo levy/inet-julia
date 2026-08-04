@@ -122,3 +122,40 @@ end
     got = peek(marked, PhaseFourHeader; incomplete = true)
     @test got === hdr
 end
+
+# --- a marked header inside a packet, which is where one always sits ---------
+@testset "a marked header reads through the packet it is in" begin
+    # `MarkedFields` is a `Chunk` but not a `Fields`, so a marked header inside
+    # a `Sequence` — a packet's header, always — is reached through a different
+    # path from a marked header held directly. The gate refused correctly and
+    # then named an opt-in that had no way through, which made the error
+    # message a lie.
+    hdr = PhaseFourHeader(UInt8(0x42), UInt16(0x1337))
+    pk = Packet(Filler(Bytes(8); fill = 0x00))
+    pushfirst!(pk, mark_incomplete(hdr))
+    @test is_incomplete(quality(peek(pk, Chunk)))
+    @test_throws ErrorException peek(pk, PhaseFourHeader)
+    got = peek(pk, PhaseFourHeader; incomplete = true)
+    @test got.a == 0x42 && got.b == 0x1337
+end
+
+# --- marking twice joins rather than nesting ---------------------------------
+@testset "a second mark on a header joins into the first" begin
+    hdr = PhaseFourHeader(UInt8(7), UInt16(7))
+    both = mark_incorrect(mark_incomplete(hdr))
+    @test both isa MarkedFields
+    @test both.header === hdr             # one envelope, not two
+    q = quality(both)
+    @test is_incomplete(q) && is_incorrect(q)
+    # The join is commutative, so the other order is the same chunk.
+    @test quality(mark_incomplete(mark_incorrect(hdr))) == q
+
+    # And both flags are still gated independently: opting into one leaves the
+    # other refusing.
+    pk = Packet(Filler(Bytes(8); fill = 0x00))
+    pushfirst!(pk, both)
+    @test_throws ErrorException peek(pk, PhaseFourHeader; incomplete = true)
+    @test_throws ErrorException peek(pk, PhaseFourHeader; incorrect = true)
+    got = peek(pk, PhaseFourHeader; incomplete = true, incorrect = true)
+    @test got.a == 7
+end

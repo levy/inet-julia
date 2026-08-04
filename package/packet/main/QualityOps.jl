@@ -55,6 +55,26 @@ quality(m::MarkedFields)      = m.quality
 # Serialise/deserialise transparently.
 serialize(io::BitWriter, m::MarkedFields) = serialize(io, m.header)
 
+# A marked header is byte-shaped exactly as the header it wraps, and the mark
+# travels on the bytes that come out. Without this a marked header sitting
+# inside a `Sequence` — which is where one always sits, since it is a packet's
+# header — has no `_to_raw`: `MarkedFields` is a `Chunk` but not a `Fields`, so
+# the `Fields` method above does not cover it. The gate would then refuse the
+# strict peek, name `incomplete = true` as the way through, and the opt-in
+# would die on a MethodError instead of reading the header.
+function _to_raw(m::MarkedFields, off::BitLength, len::BitLength)
+    raw = _to_raw(m.header, off, len)
+    return Raw(raw.data, chunk_length(raw), quality(raw) ⊔ m.quality)
+end
+
+# Marking an already-marked header joins into the mark it carries rather than
+# nesting a second envelope — `mark_quality` has already OR-ed the old quality
+# into `q`, and the lattice is monotone, so two marks are one chunk with both
+# bits set. Nesting would make `mark_incorrect(mark_incomplete(h))` a different
+# shape from `mark_incomplete(mark_incorrect(h))`, which the join says it is
+# not, and leave the inner mark unreachable behind `quality`.
+_rewrap_quality(m::MarkedFields, q::Quality) = MarkedFields(m.header, q)
+
 # Peek(m, T::Fields) returns the wrapped header when the type matches — but
 # the caller must have gated on `quality(pk_slice)` first, or opt in via the
 # peek kwargs below.
