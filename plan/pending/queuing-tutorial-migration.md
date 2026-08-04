@@ -391,7 +391,7 @@ content. Each phase = one commit series; tick + log here.
 - [x] Complex examples: `Network` (`complex/Network.md`)
 - [x] `gettingstarted` → the "how to read a step" introduction in `index.md`
 
-### Phase F — element gaps + content wave 2 — **5 of 7 groups done**
+### Phase F — element gaps + content wave 2 — **done**
 New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance test):
 - [x] WRR classifier + scheduler presets → `scheduling/WeightedRoundRobin.md`
       (the `PriorityQueue`-with-WRR and `CompoundQueue` variants fold into the
@@ -399,9 +399,12 @@ New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance
 - [x] Markov classifier + scheduler → `scheduling/MarkovScheduler.md`
 - [x] data comparator preset → `data_predicate` in `PacketPredicateModule`
 - [x] ordinal dropper preset → `ordinal_predicate` in the same module
-- [ ] duplicator + cloner elements (+ ordinal duplicator preset) → `Duplicator`,
-      `Cloner`, `OrdinalBasedDuplicator`
-- [ ] labeler + label classifier → `Labeler`
+- [x] duplicator + cloner elements (+ ordinal duplicator preset) →
+      `PacketClonerModule` / `PacketDuplicatorModule`, step at `marking/Cloner.md`
+- [x] labeler + label classifier → `PacketLabelerModule`, step at
+      `marking/Labeler.md` (the classifier is `content_based_classifier` over
+      `data_predicate`s — a labeler writes the tag a source writes, so no new
+      classifier was needed)
 - [x] named-preset registry → `register_packet_predicate!` / `packet_predicate`,
       with the step at `filtering/NamedPolicy.md`
 
@@ -806,3 +809,30 @@ closure.
 Remaining in F: the duplicator/cloner elements and the labeler — the only two
 groups that need real new module types, because both *change* a packet or the
 number of them, which no predicate can do.
+
+### Phase F is done — seven groups, three of them not elements at all
+
+The tally is worth recording, because the draft assumed each group needed new
+module types and most did not:
+
+| group | what it turned out to be |
+|---|---|
+| WRR classifier + scheduler | four **presets** (closures over the existing elements) |
+| Markov classifier + scheduler | two more presets |
+| data comparator | `data_predicate` — a predicate builder |
+| ordinal dropper | `ordinal_predicate` — the same, counting instead of comparing |
+| named-preset registry | `register_packet_predicate!` / `packet_predicate` |
+| duplicator + cloner | **real elements** — they change how many packets there are |
+| labeler | a **real element** — it changes the packet |
+
+The dividing line is exact and worth keeping: an element is needed when
+something about the packet or the stream *changes*; a policy that only decides
+where an existing packet goes is a function, and functions do not need module
+types.
+
+The labeler needed no new classifier either. It writes the same tag a source
+writes, so `content_based_classifier` over `data_predicate`s sorts a labelled
+stream exactly as it sorts a self-labelling one — the "label classifier" the
+draft listed is the classifier already there.
+
+20 tutorial steps now, `test_tutorial` 162/162, `test_queuing` 255/255.
