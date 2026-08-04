@@ -227,9 +227,11 @@ that `SimulationTopologyToWidget` renders. And because the diagram is derived fr
 model the step runs, it does not stop at structure: **while the simulation runs, the
 diagram is live** — each node's badge shows that module's current state (a queue's length,
 a source's packets produced, a busy server), refreshed by the embed's per-slice hook
-through the same minimal-write shadow discipline the execution view uses. The layout is
-computed once and frozen (the known live-editor trap); only the node contents are
-reactive. Steps whose INET figure shows internals of a compound get that for free — the
+through the same minimal-write shadow discipline the execution view uses. (This section
+expected the layout to be computed once and *frozen*, the known live-editor trap. It is
+not: C4c keeps the layout reactive and puts the changing part where it cannot disturb the
+diagram — see that note.) Steps whose INET figure shows internals of a compound get that
+for free — the
 compound's submodules are real modules in the network.
 
 ### 3.6 Navigation across the tutorial
@@ -357,9 +359,11 @@ content. Each phase = one commit series; tick + log here.
       `model_topology(m) = network_topology(m.network)` for free
 - [x] C4b: the embed's topology pane, **live** — `module_status(m)` per module,
       `network_status(network)` in `network_topology`'s order, and a pane the
-      embed's refresh hook rewrites each slice. Rendered as text, one module per
-      line; the *graph* rendering (Adaptagrams layout, frozen after the first
-      pass) is left out — see the note below
+      embed's refresh hook rewrites each slice
+- [x] C4c: the pane **as a diagram** — a node is its icon above its name, the
+      wiring is the model's own, and each module's status is an `AnchoredEntry`
+      composited over the graph so a run never moves a node. The layout stays
+      reactive; nothing is frozen — see the note below
 - [x] C5: several embeds on one page — each keeps its own workbench and driver; one
       marker written twice is *one* simulation (interning), which is the sharper case
 - [x] C6: headless integration — a page embedding a realised step `.json` draws the
@@ -857,10 +861,52 @@ invalidated. The text is written by a refresh hook — the same per-slice moment
 the execution view uses, and a hook is an imperative context where writing a
 cell is allowed (AR-NO-WRITE-IN-THUNK forbids only thunks).
 
-**What is left out:** the graph rendering. The derivation, the state and the
-refresh are all here; drawing them as a laid-out graph means splicing the graph
-projection and its layout engine into the page renderer *and* freezing the
-layout, because a badge whose text changes changes its size, which changes the
-layout, which moves every node — the collapse the live editor already knows
-about. The text pane says everything the graph would, in a page-sized amount of
-room, so this is a rendering upgrade rather than missing capability.
+`embed_topology_lines` is still there and still says all of it as text, for
+somewhere a diagram cannot go — a log, a report, an assertion.
+
+### C4c — the diagram, drawn
+
+The pane is a real diagram now, and the layout is **not** frozen. Freezing was
+the wrong instinct: what has to hold is that a run does not move the nodes, and
+that is a property of *where the annotations live*, not of whether the layout
+may re-run. Two things make it hold.
+
+- The graph is built once, when a topology first exists, and rebuilt only if the
+  shape itself changes (a structural parameter, a different model). A run does
+  not rewire a network, so the layout has nothing to re-run on.
+- Each module's status is an `AnchoredEntry` on an `AnchoredLayout` over the
+  graph: an anchored child is placed relative to something already inside the
+  content and composited over it, so it never enters the content's own layout.
+  An annotation that changes every refresh therefore cannot change the diagram —
+  which is what OMNeT++ does, where the nodes and connections stay where they
+  are and only what is drawn around them changes.
+
+A node is drawn the way OMNeT++ draws a module: its icon above its own name.
+The icon is an `ImageFile` held as a `WidgetLabel`'s content, because an image
+is a *document* that measures to its own size. It is deliberately not the widget
+layer's `icon`, which is a registered *name* for a square glyph drawn beside
+text at the text's size and tint — a module icon is art, at its own size, and it
+*is* the node rather than a decoration on one.
+
+Three gaps on the projectured side had to be closed to get here, all found by
+asserting *where* things landed rather than that they existed:
+
+1. `NaturalToGraphics` had no `GraphGraph` entry, so a diagram inside a page
+   reflected into a syntax tree through the `Any` catch-all. It routes to the
+   two graph stages now, with the natural renderer as their recursion — which is
+   what lets a diagram node be a widget.
+2. `GraphLayoutToGraphicsCanvas` mapped references only *into* a vertex's
+   content, so a reference to a whole vertex resolved to nothing. Nothing
+   selects a vertex, but an annotation has to be able to point at one; a whole
+   vertex now maps to the box it was drawn as.
+3. `LayoutToGraphics` never imported `evaluate_reference`, and `_al_target_rect`
+   caught the resulting `UndefVarError` as "this target is not resolvable" — so
+   every reference-anchored entry silently went to the origin. Two smaller ones
+   alongside it: `_al_rect_of` read `graphics_size` (an extent measured from the
+   origin) as if it were a size, and `_anchored_fits` treated the origin as a
+   wall even with no bounding region, which a diagram whose node boxes are
+   padded outward to negative coordinates trips on immediately.
+
+The lesson worth keeping: an annotation that failed to resolve looks exactly
+like one that was placed, unless the test says *which node* it is beside.
+`test_tutorial` 185/185.

@@ -466,17 +466,84 @@ function test_tutorial()
             iomap = Projectured.print_document(
                 OmnetppPresentation.SimulationEmbedToWidget(), embed)
             pane = collect(iomap.output.children)[5]
-            # Nothing to say before the run …
-            @test pane.content == ""
+            # Nothing to draw before the run …
+            @test length(pane.content.vertices) == 0
+            @test length(pane.children) == 0
             embed_finish!(embed)
-            # … and afterwards, one line per module with what it is doing, from
-            # the same wiring the engine read.
-            drawn = pane.content
-            @test occursin("Queuing.source", drawn)
-            @test occursin("Queuing.queue", drawn)
-            @test occursin("waiting", drawn)      # the queue's own status
-            @test occursin("received", drawn)     # the sink's
-            @test occursin("3 links", drawn)
+
+            # … and afterwards, one node per module, wired the way the engine
+            # read it: the diagram comes from the same `model_topology`.
+            graph = pane.content
+            @test length(graph.vertices) == 4
+            @test length(graph.edges) == 3
+
+            # A node is drawn the way OMNeT++ draws a module: its icon, with its
+            # own name (not its whole path) underneath.
+            rows(i) = collect(graph.vertices[i].content.children)
+            @test [last(rows(i)).content for i in 1:4] ==
+                  ["source", "queue", "server", "sink"]
+            # Every queuing element names an icon and all four resolve to an
+            # image that ships, so each node has an image row above its name.
+            @test all(length(rows(i)) == 2 for i in 1:4)
+            @test all(first(rows(i)).content isa Projectured.ImageModule.ImageFile
+                      for i in 1:4)
+
+            # Each module's status is anchored *at that module*, one annotation
+            # per node, so a reader can tell which is which.
+            @test length(pane.children) == 4
+            notes = [entry.child.content for entry in pane.children]
+            @test any(note -> occursin("waiting", note), notes)   # the queue's
+            @test any(note -> occursin("received", note), notes)  # the sink's
+            @test all(entry.reference !== nothing for entry in pane.children)
+        end
+
+        @testset "an annotation does not move the module it annotates" begin
+            # The property the live diagram rests on: a run rewrites what is
+            # beside a node every refresh, and the node must not move — which is
+            # why the annotations are anchored over the diagram rather than laid
+            # out inside it.
+            embed = only(e for e in _tutorial_embeds(load_tutorial_page("queues/Queue.md"))
+                         if e isa SimulationEmbed)
+            iomap = Projectured.print_document(
+                OmnetppPresentation.SimulationEmbedToWidget(), embed)
+            pane = collect(iomap.output.children)[5]
+            embed_finish!(embed)
+
+            output = Projectured.print_document(_tutorial_renderer(), pane).output
+            # The diagram is drawn first and the four annotations over it.
+            elements = collect(output.elements)
+            diagram = first(elements)
+            @test length(elements) == 5
+            # The node boxes — what a reader sees as a module, and what an
+            # annotation is anchored to.
+            boxes() = [(Int(e.x), Int(e.y), Int(e.w), Int(e.h))
+                       for e in diagram.elements
+                       if e isa Projectured.GraphicsModule.GraphicsRect]
+            before = boxes()
+            @test length(before) == 4
+
+            # Anchored *at its node*, which is the part a `reference` that
+            # failed to resolve would silently lose: an unresolved anchor goes
+            # to the origin, so four distinct positions centred under four
+            # distinct nodes is the assertion that the anchor really resolved.
+            # An anchored child is wrapped in a positioning canvas, so its own
+            # width is the wrapped label's, one level in.
+            note_w(e) = (c = first(e.elements); c isa
+                         Projectured.GraphicsModule.GraphicsCanvas ? Int(c.w[]) : 0)
+            notes() = [(Int(e.x[]), Int(e.y[]), note_w(e)) for e in elements[2:end]]
+            @test length(unique(notes())) == 4
+            for (i, (nx, ny, nw)) in enumerate(notes())
+                x, y, w, h = before[i]
+                @test ny >= y + h                            # below it, as asked
+                @test abs((nx + nw ÷ 2) - (x + w ÷ 2)) <= 1  # and centred on it
+            end
+
+            # A much longer annotation than the one that was there.
+            for entry in pane.children
+                Projectured.CellModule.set_cell_function!(
+                    entry.child, () -> "a considerably longer annotation")
+            end
+            @test boxes() == before
         end
 
         @testset "the step's diagram is derived from its own wiring" begin
