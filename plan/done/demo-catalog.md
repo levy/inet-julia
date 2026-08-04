@@ -282,30 +282,31 @@ document. Then the "How to read" preamble and the grouped table of contents.
 - [x] **P5 — test**: the walker (load `demo.json`, open every page, resolve
       every marker, drive each embed briefly), added to `InetTest`'s scope.
 
-## Landing gate
+## Landing gate — cleared
 
-**`symbol-parameter-roundtrip` merges to omnetpp-julia's main before this
-branch merges to inet-julia's**, and this is not optional: without it
-*A bus that takes turns* fails, because `T1sModel`'s `:scenario` is a Symbol
-and no card of it can run.
+**`symbol-parameter-roundtrip` had to merge to omnetpp-julia's main before this
+branch merged to inet-julia's**, and it was not optional: without it *A bus that
+takes turns* fails, because `T1sModel`'s `:scenario` is a Symbol and no card of
+it can run.
 
-Measured, so the gate is exact. Against an omnetpp-julia main without the fix,
-`test_inet()` is **123 pass / 3 errors**, and all three are the PLCA card
+Measured, so the gate was exact. Against an omnetpp-julia main without the fix,
+`test_inet()` was **123 pass / 3 errors**, and all three were the PLCA card
 failing to run — one in "every embedded simulation runs", one in "a chart pane
 names a series the run actually has", one in "the PLCA page's cycle length is
-the one the prose derives". Every page still opens, resolves its markers and
-renders, because the shell survives a page it cannot fully build. With the fix
-the same suite is **139 pass / 0**.
+the one the prose derives". Every page still opened, resolved its markers and
+rendered, because the shell survives a page it cannot fully build.
 
-That branch is a single commit touching
-`package/simulator/main/src/lifecycle/Parameters.jl` and its test, and it is
-green on omnetpp-julia's own suites (`test_simulator()` 5566, `test_presentation()`
-711, both with no failures). Nothing else in this branch depends on it.
+The fix is a single commit touching
+`package/simulator/main/src/lifecycle/Parameters.jl` and its test. It is on
+omnetpp-julia's main, and both repositories are green on top of it:
+`test_simulator()` 5566, `test_presentation()` 723, and here `test_packet()`
+1690, `test_queuing()` 274, `test_linklayer()` 500, `test_inet()` 139,
+`test_tutorial()` 188 — no failures anywhere.
 
 The T1S page was written against the fix through an uncommitted `[sources]`
-redirect to the `omnetpp-julia-symbol-params` worktree — the same pattern the
-prerequisite section describes. The redirect is dropped; the committed
-`Project.toml` points at `../omnetpp-julia` as it always did.
+redirect to a sibling worktree — the same pattern the prerequisite section
+describes. The redirect was dropped before committing; `Project.toml` points at
+`../omnetpp-julia` as it always did.
 
 ## Open decisions — answered
 
