@@ -26,6 +26,17 @@ If you leave a page half-run and come back, it is still half-run. Pages are
 loaded once and kept, which is the document model doing its job rather than a
 feature anyone built for the tour.
 
+## The packet, taken apart
+
+- [A packet is chunks](pages/PacketIsChunks.md) — an immutable, structurally
+  shared body under a mutable envelope, and what a broadcast actually copies.
+- [Headers declare their own bytes](pages/Headers.md) — one declaration, a
+  struct and its bit-exact codec, and a guard against reading the wrong one.
+- [Knowing what you know](pages/Quality.md) — three monotone bits, and a `peek`
+  that refuses damaged data until you ask for it by name.
+- [Reassembly without ceremony](pages/Reassembly.md) — straddling pops, sparse
+  segments, and overlap policies as explicit values.
+
 ## Queuing, element by element
 
 - [The M/M/1/K chain](pages/Mm1kChain.md) — four elements in a row, and a

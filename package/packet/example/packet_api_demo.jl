@@ -12,27 +12,18 @@
 # the narrated run at the bottom.
 # ============================================================================
 
-# --- 1. Declare the headers that will describe a routed packet -------------
+# --- 1. The headers that will describe a routed packet ---------------------
+# `Ipv4Header` and `UdpHeader` are declared in `demo_headers.jl`, which
+# `InetPacketExample` includes first. They live in a file of their own so a
+# catalog page can embed the declarations whole: a marker names a top-level
+# definition, and a macro call whose first argument is a bare identifier — which
+# is what `@header Ipv4Header begin … end` is — has no name the marker can ask
+# for.
+#
 # The routing model today stores src/dest/hop_count/byte_length/creation_time
 # as fields on a mutable struct. Under the new API, control info that stays
 # with the packet through the network is a packet TAG (Req/Ind convention);
 # only bytes that would be on the wire live in `content`.
-
-@header Ipv4Header begin
-    version      :: UInt8  | 4
-    ihl          :: UInt8  | 4
-    dscp         :: UInt8  | 6
-    ecn          :: UInt8  | 2
-    total_length :: UInt16
-    identification :: UInt16
-    flags        :: UInt8  | 3
-    frag_offset  :: UInt16 | 13
-    ttl          :: UInt8
-    protocol     :: UInt8
-    checksum     :: UInt16
-    src_addr     :: UInt32
-    dst_addr     :: UInt32
-end
 
 # Simulator-internal tags (never on the wire, but travel with the packet).
 struct RoutingRequest        # replaces `dest_addr` on the old Packet
@@ -106,7 +97,113 @@ name would shadow and re-export `Base.broadcast`.)
 """
 broadcast_packet(pk::Packet, n::Int) = [dup(pk) for _ in 1:n]
 
-# --- 5. The demo -----------------------------------------------------------
+# --- 5. What the reinterpretation guard refuses ----------------------------
+
+"""
+    reinterpretation_guard() -> (; refused, forced)
+
+What `peek` refuses and what it allows across header types. Reading an
+`Ipv4Header` as a `UdpHeader` is almost always a bug — the two are laid out
+differently — so it is refused, and `refused` is the message. Passing
+`reinterpret = true` forces it through, and `forced` is the nonsense that comes
+out: the same twenty bytes read under the wrong layout.
+
+Bytes are not gated the same way. Deserialising a header out of raw bytes is
+the ordinary case and needs no opt-in, because bytes carry no claim about what
+they are.
+"""
+function reinterpretation_guard()
+    ip = peek(make_packet(UInt32(0x0a000001), UInt32(0x0a000002), 40, Int64(0)),
+              Ipv4Header)
+    refused = try
+        peek(ip, UdpHeader)
+        nothing
+    catch err
+        sprint(showerror, err)
+    end
+    return (; refused = refused, forced = peek(ip, UdpHeader; reinterpret = true))
+end
+
+# --- 6. Knowing what you know: the quality lattice --------------------------
+
+"""
+    truncated_packet(; payload_bytes = 40) -> Packet
+
+A packet whose header a receiver could not fully reconstruct — the shape a
+truncated frame leaves behind. The header is marked incomplete, the mark
+travels with it into the packet, and `quality` reports it from the outside.
+
+Marking wraps rather than mutates: the `Ipv4Header` struct inside is the same
+immutable value it always was, which is what keeps headers cheap and sharable.
+"""
+function truncated_packet(; payload_bytes::Int = 40)
+    ip = peek(make_packet(UInt32(0x0a000001), UInt32(0x0a000002), payload_bytes,
+                          Int64(0)), Ipv4Header)
+    pk = Packet(Filler(Bytes(payload_bytes); fill = 0x00))
+    pushfirst!(pk, mark_incomplete(ip))
+    return pk
+end
+
+"""
+    strict_peek(pk) -> (; refused, accepted)
+
+The gate, both ways round. `peek(pk, Ipv4Header)` on a packet whose header is
+marked refuses and says which flag stopped it; the same call with
+`incomplete = true` reads the header anyway. Nothing is silently returned:
+imperfect data has to be asked for by name.
+"""
+function strict_peek(pk::Packet)
+    refused = try
+        peek(pk, Ipv4Header)
+        nothing
+    catch err
+        sprint(showerror, err)
+    end
+    return (; refused = refused, accepted = peek(pk, Ipv4Header; incomplete = true))
+end
+
+# --- 7. Reassembly without ceremony ----------------------------------------
+
+"""
+    reassemble_out_of_order(; segment_bytes = 10) -> (; gaps_after, assembled)
+
+Three segments of a thirty-byte message, delivered last-middle-first, written
+into a `ChunkBuffer` at their offsets. `gaps_after` is the gap list after each
+insertion — the buffer's own answer to "what am I still missing", in bits — and
+`assembled` is the whole message once there are none.
+
+Nobody sorts anything here. The buffer keeps its regions ordered and coalesces
+neighbours as they meet, so arrival order is not the receiver's problem.
+"""
+function reassemble_out_of_order(; segment_bytes::Int = 10)
+    buffer = ChunkBuffer()
+    whole = 0:(Bytes(3 * segment_bytes).bits - 1)
+    segment(fill_byte) = Raw(UInt8[fill_byte for _ in 1:segment_bytes])
+    gaps_after = Vector{UnitRange{Int64}}[]
+    for (index, fill_byte) in ((2, 0xcc), (0, 0xaa), (1, 0xbb))
+        write!(buffer, Bytes(index * segment_bytes), segment(fill_byte))
+        push!(gaps_after, gaps(buffer, whole))
+    end
+    return (; gaps_after = gaps_after, assembled = assembled_chunk(buffer, whole))
+end
+
+"""
+    straddling_pop(; chunk_bytes = 4, take_bytes = 6) -> (; taken, left)
+
+A `ChunkQueue` pop that crosses a chunk boundary. Two chunks go in; six bytes
+come out of an eight-byte queue, spanning both. The caller asked for a length,
+not for a chunk, and got exactly that length — the boundary between the two
+chunks is the queue's business, not the reader's.
+"""
+function straddling_pop(; chunk_bytes::Int = 4, take_bytes::Int = 6)
+    queue = ChunkQueue()
+    push!(queue, Raw(UInt8[0x01 for _ in 1:chunk_bytes]))
+    push!(queue, Raw(UInt8[0x02 for _ in 1:chunk_bytes]))
+    taken = popfirst!(queue, Bytes(take_bytes))
+    return (; taken = peek(taken, Raw).data, left = total_length(queue))
+end
+
+# --- 8. The demo -----------------------------------------------------------
 
 """
     packet_api_demo(; io = stdout, receivers = 3, payload_bytes = 1500)

@@ -20,6 +20,11 @@ module InetPacketExample
 
 using InetPacket.PacketModule
 
+# The header declarations first: they are a file of their own so a catalog page
+# can embed them whole (see `packet_api_demo.jl` for why by-name does not work
+# for a macro-declared header), and `packet_api_demo.jl` builds packets out of
+# them.
+include(joinpath(@__DIR__, "demo_headers.jl"))
 include(joinpath(@__DIR__, "packet_api_demo.jl"))
 
 """
@@ -54,6 +59,8 @@ end
 
 export PACKET_DEMOS, packet_demos, run_packet_demo
 export packet_api_demo, make_packet, forward!, broadcast_packet
-export Ipv4Header, RoutingRequest, CreationTimeTag, HopCountTag
+export reinterpretation_guard, truncated_packet, strict_peek
+export reassemble_out_of_order, straddling_pop
+export Ipv4Header, UdpHeader, RoutingRequest, CreationTimeTag, HopCountTag
 
 end # module InetPacketExample
