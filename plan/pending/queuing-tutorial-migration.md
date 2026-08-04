@@ -378,9 +378,9 @@ content. Each phase = one commit series; tick + log here.
 - [x] D3b: `ActiveSourcePassiveSink` — its own model in the example package's
       `steps/`, with the step's claim (100 packets in 10 s) asserted exactly
 
-### Phase E — content wave 1: the 15 portable steps
-- [ ] Sources and Sinks: ~~`ActiveSourcePassiveSink`~~, `PassiveSourceActiveSink`
-- [ ] Queues: ~~`Queue`~~, `DropTailQueue`
+### Phase E — content wave 1: the 15 portable steps — **4 of 15 done**
+- [x] Sources and Sinks: `ActiveSourcePassiveSink`, `PassiveSourceActiveSink`
+- [x] Queues: `Queue`, `DropTailQueue`
 - [ ] Classifying: `PriorityClassifier`, `ContentBasedClassifier`
 - [ ] Scheduling: `PriorityScheduler`
 - [ ] Filtering: `Filter1`, `Filter2`
