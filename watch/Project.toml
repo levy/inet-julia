@@ -1,0 +1,14 @@
+name = "InetWatch"
+authors = []
+
+[deps]
+InetLinkLayer = "6936b046-6a37-41be-850a-5641ac0f1d4b"
+OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+Projectured = "92922de3-b970-4d9a-8b2a-9d6f361397b5"
+ProjecturedSdl = "f0002b97-94ba-416c-b93c-86cdc095626f"
+
+[sources]
+InetLinkLayer = {path = "../package/linklayer/main"}
+OmnetppSimulator = {path = "../../omnetpp-julia/package/simulator/main"}
+Projectured = {path = "../../projectured-julia/package/projectured/main"}
+ProjecturedSdl = {path = "../../projectured-julia/package/sdl/main"}

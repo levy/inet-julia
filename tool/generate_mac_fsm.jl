@@ -368,4 +368,8 @@ function main()
     println("wrote ", normpath(OUTPUT))
 end
 
-main()
+# Only regenerate when this file is *run*. Including it (the watch example does,
+# to get the machine document the diagram projects) must not write anything.
+if abspath(PROGRAM_FILE) == abspath(@__FILE__)
+    main()
+end
