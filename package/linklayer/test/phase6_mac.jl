@@ -45,7 +45,7 @@ end
     @test ends[1][2] - starts[1][2] == to_simtime(584 / 10e6)
     # MAC returns to WAIT_IFG then IDLE after ifg (9.6 µs).
     # At t = end + 9.6 µs, fsm should be IDLE.
-    @test mac.fsm === MAC_IDLE
+    @test fsm_state(mac.fsm_mac) == MAC_S_IDLE
 end
 
 @testset "MAC — carrier from PLCA moves us to RECEIVING" begin
@@ -54,7 +54,7 @@ end
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> mac_handle_carrier_sense_start!(ctx, mac))
     run!(sim)
-    @test mac.fsm === MAC_RECEIVING
+    @test fsm_state(mac.fsm_mac) == MAC_S_RECEIVING
     @test mac.carrier_sense == true
 end
 

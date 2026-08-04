@@ -1,0 +1,8 @@
+name = "InetTool"
+authors = []
+
+[deps]
+Projectured = "92922de3-b970-4d9a-8b2a-9d6f361397b5"
+
+[sources]
+Projectured = {path = "../../projectured-julia/package/projectured/main"}

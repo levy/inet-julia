@@ -388,7 +388,7 @@ function _emit_node_initial_stats!(ctx, node)
     phy = node.phy
     # MAC initial values.
     if mac.recorder !== nothing
-        for (name, val) in ((:state, UInt8(mac.fsm)),
+        for (name, val) in ((:state, UInt8(fsm_state(mac.fsm_mac))),
                             (:carrierSense, 0), (:collision, 0),
                             (:numFramesSent, 0), (:numFramesReceived, 0))
             idx = get(mac.stat_handles, name, 0)
@@ -435,7 +435,7 @@ function _emit_node_final_stats!(ctx, node)
         end
     end
     if mac.recorder !== nothing
-        for (name, val) in ((:state, UInt8(mac.fsm)),
+        for (name, val) in ((:state, UInt8(fsm_state(mac.fsm_mac))),
                             (:carrierSense, mac.carrier_sense ? 1 : 0),
                             (:collision, mac.collision ? 1 : 0),
                             (:numFramesSent, mac.num_frames_sent),

@@ -24,6 +24,11 @@ using OmnetppSimulator: SimTime, to_simtime, schedule!, schedule_root!, Schedule
 # Cancellable timers are a kernel utility rather than a 10BASE-T1S one; they are
 # re-exported below so this module's names stay in a single list.
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, cancel!, schedule_timer!
+# The MAC's transition logic is generated (see `Mac.jl`); this is the runtime
+# it dispatches on.
+using OmnetppSimulator.FsmModule: Fsm, fsm_state, fsm_enter!, fsm_leave!, fsm_goto!,
+               fsm_defer!, fsm_drain!, fsm_cascade_error, fsm_unhandled_error,
+               FSM_CASCADE_LIMIT
 
 export
     # Ethernet frame chunks + helpers
@@ -70,8 +75,8 @@ export
     plca_data_on_reception_start!, plca_data_on_reception_end!,
     default_plca_upcalls,
     # MAC
-    MacFsmState, MAC_IDLE, MAC_WAIT_IFG, MAC_TRANSMITTING, MAC_JAMMING,
-    MAC_BACKOFF, MAC_RECEIVING,
+    MAC_S_IDLE, MAC_S_WAIT_IFG, MAC_S_TRANSMITTING, MAC_S_JAMMING,
+    MAC_S_BACKOFF, MAC_S_RECEIVING, MAC_STATE_NAMES, mac_dispatch!, fsm_state,
     MacState, MacDownlink, MacUpcalls, NO_MAC_DOWNLINK, NO_MAC_UPCALLS,
     mac_handle_carrier_sense_start!, mac_handle_carrier_sense_end!,
     mac_handle_collision_start!, mac_handle_collision_end!,
