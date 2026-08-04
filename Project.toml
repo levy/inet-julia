@@ -28,6 +28,9 @@ ProjecturedAdaptagrams = "c86b9063-147e-43d0-b3a0-65343fae9a66"
 ProjecturedBase = "b83f0000-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
 ProjecturedDomain = "e0912940-0f50-4a55-a142-7b4aed3d6e35"
 ProjecturedDomainExample = "5393e5bd-6135-44b9-9645-408b92f5eb98"
+# The demo catalog opens a window, so the environment a demo is opened from
+# needs a backend. Only this environment does — no package depends on SDL.
+ProjecturedSdl = "f0002b97-94ba-416c-b93c-86cdc095626f"
 ProjecturedVisual = "c94a1234-2b3c-4d5e-8f6a-7b8c9d0e1f23"
 [sources]
 Inet = {path = "package/inet/main"}
@@ -51,4 +54,5 @@ ProjecturedAdaptagrams = {path = "../projectured-julia/package/adaptagrams/main"
 ProjecturedBase = {path = "../projectured-julia/package/base/main"}
 ProjecturedDomain = {path = "../projectured-julia/package/domain/main"}
 ProjecturedDomainExample = {path = "../projectured-julia/package/domain/example"}
+ProjecturedSdl = {path = "../projectured-julia/package/sdl/main"}
 ProjecturedVisual = {path = "../projectured-julia/package/visual/main"}
