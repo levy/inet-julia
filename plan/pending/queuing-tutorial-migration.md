@@ -341,7 +341,7 @@ content. Each phase = one commit series; tick + log here.
 - [x] B3: round-trip: markers in `.md` and in JSON string values survive load →
       force → save unchanged, spacing included
 
-### Phase C — the simulation embed (omnetpp-julia) — **C4 pane outstanding**
+### Phase C — the simulation embed (omnetpp-julia) — **done**
 - [x] C1: `ParameterFormToWidget` as a standalone, reference-mapped projection —
       `values[i].value.<rest> ↔ children[i].children[2].content.<rest>`, an ordinary
       IoMap rather than a widget→document registry
@@ -355,10 +355,11 @@ content. Each phase = one commit series; tick + log here.
 - [x] C4a: `network_topology(::Network) -> (labels, edges)` derived from the wiring —
       compound walls collapsed, duplicate links merged, so a module-built model gets
       `model_topology(m) = network_topology(m.network)` for free
-- [ ] C4b: the embed's topology pane with **live node badges** — per-module state
-      refreshed during the run; layout frozen after the first pass. Needs the graph
-      projection (and its layout engine) spliced into the page renderer, and a
-      per-module status hook the badges read
+- [x] C4b: the embed's topology pane, **live** — `module_status(m)` per module,
+      `network_status(network)` in `network_topology`'s order, and a pane the
+      embed's refresh hook rewrites each slice. Rendered as text, one module per
+      line; the *graph* rendering (Adaptagrams layout, frozen after the first
+      pass) is left out — see the note below
 - [x] C5: several embeds on one page — each keeps its own workbench and driver; one
       marker written twice is *one* simulation (interning), which is the sharper case
 - [x] C6: headless integration — a page embedding a realised step `.json` draws the
@@ -840,3 +841,26 @@ stream exactly as it sorts a self-labelling one — the "label classifier" the
 draft listed is the classifier already there.
 
 20 tutorial steps now, `test_tutorial` 162/162, `test_queuing` 255/255.
+
+### C4b — live, and why it is text
+
+`module_status(m)` is the hook: one short line, empty by default, a **string**
+on purpose — the caller is a label and the reader is a person; a module with
+something precise to say records a statistic. The queuing elements implement
+four of them (a queue's length, a server's busy state, a source's and a sink's
+counts), and `network_status` collects them in `network_topology`'s order so a
+diagram can pair labels with state without either side knowing about the other.
+
+The pane is live for a reason worth remembering: **the modules are native
+objects the engine mutates in place**, so a cell that read them would never be
+invalidated. The text is written by a refresh hook — the same per-slice moment
+the execution view uses, and a hook is an imperative context where writing a
+cell is allowed (AR-NO-WRITE-IN-THUNK forbids only thunks).
+
+**What is left out:** the graph rendering. The derivation, the state and the
+refresh are all here; drawing them as a laid-out graph means splicing the graph
+projection and its layout engine into the page renderer *and* freezing the
+layout, because a badge whose text changes changes its size, which changes the
+layout, which moves every node — the collapse the live editor already knows
+about. The text pane says everything the graph would, in a page-sized amount of
+room, so this is a rendering upgrade rather than missing capability.
