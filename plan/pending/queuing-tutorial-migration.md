@@ -365,22 +365,22 @@ content. Each phase = one commit series; tick + log here.
       live card among its prose, the same file embedded raw shows the JSON, and a
       caret walks into a parameter and back
 
-### Phase D — tutorial scaffold (inet-julia) — **second step + PacketTemplate.data outstanding**
+### Phase D — tutorial scaffold (inet-julia) — **done**
 - [x] D1a: `package/queuing/example/` package (`InetQueuingExample`), `tutorial/`
       with `index.md` and one step, `run.jl`
 - [x] D1b: `tutorial/root.json` + the master–detail shell — `TutorialShell`,
       navigator built from `index.md`'s own links, `open_step!` switching pages
       through the tutorial's load session
-- [ ] D2: `PacketTemplate` gains `data` (+ data tag; content predicates/comparator read
-      it) — in `InetQueuing` main
+- [x] D2: `PacketTemplate` gains `data` — a constant or a `Volatile` drawn per
+      packet, attached as a `DataTag` and read back with `packet_data`
 - [x] D3a: `Queue` end-to-end — prose, the model's own source as a fragment, the
       live simulation, the derived diagram, results
-- [ ] D3b: `ActiveSourcePassiveSink` — needs a source→sink model of its own
-      (`QueuingModel` is the four-element chain)
+- [x] D3b: `ActiveSourcePassiveSink` — its own model in the example package's
+      `steps/`, with the step's claim (100 packets in 10 s) asserted exactly
 
 ### Phase E — content wave 1: the 15 portable steps
-- [ ] Sources and Sinks: `ActiveSourcePassiveSink`, `PassiveSourceActiveSink`
-- [ ] Queues: `Queue`, `DropTailQueue`
+- [ ] Sources and Sinks: ~~`ActiveSourcePassiveSink`~~, `PassiveSourceActiveSink`
+- [ ] Queues: ~~`Queue`~~, `DropTailQueue`
 - [ ] Classifying: `PriorityClassifier`, `ContentBasedClassifier`
 - [ ] Scheduling: `PriorityScheduler`
 - [ ] Filtering: `Filter1`, `Filter2`
@@ -663,3 +663,30 @@ action that opens it.
 
 **Wart worth knowing:** a `WidgetScrollPane`'s size is explicit — a viewport
 with width 0 clips its content away entirely rather than filling what is left.
+
+### D2 + D3b, and a hollow run the tests did not catch
+
+`PacketTemplate.data` is a constant or a `Volatile` drawn per packet, attached
+as a `DataTag`. INET reaches for `ByteCountChunk.data`; a tag keeps the packet's
+length saying what it means and does not limit the value to a byte.
+
+`ActiveSourcePassiveSinkModel` establishes the per-step model pattern: a model
+type in the example package's `steps/`, its network builder embedded by name
+from the page. Two departures from the draft worth recording:
+
+- **A step model is example code, per step, not a builder function.** The
+  lifecycle dispatches `build_model` on the model *type*, so a step that runs a
+  different network needs its own type. Each is ~40 lines of which ~6 are the
+  `AbstractModel` interface delegating to the network.
+- **The Julia parser had to learn `export`** (and `public`). A source file the
+  tutorial embeds is an ordinary file, and ordinary files export.
+
+**The bug this phase found.** `embed_finish!` prepared an execution and advanced
+the result stage — which *collects* what a run produced — without running it, so
+every scalar came out zero. Both the embed test and the tutorial test asserted
+only that a result *existed*, which it did. A hollow assertion over a hollow
+run, and it survived two green suites. Fixed with one synchronous
+`run_simulation!` between prepare and finish; every result assertion now names a
+number (`sink.packets:count == 100` for the source→sink step, a range for the
+queue) instead of a length. Worth remembering when writing the remaining steps:
+**assert the step's own claim, never that output exists.**
