@@ -44,6 +44,7 @@ include("contract/PacketProtocol.jl")
 
 include("base/Statistics.jl")           # what a module records about its run
 include("base/PacketSource.jl")         # the packets a source hands out
+include("common/PacketPredicates.jl")   # the questions elements ask about a packet
 
 include("source/ActivePacketSource.jl")   # produces and pushes
 include("source/PassivePacketSource.jl")  # has one ready to be pulled
@@ -69,6 +70,7 @@ using .ActivePacketSinkElement
 using .PacketQueueElement
 using .PacketServerElement
 using .InstantServerElement
+using .PacketPredicateModule
 using .PacketClassifierElement
 using .PacketSchedulerElement
 using .PacketFilterElement
@@ -90,6 +92,7 @@ export
     ActivePacketSourceElement, PassivePacketSourceElement,
     PassivePacketSinkElement, ActivePacketSinkElement,
     PacketQueueElement, PacketServerElement, InstantServerElement,
+    PacketPredicateModule,
     PacketClassifierElement, PacketSchedulerElement, PacketFilterElement,
     PacketPlumbingElement, PriorityQueueElement,
     # the model interface implementation the lifecycle drives

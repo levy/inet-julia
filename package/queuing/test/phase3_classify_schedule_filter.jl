@@ -24,6 +24,7 @@ using InetQueuing.PacketClassifierElement
 using InetQueuing.PacketSchedulerElement
 using InetQueuing.PacketFilterElement
 using InetQueuing.PacketSourceModule
+using InetQueuing.PacketPredicateModule
 using InetPacket.PacketModule
 using OmnetppSimulator.VolatileModule
 
@@ -172,6 +173,67 @@ end
 
         @test_throws ErrorException markov_classifier(:ragged, [[1.0], [0.5, 0.5]])
         @test_throws ErrorException markov_classifier(:nostate, [[1.0]]; initial = 2)
+    end
+
+    @testset "predicates: comparing what is in a packet" begin
+        rng = MersenneTwister(1)
+        made(data) = create_packet(PacketTemplate(length = Bytes(10), data = data),
+                                   rng, to_simtime(0.0))
+
+        equals_three = data_predicate(==, 3)
+        @test !equals_three(made(1))
+        @test equals_three(made(3))
+        @test !equals_three(made(5))
+        # A packet with nothing written on it is a plain no, not an error: a
+        # stream where only some packets are labelled is an ordinary thing.
+        @test !equals_three(made(nothing))
+
+        @test data_predicate(>=, 3)(made(5))
+        @test data_predicate(in, (1, 4, 9))(made(4))
+        @test !data_predicate(in, (1, 4, 9))(made(2))
+    end
+
+    @testset "predicates: asking which packet this is" begin
+        rng = MersenneTwister(1)
+        made() = create_packet(PacketTemplate(length = Bytes(10)), rng, to_simtime(0.0))
+
+        every_third = ordinal_predicate(n -> n % 3 == 0)
+        @test [every_third(made()) for _ in 1:7] ==
+              Bool[false, false, true, false, false, true, false]
+
+        # The count is the predicate's own, so two of them made from one rule
+        # count their own streams.
+        rule = n -> n % 2 == 0
+        first, second = ordinal_predicate(rule), ordinal_predicate(rule)
+        @test !first(made())
+        @test !second(made())
+        @test first(made())
+    end
+
+    @testset "predicates: naming one instead of writing it" begin
+        rng = MersenneTwister(1)
+        made(data) = create_packet(PacketTemplate(length = Bytes(10), data = data),
+                                   rng, to_simtime(0.0))
+
+        # A name takes its parameters, so one name covers a family.
+        @test packet_predicate(:data_equals, 3)(made(3))
+        @test !packet_predicate(:data_equals, 3)(made(4))
+        @test packet_predicate(:always)(made(nothing))
+        @test !packet_predicate(:never)(made(nothing))
+
+        keeps = packet_predicate(:except_every_nth, 3)
+        @test [keeps(made(1)) for _ in 1:6] == Bool[true, true, false, true, true, false]
+
+        @test :data_equals in packet_predicate_names()
+        # An unknown name says what it does know.
+        @test_throws ErrorException packet_predicate(:no_such_policy)
+
+        # Registering is open: a model may add its own.
+        register_packet_predicate!(:test_only_even_data,
+                                   () -> (packet -> (d = packet_data(packet);
+                                                     d !== nothing && iseven(d))))
+        @test packet_predicate(:test_only_even_data)(made(4))
+        @test !packet_predicate(:test_only_even_data)(made(3))
     end
 
     @testset "a priority scheduler drains the first input first" begin
