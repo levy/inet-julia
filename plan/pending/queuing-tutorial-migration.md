@@ -378,17 +378,20 @@ content. Each phase = one commit series; tick + log here.
 - [x] D3b: `ActiveSourcePassiveSink` — its own model in the example package's
       `steps/`, with the step's claim (100 packets in 10 s) asserted exactly
 
-### Phase E — content wave 1: the 15 portable steps — **4 of 15 done**
+### Phase E — content wave 1: the 15 portable steps — **10 of 15 done**
 - [x] Sources and Sinks: `ActiveSourcePassiveSink`, `PassiveSourceActiveSink`
 - [x] Queues: `Queue`, `DropTailQueue`
-- [ ] Classifying: `PriorityClassifier`, `ContentBasedClassifier`
-- [ ] Scheduling: `PriorityScheduler`
-- [ ] Filtering: `Filter1`, `Filter2`
+- [ ] Classifying: `PriorityClassifier` (its own page — the element is already
+      used by the scheduling step), ~~`ContentBasedClassifier`~~
+- [x] Scheduling: `PriorityScheduler`
+- [ ] Filtering: ~~`Filter1`~~ (shipped as `filtering/Filter.md`), `Filter2`
+      (the back-pressure variant)
 - [ ] Serving: `Server`
-- [ ] Generic elements: `Delayer`, `Multiplexer`, `Demultiplexer`
-- [ ] Advanced queues: `PriorityQueue`
+- [x] Generic elements: `Delayer`, `Multiplexer`, `Demultiplexer`
+- [ ] Advanced queues: `PriorityQueue` (the element, not the assembled chain the
+      scheduling step builds)
 - [ ] Complex examples: `Network`
-- [ ] `gettingstarted` → rewritten as the tutorial's introduction in `index.md`
+- [x] `gettingstarted` → the "how to read a step" introduction in `index.md`
 
 ### Phase F — element gaps + content wave 2 (15 steps)
 New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance test):
@@ -690,3 +693,30 @@ run, and it survived two green suites. Fixed with one synchronous
 number (`sink.packets:count == 100` for the source→sink step, a range for the
 queue) instead of a length. Worth remembering when writing the remaining steps:
 **assert the step's own claim, never that output exists.**
+
+### Phase E so far — ten steps, and what porting them taught
+
+Ten of the fifteen are in, over five step-model files in the example package.
+The recipe held: a model type per step (or a shared one where two steps differ
+only in configuration — the two queue steps do), a page with prose + the
+model's own source + the live simulation, an index entry, and a claim asserted
+as a number.
+
+Three things worth knowing before writing the rest:
+
+- **The embedded file must parse, not just the fragment.** `definition(file(f),
+  name)` parses *f* whole, so a construct the Julia domain cannot read fails the
+  page even when the embedded function is fine. `export`/`public` were added
+  (they are unavoidable in a real file); **comprehensions and `let` are still
+  unsupported**, so a step builder writes an explicit loop. Worth fixing in the
+  Julia domain rather than in every step — a follow-up.
+- **A demultiplexer is not a multiplexer's opposite.** It sits on the *pull*
+  side: one provider, several collectors. Wiring it push-first fails at
+  `initialize_module!` with a message naming the gate, which is the error a step
+  author will meet most often.
+- **Give each source its own seed.** Several sources with one seed draw the same
+  intervals and produce the same stream — a mistake worth making once.
+
+The five that remain: `PriorityClassifier` as its own page, `Filter2` (the
+back-pressure variant), `Server`, the `PriorityQueue` *element* (as opposed to
+the chain the scheduling step assembles), and `Network` (nested compounds).
