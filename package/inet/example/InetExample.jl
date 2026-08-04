@@ -27,12 +27,39 @@ import InetQueuingExample
 using Inet
 using OmnetppSimulator: workbench_refresh!
 using OmnetppPresentation: CatalogShell, CatalogShellToWidget, SimulationEmbed,
-    catalog_pages, open_page!, register_doctype_module!, simulation_embed_entry,
-    workbench_document_dispatch
+    catalog_pages, default_topology_engine, open_page!, register_doctype_module!,
+    simulation_embed_entry, workbench_document_dispatch
 import Projectured
 using Projectured.ChainingProjectionModule: ChainingProjection
+using Projectured.FileProjectModule: register_marker_function!
+using Projectured.CellModule: ImmutableCell
+using Projectured.ColorModule: color_solarized_violet
+using Projectured.FontModule: font_ubuntu_monospace_regular_20
+using Projectured.FsmModule: FsmMachine, FsmState, FsmTransition, FsmTimer
+using Projectured.FsmDiagramModule: FsmDiagram
+using Projectured.FsmDiagramToGraphModule: FsmDiagramToGraph, FsmStateToSyntaxLabel
+using Projectured.FsmToFsmDiagramModule: FsmToFsmDiagram
+using Projectured.FsmToSyntaxModule: FsmToSyntax
+using Projectured.GeometryModule: Point2D
+using Projectured.GraphLayoutEngineModule: FallbackLayoutEngine
+using Projectured.GraphLayoutToGraphicsModule: GraphLayoutToGraphicsCanvas
+using Projectured.GraphToGraphLayoutModule: GraphGraphToGraphLayout
+using Projectured.IoMapModule: SimpleIoMap, get_iomap_output
+using Projectured.LayoutModule: VerticalLayout
+using Projectured.LayoutToGraphicsModule: VerticalLayoutToGraphicsCanvas
 using Projectured.MarkdownModule: MarkdownParagraph, MarkdownQuote
 using Projectured.NaturalProjectionModule: NaturalToGraphics, natural_to_syntax_dispatch
+using Projectured.NestingProjectionModule: NestingProjection
+using Projectured.OperationModule: Operation
+import Projectured.ProjectionApiModule: print_document, read_intent,
+    map_reference_forward, map_reference_backward
+using Projectured.ProjectionApiModule: Projection
+using Projectured.ProjectionModule: var"@projection"
+using Projectured.ProjectionTemplateModule: var"@projection_template"
+using Projectured.StyleTextModule: StyleText, DStyleText
+using Projectured.SyntaxModule: SyntaxLeaf
+using Projectured.TextModule: TextString
+using Projectured.WidgetModule: WidgetScrollPane
 using Projectured.RecursiveProjectionModule: RecursiveProjection
 using Projectured.SyntaxToTextModule: SyntaxToText
 using Projectured.TextToGraphicsModule: TextToGraphics
@@ -43,6 +70,7 @@ using Projectured.WordWrappingModule: WordWrapping
 using ProjecturedDomainExample: run_example
 
 export demo_directory, demo_catalog, demo_projection, run_demo
+export FSM_MACHINES, fsm_machines, FsmMachineToWidget, fsm_machine_entry, fsm_diagram_entry
 
 let _taken = Set{Symbol}()
     for _src in (InetPacketExample, InetQueuingExample)
@@ -57,6 +85,10 @@ let _taken = Set{Symbol}()
         end
     end
 end
+
+# The protocol's state machines, and the `fsm(…)` marker that puts one on a
+# page. Loaded before the projection below, which needs the diagram pipeline.
+include("Machines.jl")
 
 """
     demo_directory() -> String
@@ -100,13 +132,19 @@ middle of prose rather than a document nobody can click.
 
 The hover tracker turns raw pointer motion into the crossings a button's
 `hovered` cell keys on, so a card's buttons light up under the pointer.
+
+A state machine spliced in by `fsm(…)` is dispatched to the diagram pipeline
+the same way, so a machine on a page draws as a state diagram rather than as a
+tree of its own fields.
 """
 demo_projection(; measure = truetype_measure_text) =
     WidgetHoverTrackingProjection(inner =
         ChainingProjection(CatalogShellToWidget(),
                            NaturalToGraphics(measure = measure,
                                              extra = vcat(
-                                                 Pair{Type,Any}[simulation_embed_entry()],
+                                                 Pair{Type,Any}[simulation_embed_entry(),
+                                                     fsm_machine_entry(measure = measure),
+                                                     fsm_diagram_entry(measure = measure)],
                                                  _demo_prose_dispatch(measure),
                                                  workbench_document_dispatch(measure = measure)))))
 
@@ -203,6 +241,10 @@ end
 # than a top-level call (`register_doctype_module!`'s own rule).
 function __init__()
     register_doctype_module!(Inet)
+    # `<<fsm("ethernet_csma_mac")>>`. The marker vocabulary is a table of
+    # functions — runtime state, registered on load rather than baked into the
+    # precompiled image, the same rule `realize` follows.
+    register_marker_function!(:fsm, marker_fsm)
 end
 
 end # module InetExample

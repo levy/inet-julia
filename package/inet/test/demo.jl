@@ -39,6 +39,35 @@ function _demo_stubs(node, acc = Any[], depth = 0)
     acc
 end
 
+# Every string a rendered tree actually draws. A diagram that fell back to a
+# generic view still produces a canvas of the right type, so what it SAYS is the
+# only assertion worth making about it.
+function _drawn_strings(root)
+    drawn, pending, seen = String[], Any[root], Set{UInt64}()
+    while !isempty(pending)
+        node = pop!(pending)
+        while node isa AbstractCell
+            node = node[]
+        end
+        node === nothing && continue
+        id = objectid(node)
+        id in seen && continue
+        push!(seen, id)
+        if node isa GraphicsCanvas
+            for element in node.elements
+                push!(pending, element)
+            end
+        elseif node isa Projectured.GraphicsModule.GraphicsViewport
+            push!(pending, node.content)
+        elseif hasproperty(node, :content) && !(getproperty(node, :content) isa AbstractString)
+            push!(pending, getproperty(node, :content))
+        elseif string(typeof(node).name.name) == "GraphicsText"
+            push!(drawn, string(node.text))
+        end
+    end
+    drawn
+end
+
 @testset "the root file builds a shell with a derived navigator" begin
     shell = demo_catalog()
     @test shell isa CatalogShell
@@ -190,6 +219,41 @@ end
         end
     end
     @test Set(charted) == Set(keys(CHARTED))
+end
+
+@testset "the MAC machine draws as a state diagram" begin
+    # A machine renders through five projections, and any one of them falling
+    # back to a generic view still yields a canvas of the right type. So the
+    # assertion is what a reader would see: the state names, and the trigger
+    # labels on the edges between them.
+    shell = demo_catalog()
+    i = findfirst(e -> !e.section && e.path == "pages/Fsm.md", collect(shell.entries))
+    @test i !== nothing
+    open_page!(shell, i)
+    out = get_iomap_output(print_document(demo_projection(measure = truetype_measure_text),
+                                          shell))
+    texts = _drawn_strings(out)
+    for state in ("IDLE", "WAIT_IFG", "TRANSMITTING", "JAMMING", "BACKOFF", "RECEIVING")
+        @test any(t -> occursin(state, t), texts)
+    end
+    # The edges say what fires them: an event by name, a timer as a timeout.
+    @test any(t -> occursin("UPPER_PACKET", t), texts)
+    @test any(t -> occursin("timeout(backoff_timer)", t), texts)
+    # The marker itself never shows: what is on the page is the machine.
+    @test !any(t -> occursin("<<fsm", t), texts)
+end
+
+@testset "a machine the catalog does not know is refused by name" begin
+    err = try
+        Projectured.evaluate_marker("fsm(\"no_such_machine\")",
+                                    Projectured.LoaderContext(demo_directory()))
+        nothing
+    catch e
+        sprint(showerror, e)
+    end
+    @test err !== nothing
+    # The message lists what there is, so a typo is self-correcting.
+    @test occursin("ethernet_csma_mac", err)
 end
 
 @testset "the tutorial's own step files still travel" begin
