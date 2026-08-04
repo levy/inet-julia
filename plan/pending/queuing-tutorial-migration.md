@@ -423,12 +423,13 @@ New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance
       reader who wants sweeps opens the project in the workbench, where the full
       stage column already lives — a second entry point into the same machinery, in
       a page element that could grow taller than the page, is not worth it.
-- [ ] **Decided 2026-08-04: add it.** An inline (non-fenced) marker for small
-      in-paragraph embeds, alongside the fenced form. Costs a second marker shape in
-      each host format's parse and save path.
-- [ ] **Decided 2026-08-04: add it.** `section(doc, "title")` in the marker
-      vocabulary, same pattern as `definition` — a page can embed or link a named
-      section of another page, and it follows a renamed heading.
+- [x] **Done.** An inline (non-fenced) marker: a `<<…>>` in a line of prose is
+      split out of the text run and comes back in that line, no fence. The stub
+      remembers `inline`, which is part of how it was written — the same thing it
+      already remembers its source text for.
+- [x] **Done.** `section(doc, "title")` takes the heading and everything it heads
+      up to the next heading of the same or a higher level, sharing the page's own
+      element objects. Missing and duplicate headings error, like `definition`.
 - [x] **Settled by experience.** Twenty steps in, the marker interpreter's subset has
       never needed to grow: every marker is still a call chain over literals. What did
       need to grow is the **Julia domain's parser**, which is a different thing —
