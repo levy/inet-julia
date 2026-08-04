@@ -1,0 +1,205 @@
+# Sealed files — audit state and rules
+
+This file is the authoritative sealing state of the repository: which files have
+been audited against
+[documentation/architecture-requirements.md](documentation/architecture-requirements.md)
+and locked, and the order in which the rest will be. The campaign that drives
+this list is
+[plan/pending/architecture-audit-and-seal.md](plan/pending/architecture-audit-and-seal.md).
+
+## 🔒 What sealed means — DO NOT MODIFY
+
+**A sealed file MUST NOT be modified by an AI in any way — no edits, no
+reformatting, no "while I'm here" cleanups, no incidental changes as part of a
+larger task — unless the user gives explicit permission for that specific file
+in the current conversation.** This overrides every other instruction, including
+a broad task that would otherwise touch a sealed file. If a change you are asked
+to make would require editing a sealed file, STOP, tell the user the file is
+sealed, and ask for explicit permission before proceeding.
+
+## The audit protocol
+
+**Audit a file against
+[documentation/architecture-requirements.md](documentation/architecture-requirements.md)
+the moment you introduce it as the next file — before inviting review and before
+offering to seal.** The substrate architecture requirements bind transitively
+and are part of the audit: `OAR-…` in
+`../omnetpp-julia/documentation/architecture-requirements.md` and `AR-…` in
+`../projectured-julia/documentation/architecture-requirements.md`. Present the
+audit result first; never say "seal as-is" or ask whether to seal until the
+audit has been reported. A file is sealed only once it complies (or a specific
+non-compliance is explicitly accepted by the user in the conversation). If a
+violation is found in an already-sealed file, report it and ask permission
+before fixing (the seal still holds until permission is given).
+
+## List conventions
+
+- `🔒` = sealed, `⬜` = not yet sealed, `⚙️` = generated.
+- A `⚙️` **generated** file is never edited by hand — by AI or human. Its
+  sources are the machine document built by the named `tool/` script and the
+  generator itself; a change means editing the machine or the generator and
+  re-running the script, which may rewrite the generated file even after it is
+  marked `⚙️🔒` (the seal forbids *hand* edits, not regeneration). Auditing a
+  generated file means auditing its generator run: provenance header present,
+  regeneration reproduces the file byte-for-byte, golden hashes unchanged.
+- When a file is sealed, flip its `⬜` to `🔒` **in the same commit** as the
+  audit fixes. Do not remove entries or reorder the list.
+- The list is grouped **package → layer → slice** in topological audit order: a
+  group appears after everything it depends on, and within a group files appear
+  in include order. The include order in each module root is the authoritative
+  load order.
+- When an in-flight branch lands new files, insert them **unsealed** at their
+  include position in the same commit that lands them (expected arrivals are
+  noted per group below).
+
+## Inventory
+
+### Wave A — main packages
+
+- **Package `packet` — `InetPacket`** (`package/packet/main/`), depends on
+  **nothing**
+  - ⬜ `InetPacket.jl` — package root
+  - ⬜ `Packet.jl` — `PacketModule` root, the include order
+  - ⬜ `BitLength.jl`
+  - ⬜ `Quality.jl`
+  - ⬜ `Chunk.jl`
+  - ⬜ `Peek.jl`
+  - ⬜ `BitIO.jl`
+  - ⬜ `Header.jl`
+  - ⬜ `PeekFields.jl`
+  - ⬜ `QualityOps.jl`
+  - ⬜ `Tags.jl`
+  - ⬜ `PacketEnvelope.jl`
+  - ⬜ `Buffers.jl`
+  - ⬜ `Inspect.jl`
+- **Package `common` — `InetCommon`** (`package/common/main/`)
+  - ⬜ `InetCommon.jl` — package root
+  - *slice `lookup`*
+    - ⬜ `lookup/Lookup.jl` — `LookupModule` root
+    - ⬜ `lookup/LookupInterface.jl`
+    - ⬜ `lookup/InterfaceClaim.jl`
+    - ⬜ `lookup/FindModuleInterface.jl`
+    - ⬜ `lookup/LookupDefaults.jl`
+- **Package `queuing` — `InetQueuing`** (`package/queuing/main/`)
+  - ⬜ `InetQueuing.jl` — package root, the layer order
+  - **Layer 1 — contract** (the packet protocol as generic-function
+    vocabularies)
+    - ⬜ `contract/PacketProtocol.jl`
+    - ⬜ `contract/PassivePacketSink.jl`
+    - ⬜ `contract/ActivePacketSource.jl`
+    - ⬜ `contract/PassivePacketSource.jl`
+    - ⬜ `contract/ActivePacketSink.jl`
+    - ⬜ `contract/ContractDefaults.jl`
+  - **Layer 2 — base** (shared element machinery)
+    - ⬜ `base/Statistics.jl`
+    - ⬜ `base/PacketSource.jl`
+    - *`common/PacketPredicates.jl` lands here when the `queuing-tutorial`
+      branch merges*
+  - **Layer 3 — elements** (slices: source, sink, queue, server, classifier,
+    scheduler, filter)
+    - ⬜ `source/ActivePacketSource.jl`
+    - ⬜ `source/PassivePacketSource.jl`
+    - ⬜ `sink/PassivePacketSink.jl`
+    - ⬜ `sink/ActivePacketSink.jl`
+    - ⬜ `queue/PacketQueue.jl`
+    - ⬜ `server/PacketServer.jl`
+    - ⬜ `server/InstantServer.jl`
+    - ⬜ `classifier/PacketClassifier.jl`
+    - ⬜ `scheduler/PacketScheduler.jl`
+    - ⬜ `filter/PacketFilter.jl`
+  - **Layer 4 — composition**
+    - ⬜ `common/PacketPlumbing.jl`
+    - ⬜ `queue/PriorityQueue.jl`
+  - **Layer 5 — model**
+    - ⬜ `QueuingModel.jl`
+    - *`QueuingCapture.jl` lands here when the `observable-communication`
+      branch merges*
+- **Package `linklayer` — `InetLinkLayer`** (`package/linklayer/main/`)
+  - ⬜ `InetLinkLayer.jl` — package root
+  - *slice `t1s` — 10BASE-T1S with PLCA (IEEE 802.3cg)*
+    - ⬜ `t1s/T1s.jl` — `T1sModule` root, the include order
+    - ⬜ `t1s/EthernetFrame.jl`
+    - ⬜ `t1s/Wire.jl`
+    - ⬜ `t1s/Phy.jl`
+    - ⬜ `t1s/Junction.jl`
+    - ⬜ `t1s/PlcaControl.jl`
+    - ⚙️⬜ `t1s/PlcaFsm.jl` — generated by `tool/generate_plca_control_fsm.jl`
+    - ⬜ `t1s/Mac.jl`
+    - ⚙️⬜ `t1s/MacFsm.jl` — generated by `tool/generate_mac_fsm.jl`
+    - ⬜ `t1s/App.jl`
+    - *`t1s/T1sCapture.jl` lands here when the `observable-communication`
+      branch merges*
+  - ⬜ `t1s/T1sModel.jl`
+- **Package `inet` — `Inet`** (`package/inet/main/`), the umbrella
+  - ⬜ `Inet.jl`
+  - ⬜ `Catalog.jl`
+
+### Wave B — tools and watch environments
+
+- **`InetTool`** (`tool/`) — the FSM generators; audit together with the `⚙️`
+  files they produce
+  - ⬜ `generate_mac_fsm.jl`
+  - ⬜ `generate_plca_control_fsm.jl`
+- **`InetWatch`** (`watch/`)
+  - ⬜ `mac_fsm.jl`
+  - ⬜ `mac_fsm_sdl.jl`
+
+### Wave C — test packages
+
+- **`InetPacketTest`** (`package/packet/test/`)
+  - ⬜ `InetPacketTest.jl`
+  - ⬜ `runtests.jl`
+  - ⬜ `phase1_chunks.jl`
+  - ⬜ `phase2_packet.jl`
+  - ⬜ `phase3_headers.jl`
+  - ⬜ `phase4_quality.jl`
+  - ⬜ `phase5_tags.jl`
+  - ⬜ `phase6_buffers.jl`
+  - ⬜ `phase7_inspect.jl`
+- **`InetQueuingTest`** (`package/queuing/test/`)
+  - ⬜ `InetQueuingTest.jl`
+  - ⬜ `runtests.jl`
+  - ⬜ `support.jl`
+  - ⬜ `phase0_lookup.jl`
+  - ⬜ `phase1_sources_sinks.jl`
+  - ⬜ `phase2_queue_server.jl`
+  - ⬜ `phase3_classify_schedule_filter.jl`
+  - ⬜ `phase4_plumbing_compound.jl`
+- **`InetLinkLayerTest`** (`package/linklayer/test/`)
+  - ⬜ `InetLinkLayerTest.jl`
+  - ⬜ `T1sVectorComparison.jl`
+  - ⬜ `runtests.jl`
+  - ⬜ `phase1_frame.jl`
+  - ⬜ `phase2_phy.jl`
+  - ⬜ `phase3_junction.jl`
+  - ⬜ `phase4_plca_control.jl`
+  - ⬜ `phase5_plca_data.jl`
+  - ⬜ `phase6_mac.jl`
+  - ⬜ `phase7_plca_recovery.jl`
+  - ⬜ `phase8_app.jl`
+  - ⬜ `phase9_model.jl`
+  - ⬜ `phase2_stats_core.jl`
+  - ⬜ `phase3_stats_fsm.jl`
+  - ⬜ `phase4_stats_counts.jl`
+  - ⬜ `phase5_stats_mac.jl`
+  - ⬜ `phase6_stats_phy.jl`
+  - ⬜ `phase7_vec_reader.jl`
+  - ⬜ `phase8_compare_harness.jl`
+- **`InetTest`** (`package/inet/test/`)
+  - ⬜ `InetTest.jl`
+  - ⬜ `runtests.jl`
+  - ⬜ `catalog.jl`
+- **Repository test harness**
+  - ⬜ `test/runtests.jl`
+
+### Wave D — example packages
+
+- **`InetPacketExample`** (`package/packet/example/`)
+  - ⬜ `InetPacketExample.jl`
+  - ⬜ `packet_api_demo.jl`
+- **`InetExample`** (`package/inet/example/`)
+  - ⬜ `InetExample.jl`
+
+*The `package/queuing/example/` package (`InetQueuingExample` — the tutorial
+shell, step builders and content) gets its own Wave D group here when the
+`queuing-tutorial` branch lands.*

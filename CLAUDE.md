@@ -3,12 +3,29 @@
 The network-model library above the `omnetpp-julia` simulation kernel: INET's
 packet representation, queuing elements and protocol models, in Julia.
 
+## 🔒 Sealed files
+
+**Some files in this repository are sealed. Read [SEALING.md](SEALING.md)
+before modifying anything: a file marked `🔒` there MUST NOT be modified by an
+AI in any way unless the user gives explicit permission for that specific file
+in the current conversation.** If a change you are asked to make would require
+editing a sealed file, STOP and ask. Files marked `⚙️` are generated — never
+hand-edit them; change the machine in the named `tool/` script and regenerate.
+`SEALING.md` also holds the audit protocol and the full audit-order inventory;
+the campaign that drives it is
+[plan/pending/architecture-audit-and-seal.md](plan/pending/architecture-audit-and-seal.md).
+
 ## Before working here
 
 Read [README.md](README.md) for what the library is, and
 [documentation/architecture.md](documentation/architecture.md) for the package
-graph and the rule for where new material belongs. Per-component references live
-in `package/<component>/doc/`.
+graph and the rule for where new material belongs.
+[documentation/requirements.md](documentation/requirements.md) (`IR-…`) states
+what the library promises;
+[documentation/architecture-requirements.md](documentation/architecture-requirements.md)
+(`IAR-…`) the invariants every change must respect — the substrate's `OAR-…`
+and `AR-…` rules bind transitively. Per-component references live in
+`package/<component>/doc/`.
 
 ## Layout
 
