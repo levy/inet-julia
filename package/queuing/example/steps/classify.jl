@@ -11,12 +11,14 @@ using InetQueuing: ActivePacketSourceModule, ActivePacketSourceParameters,
     PacketServerModule, PacketServerParameters,
     PacketFilterModule, PacketFilterParameters,
     content_based_classifier, priority_classifier, priority_scheduler,
+    weighted_round_robin_classifier, weighted_round_robin_scheduler, markov_classifier,
     PacketTemplate, packet_data, check_packet_connections
 using OmnetppSimulator.VolatileModule: Volatile, intuniform
 using OmnetppSimulator: MersenneTwister
 using InetQueuing: drop_at_end
 
-export ContentBasedClassifierModel, PriorityQueueChainModel, FilterModel
+export ContentBasedClassifierModel, PriorityQueueChainModel, FilterModel,
+    SharedChainModel
 
 # The three models below wire the same skeleton, so the pieces they share are
 # built here rather than three times over.
@@ -265,3 +267,126 @@ function schedule_initial_events!(m::AbstractFilterModel, engine::AbstractEngine
 end
 
 finalize_model!(m::AbstractFilterModel, recorder) = finalize_network!(m.network, recorder)
+
+# ── Sharing a chain out ─────────────────────────────────────────────────────
+
+"""
+    SharedChainModel
+
+One source, one server, and two sinks that have to share what the server can
+manage — with the policy that decides the share as a parameter.
+
+`policy` picks how the chain is split: `:priority` fills the first queue and
+overflows into the second, `:round_robin` alternates by weight, and `:markov`
+walks a state machine, which gives the same long-run shares in bursts. The
+network is otherwise identical, so what changes between runs is only the
+policy.
+"""
+@document struct SharedChainModel <: AbstractModel
+    arrival_rate::Float64
+    processing_time::Float64
+    policy::Symbol               # :priority | :round_robin | :markov
+    first_weight::Int            # the first output's share, under :round_robin
+    second_weight::Int
+    stickiness::Float64          # how often :markov stays where it is
+    time_limit::Float64
+    seed::Int
+    network::Any
+end
+
+model_module_count(m::AbstractSharedChainModel)   = network_module_count(m.network)
+model_barrier_module(m::AbstractSharedChainModel) = network_barrier(m.network)
+model_delay_edges(m::AbstractSharedChainModel)    = network_delay_edges(m.network)
+model_topology(m::AbstractSharedChainModel)       = network_topology(m.network)
+
+model_description(::Type{SharedChainModel}) =
+    "Two queues sharing one server, with the sharing policy as a parameter."
+
+model_parameter_space(::Type{SharedChainModel}) = ParameterSpace(Parameter[
+    Parameter(:arrival_rate,    20.0,          nothing, StructuralDOF),
+    Parameter(:processing_time, 0.1,           nothing, StructuralDOF),
+    Parameter(:policy,          :round_robin,  nothing, StructuralDOF),
+    Parameter(:first_weight,    3,             nothing, StructuralDOF),
+    Parameter(:second_weight,   1,             nothing, StructuralDOF),
+    Parameter(:stickiness,      0.9,           nothing, StructuralDOF),
+    Parameter(:time_limit,      100.0,         nothing, StructuralDOF),
+    Parameter(:seed,            42,            nothing, StochasticDOF),
+])
+
+function build_model(::Type{SharedChainModel}, r::AbstractResolvedParameters)
+    m = SharedChainModelMut(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+                            Symbol(r[:policy]), Int(r[:first_weight]),
+                            Int(r[:second_weight]), Float64(r[:stickiness]),
+                            Float64(r[:time_limit]), Int(r[:seed]), nothing)
+    m.network = _build_shared_chain_network(m)
+    m
+end
+
+# The fork the chosen policy asks for. All three answer the same question —
+# which output does this packet leave by — and none of them is a different
+# element.
+function _shared_chain_classifier(m)
+    weights = Int[m.first_weight, m.second_weight]
+    m.policy === :round_robin && return weighted_round_robin_classifier(:classifier, weights)
+    if m.policy === :markov
+        stay = m.stickiness
+        leave = 1.0 - stay
+        return markov_classifier(:classifier, [[stay, leave], [leave, stay]];
+                                 seed = m.seed + 3)
+    end
+    m.policy === :priority ||
+        error("SharedChainModel: policy must be :priority, :round_robin or :markov, got ",
+              m.policy)
+    priority_classifier(:classifier, 2)
+end
+
+# What the queues behind the fork look like, which is not the same question for
+# every policy.
+#
+# A priority classifier ASKS whether an output will take the packet, so its
+# queues need a capacity to refuse at — refusing is the whole mechanism, and
+# that is what sends the overflow to the second queue.
+#
+# A share-based classifier does not ask: it is told which output to use, and
+# pushing into a full queue that cannot refuse is an error, not a policy. So
+# its queues are unbounded, and the share the classifier hands out is exactly
+# the share each queue receives.
+_shared_chain_queue_parameters(m) =
+    m.policy === :priority ? PacketQueueParameters(packet_capacity = 10) :
+                             PacketQueueParameters()
+
+function _build_shared_chain_network(m)
+    network = Network(:Shared)
+    source = _step_source(network, m)
+    fork = add_module!(network, _shared_chain_classifier(m))
+    parameters = _shared_chain_queue_parameters(m)
+    first = add_module!(network, PacketQueueModule(:first, parameters))
+    second = add_module!(network, PacketQueueModule(:second, parameters))
+    join = add_module!(network, weighted_round_robin_scheduler(:scheduler,
+        Int[m.first_weight, m.second_weight]))
+    server = add_module!(network, PacketServerModule(:server,
+        PacketServerParameters(processing_time = m.processing_time)))
+    sink = _step_sink(network, :sink)
+    connect!(source.out, fork.in)
+    connect!(fork.out[1], first.in)
+    connect!(fork.out[2], second.in)
+    connect!(first.out, join.in[1])
+    connect!(second.out, join.in[2])
+    connect!(join.out, server.in)
+    connect!(server.out, sink.in)
+    initialize_network!(network)
+    check_packet_connections(network)
+    network
+end
+
+reset_model!(m::AbstractSharedChainModel) = (reset_network!(m.network); m)
+
+function schedule_initial_events!(m::AbstractSharedChainModel, engine::AbstractEngine, recorder)
+    register_network_statistics!(m.network, recorder)
+    start_network!(engine, m.network)
+    schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
+                   ctx -> stop!(ctx.sim, SimTimeLimit))
+    engine
+end
+
+finalize_model!(m::AbstractSharedChainModel, recorder) = finalize_network!(m.network, recorder)

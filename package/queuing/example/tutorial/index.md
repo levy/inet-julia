@@ -52,6 +52,10 @@ ahead costs you only the sentence that says "as in the previous step".
 
 - [A priority queue, assembled from parts](scheduling/PriorityScheduler.md) —
   a classifier, two queues and a scheduler, and what "priority" turns out to be.
+- [Sharing by weight](scheduling/WeightedRoundRobin.md) — when you want a
+  share rather than a preference.
+- [Sharing in bursts](scheduling/MarkovScheduler.md) — the same shares,
+  arriving clumped.
 
 ## Filtering
 

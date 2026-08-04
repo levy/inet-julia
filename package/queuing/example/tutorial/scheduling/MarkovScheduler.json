@@ -1,0 +1,15 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Sharing in bursts",
+  "model": "SharedChainModel",
+  "parameters": {
+    "arrival_rate": 20.0,
+    "processing_time": 0.1,
+    "policy": "markov",
+    "first_weight": 1,
+    "second_weight": 1,
+    "stickiness": 0.9,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

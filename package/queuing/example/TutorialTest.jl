@@ -350,6 +350,35 @@ function test_tutorial()
             @test scalars[Symbol("PriorityQueue.queue.queue2.packets:count")] > 0
         end
 
+        @testset "a share policy gives the share it was asked for" begin
+            # Weights 3 and 1: three quarters of the packets take the first
+            # path, exactly — the classifier is told which output to use, so
+            # the share is not an average, it is the policy.
+            wrr = only(e for e in _tutorial_embeds(
+                           load_tutorial_page("scheduling/WeightedRoundRobin.md"))
+                       if e isa SimulationEmbed)
+            embed_finish!(wrr)
+            scalars = Dict(workbench_result(wrr.workbench).scalars)
+            first_path = scalars[Symbol("Shared.first.packets:count")]
+            second_path = scalars[Symbol("Shared.second.packets:count")]
+            # Exact to within the cycle the run ended in the middle of: the
+            # last few packets are part of a run of three that never finished.
+            @test 0 <= first_path - 3 * second_path < 3
+
+            # The Markov policy is symmetric here, so the same two paths get
+            # about half each — the shares match, and what differs is that they
+            # arrive in bursts (asserted on the classifier itself in the
+            # queuing suite, where the order is visible).
+            markov = only(e for e in _tutorial_embeds(
+                              load_tutorial_page("scheduling/MarkovScheduler.md"))
+                          if e isa SimulationEmbed)
+            embed_finish!(markov)
+            scalars = Dict(workbench_result(markov.workbench).scalars)
+            first_path = scalars[Symbol("Shared.first.packets:count")]
+            second_path = scalars[Symbol("Shared.second.packets:count")]
+            @test 0.45 <= first_path / (first_path + second_path) <= 0.55
+        end
+
         @testset "the complex network is the elements composed" begin
             embed = only(e for e in _tutorial_embeds(load_tutorial_page("complex/Network.md"))
                          if e isa SimulationEmbed)
