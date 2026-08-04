@@ -10,6 +10,7 @@ using InetQueuing.ActivePacketSinkElement
 using InetQueuing.PacketSourceModule
 using InetPacket.PacketModule
 using OmnetppSimulator.VolatileModule
+using OmnetppSimulator: MersenneTwister, to_simtime
 
 @testset "sources and sinks" begin
     @testset "a source pushes into a sink" begin
@@ -46,6 +47,41 @@ using OmnetppSimulator.VolatileModule
         # is delayed, not queued up behind the refusal.
         @test sink.statistics.num_packets == 5
         @test source.statistics.num_packets == sink.statistics.num_packets
+    end
+
+    @testset "a source writes data on its packets" begin
+        # The value a packet carries is what every content-based element
+        # downstream reads; a constant is the same on every packet, a Volatile
+        # is drawn per packet like the length.
+        network = Network(:Data)
+        source = add_module!(network, ActivePacketSourceModule(:source,
+            ActivePacketSourceParameters(production_interval = 0.1,
+                                         packet = PacketTemplate(length = Bytes(100),
+                                                                 data = 7))))
+        sink = add_module!(network, PassivePacketSinkModule(:sink))
+        connect!(source.out, sink.in)
+        run_network!(network; until = 0.5)
+        @test sink.statistics.num_packets == 6
+
+        varied = Network(:VariedData)
+        varied_source = add_module!(varied, ActivePacketSourceModule(:source,
+            ActivePacketSourceParameters(
+                production_interval = 0.1,
+                packet = PacketTemplate(length = Bytes(100),
+                                        data = Volatile(intuniform(0, 3))));
+            seed = 5))
+        collector = add_module!(varied, PassivePacketSinkModule(:sink))
+        connect!(varied_source.out, collector.in)
+        run_network!(varied, until = 2.0)
+        @test collector.statistics.num_packets == 21
+
+        # A packet with no data says so rather than guessing a default.
+        plain = create_packet(PacketTemplate(length = Bytes(100)), MersenneTwister(1),
+                              to_simtime(0.0))
+        @test packet_data(plain) === nothing
+        stamped = create_packet(PacketTemplate(length = Bytes(100), data = 7),
+                                MersenneTwister(1), to_simtime(0.0))
+        @test packet_data(stamped) == 7
     end
 
     @testset "a sink pulls from a source" begin

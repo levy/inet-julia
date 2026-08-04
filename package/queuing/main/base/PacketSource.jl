@@ -26,7 +26,8 @@ using OmnetppSimulator.VolatileModule: evaluate
 using InetPacket.PacketModule: Packet, Chunk, Filler, BitLength, Bits, Bytes, bits,
     set_tag!, get_tag, has_tag
 
-export CreationTimeTag, PacketTemplate, create_packet, packet_creation_time
+export CreationTimeTag, DataTag, PacketTemplate, create_packet, packet_creation_time,
+    packet_data
 
 """
     CreationTimeTag(time)
@@ -40,23 +41,45 @@ struct CreationTimeTag
 end
 
 """
-    PacketTemplate(; length = Bytes(1000), attach_creation_time = true)
+    DataTag(value)
+
+A value the source wrote on the packet, and the one thing about a packet that
+elements downstream classify, filter and compare on. INET's tutorial reaches for
+`ByteCountChunk.data` for this; here the value is a tag, so the packet's length
+stays what it says it is and the value is not limited to a byte.
+"""
+struct DataTag
+    value::Any
+end
+
+"""
+    PacketTemplate(; length = Bytes(1000), data = nothing,
+                     attach_creation_time = true)
 
 What the packets of a source look like.
 
 `length` is a [`BitLength`](@ref), a plain number of bits, or a
-[`Volatile`](@ref) drawn per packet.
+[`Volatile`](@ref) drawn per packet. `data` is the value each packet carries as
+a [`DataTag`](@ref) — a constant, or a `Volatile` drawn per packet, which is how
+a source produces a stream a content-based classifier can tell apart. `nothing`
+attaches no tag.
 """
 struct PacketTemplate
     length::Any
+    data::Any
     attach_creation_time::Bool
 end
 
-PacketTemplate(; length = Bytes(1000), attach_creation_time::Bool = true) =
-    PacketTemplate(length, attach_creation_time)
+PacketTemplate(; length = Bytes(1000), data = nothing,
+               attach_creation_time::Bool = true) =
+    PacketTemplate(length, data, attach_creation_time)
 
 _packet_length(length::BitLength, ::MersenneTwister) = length
 _packet_length(length, rng::MersenneTwister) = Bits(round(Int, evaluate(length, rng)))
+
+# A constant stays itself; a `Volatile` is drawn per packet, like the length.
+_packet_data(::Nothing, ::MersenneTwister) = nothing
+_packet_data(data, rng::MersenneTwister) = evaluate(data, rng)
 
 """
     create_packet(template, rng, time) -> Packet
@@ -67,6 +90,8 @@ One packet as `template` describes it, drawn against `rng` and stamped with
 function create_packet(template::PacketTemplate, rng::MersenneTwister, time::SimTime)
     packet = Packet(Filler(_packet_length(template.length, rng)))
     template.attach_creation_time && set_tag!(packet, CreationTimeTag(time))
+    data = _packet_data(template.data, rng)
+    data === nothing || set_tag!(packet, DataTag(data))
     packet
 end
 
@@ -77,5 +102,14 @@ When the packet was created, or `nothing` when its source did not say.
 """
 packet_creation_time(packet::Packet) =
     has_tag(packet, CreationTimeTag) ? get_tag(packet, CreationTimeTag).time : nothing
+
+"""
+    packet_data(packet) -> Any or nothing
+
+The value the packet carries, or `nothing` when its source attached none. What
+a content-based classifier, filter or comparator reads.
+"""
+packet_data(packet::Packet) =
+    has_tag(packet, DataTag) ? get_tag(packet, DataTag).value : nothing
 
 end # module
