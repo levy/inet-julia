@@ -1,0 +1,195 @@
+# The demo catalog, walked end to end: the root file loads, the navigator is
+# derived from the index's own prose, every page opens, every marker on it
+# resolves, every page renders through the projection `run_demo` actually
+# builds, and every simulation it embeds runs.
+#
+# This is the catalog's acceptance test. A page whose embedded fragment names a
+# definition that was since renamed, or whose step file names a model that no
+# longer exists, fails here rather than in front of an audience.
+
+using Test
+using Inet
+using InetExample
+using OmnetppSimulator
+using OmnetppPresentation
+using Projectured
+using Projectured.CellModule: AbstractCell
+using Projectured.CollectionModule: CellVector
+using Projectured.FileProjectModule: ReferenceStub
+using Projectured.GraphicsModule: GraphicsCanvas
+using Projectured.IoMapModule: get_iomap_output
+using Projectured.ProjectionApiModule: print_document
+using Projectured.TrueTypeModule: truetype_measure_text
+
+# Every ReferenceStub under a document — the markers a page carries.
+function _demo_stubs(node, acc = Any[], depth = 0)
+    depth > 24 && return acc
+    node isa AbstractCell && return _demo_stubs(node[], acc, depth)
+    node isa ReferenceStub && (push!(acc, node); return acc)
+    for f in (:elements, :items, :content)
+        hasproperty(node, f) || continue
+        v = getproperty(node, f)
+        v isa AbstractString && continue
+        v isa AbstractCell && (v = v[])
+        (v isa AbstractVector || v isa CellVector) || continue
+        for c in v
+            _demo_stubs(c, acc, depth + 1)
+        end
+    end
+    acc
+end
+
+@testset "the root file builds a shell with a derived navigator" begin
+    shell = demo_catalog()
+    @test shell isa CatalogShell
+    # The navigator comes from index.md's headings and links, so it is
+    # non-empty and every page entry names a file that exists.
+    pages = catalog_pages(shell)
+    @test !isempty(pages)
+    for entry in pages
+        @test isfile(joinpath(demo_directory(), entry.path))
+    end
+    # A section with no pages under it is not a row: the index's "How to read
+    # this" is prose only and must not appear.
+    entries = collect(shell.entries)
+    for (i, entry) in enumerate(entries)
+        entry.section || continue
+        rest = entries[(i + 1):end]
+        next = findfirst(e -> e.section, rest)
+        span = next === nothing ? rest : rest[1:(next - 1)]
+        @test any(e -> !e.section, span)
+    end
+    @test any(e -> e.section && e.title == "The packet, taken apart", entries)
+end
+
+@testset "every page opens and every marker on it resolves" begin
+    # A page that opens with an unresolved embed does NOT throw — the shell
+    # deliberately survives that, so an audience gets prose instead of a stack
+    # trace. Which is exactly why it has to be asserted here: without this the
+    # failure mode is a page that quietly lost its embed to a renamed
+    # definition and still looks fine.
+    shell = demo_catalog()
+    for (i, entry) in enumerate(shell.entries)
+        entry.section && continue
+        open_page!(shell, i)
+        @test Projectured.filename(shell.page) == entry.path
+        stubs = _demo_stubs(Projectured.content(shell.page))
+        @test !isempty(stubs)          # every page here demonstrates something
+        for stub in stubs
+            @test stub.resolved !== nothing
+        end
+    end
+end
+
+@testset "every page renders through the chain run_demo uses" begin
+    # Loading a page and rendering it are different things, and so are
+    # rendering it and FORCING that render: the canvas a projection returns is
+    # a tree of unevaluated cells, so asserting it is a GraphicsCanvas proves
+    # almost nothing. `_canvas_content_bounds` walks and forces every element,
+    # which is what the backend does when it paints.
+    shell = demo_catalog()
+    projection = demo_projection(measure = truetype_measure_text)
+    for (i, entry) in enumerate(shell.entries)
+        entry.section && continue
+        open_page!(shell, i)
+        out = get_iomap_output(print_document(projection, shell))
+        @test out isa GraphicsCanvas
+        @test length(Projectured.GraphicsModule._canvas_content_bounds(
+                         out, truetype_measure_text)) == 4
+    end
+end
+
+@testset "a section row goes nowhere" begin
+    shell = demo_catalog()
+    i = findfirst(e -> e.section, collect(shell.entries))
+    @test i !== nothing
+    open_page!(shell, i)
+    @test shell.page === shell.index
+end
+
+@testset "every embedded simulation runs" begin
+    shell = demo_catalog()
+    ran = 0
+    for (i, entry) in enumerate(shell.entries)
+        entry.section && continue
+        open_page!(shell, i)
+        for stub in _demo_stubs(Projectured.content(shell.page))
+            embed = stub.resolved
+            embed isa SimulationEmbed || continue
+            @test embed.workbench !== nothing
+            embed_finish!(embed)
+            @test embed_status(embed) === :Finished
+            execution = workbench_execution(embed.workbench)
+            @test execution !== nothing
+            @test total_event_count(simulation_engine(execution)) > 0
+            ran += 1
+        end
+    end
+    @test ran >= 3                      # the cards, not zero of them
+end
+
+@testset "a chart pane names a series the run actually has" begin
+    # `series` is an index into the run's result vectors, and an index is the
+    # one thing that goes wrong silently: out of range falls back to the first
+    # vector, so a page meaning to chart the queue would chart packet lengths
+    # and look perfectly fine doing it.
+    shell = demo_catalog()
+    charted = 0
+    for (i, entry) in enumerate(shell.entries)
+        entry.section && continue
+        open_page!(shell, i)
+        for stub in _demo_stubs(Projectured.content(shell.page))
+            embed = stub.resolved
+            embed isa SimulationEmbed || continue
+            embed.panes === nothing && continue
+            :chart in embed.panes || continue
+            embed_finish!(embed)
+            vectors = workbench_result_vectors(embed.workbench)
+            @test embed.series isa Integer
+            @test 1 <= embed.series <= length(vectors)
+            # Both charting pages are about a queue filling, so both should be
+            # pointed at the queue's own length.
+            @test vectors[embed.series].name == "queueLength:vector"
+            charted += 1
+        end
+    end
+    @test charted >= 2
+end
+
+@testset "the tutorial's own step files still travel" begin
+    # The hand-off page embeds a tutorial step file by path. It works because a
+    # step file names a MODEL rather than a path — which is the distinction the
+    # page itself explains, so it is worth holding still.
+    shell = demo_catalog()
+    i = findfirst(e -> !e.section && e.path == "pages/Tutorial.md", collect(shell.entries))
+    @test i !== nothing
+    open_page!(shell, i)
+    embeds = [s.resolved for s in _demo_stubs(Projectured.content(shell.page))
+              if s.resolved isa SimulationEmbed]
+    @test length(embeds) == 1
+    @test embeds[1].model === QueuingModel
+end
+
+@testset "the M/M/1/K page's claim holds" begin
+    # The page tells the reader that raising arrival_rate towards service_rate
+    # makes the queue grow. It is the page's one concrete instruction, so it is
+    # measured rather than asserted in prose alone — from the page's own step
+    # file, with one parameter changed, rather than from a copy of it.
+    load() = Projectured.evaluate_marker("realize(file(\"pages/Mm1kChain.json\"))",
+                                         Projectured.LoaderContext(demo_directory()))
+    mean_queue(embed) = begin
+        embed_finish!(embed)
+        Dict(workbench_result(embed.workbench).scalars)[Symbol("Queuing.queue.queueLength:timeavg")]
+    end
+    # Editing the form field is what a reader does, so the test edits the same
+    # binding the form edits rather than rebuilding the workbench around it.
+    raise_arrivals!(embed, rate) = begin
+        for binding in workbench_assignment(embed.workbench).values
+            binding.name === :arrival_rate && (binding.value.value = rate)
+        end
+        embed
+    end
+    slow = mean_queue(load())
+    busy = mean_queue(raise_arrivals!(load(), 9.0))
+    @test busy > slow
+end

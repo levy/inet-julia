@@ -41,6 +41,10 @@ feature anyone built for the tour.
 
 - [The M/M/1/K chain](pages/Mm1kChain.md) — four elements in a row, and a
   queue whose measured behaviour is checked against the closed form.
+- [Backpressure is a conversation](pages/Backpressure.md) — four roles at every
+  gate, and a refusal that is an answer rather than a dropped packet.
+- [The whole tutorial](pages/Tutorial.md) — twenty-odd steps, built out of the
+  same material this page is.
 
 ## 10BASE-T1S, faithfully
 
@@ -48,3 +52,8 @@ feature anyone built for the tour.
   documents, and the running code is generated from them.
 - [The same numbers as INET](pages/Statistics.md) — INET's own signal names and
   module paths, and a diffing harness with its tolerances written down.
+
+## Finding the module that answers
+
+- [Interface lookup](pages/InterfaceLookup.md) — a module finds its protocol
+  peer by walking real connections, instead of by a string path.

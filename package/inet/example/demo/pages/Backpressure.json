@@ -1,0 +1,15 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Refusing instead of dropping",
+  "model": "BackpressureFilterModel",
+  "parameters": {
+    "arrival_rate": 10.0,
+    "processing_time": 0.01,
+    "backpressure": true,
+    "pass_rate": 0.0,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 },
+  "panes": ["parameters", "controls", "progress", "topology", "chart"],
+  "series": 2
+}

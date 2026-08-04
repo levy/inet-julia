@@ -6,4 +6,8 @@ using Test
 
 @testset "umbrella" begin
     include("catalog.jl")
+    # The demo catalog spans packet, queuing and link layer, so it is only
+    # walkable once the components are assembled — which makes it the
+    # umbrella's job too.
+    include("demo.jl")
 end
