@@ -426,7 +426,7 @@ function _emit_node_final_stats!(ctx, node)
         for (name, val) in ((:curID, plca.cur_id),
                             (:rxCmd, UInt8(plca.rx_cmd)),
                             (:txCmd, UInt8(plca.tx_cmd)),
-                            (:controlState, UInt8(plca.cs)),
+                            (:controlState, UInt8(fsm_state(plca.fsm_control))),
                             (:dataState, UInt8(d.ds)),
                             (:carrierSense, plca.carrier_status ? 1 : 0),
                             (:collision, plca.signal_status ? 1 : 0))
