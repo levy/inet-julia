@@ -1,0 +1,7 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Filtering packets out",
+  "model": "FilterModel",
+  "parameters": { "arrival_rate": 10.0, "classes": 4, "keep": 1, "time_limit": 100.0 },
+  "limit": { "sim_time": 100.0 }
+}

@@ -72,6 +72,7 @@ end
 # The models the steps run — example code, embedded by name from the pages that
 # explain them.
 include("steps/sources.jl")
+include("steps/classify.jl")
 
 # The tutorial as one navigable thing: the steps down the left, the step you
 # are reading on the right.

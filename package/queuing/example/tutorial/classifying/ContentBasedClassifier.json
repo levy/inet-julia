@@ -1,0 +1,7 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Classifying by what a packet says",
+  "model": "ContentBasedClassifierModel",
+  "parameters": { "arrival_rate": 10.0, "classes": 2, "time_limit": 100.0 },
+  "limit": { "sim_time": 100.0 }
+}

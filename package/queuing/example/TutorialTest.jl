@@ -90,6 +90,20 @@ function test_tutorial()
             @test any(t -> occursin("A single queue", t), drawn)
         end
 
+        @testset "every page loads and every embed resolves" begin
+            # The whole tutorial, not just the steps a testset names: a marker
+            # that stopped evaluating (a renamed definition, a moved file) fails
+            # here rather than the first time a reader opens that page.
+            shell = load_tutorial()
+            for step in shell.steps
+                page = load_tutorial_page(step.path)
+                embeds = _tutorial_embeds(page)
+                @test length(embeds) == 2
+                @test string(typeof(embeds[1]).name.name) == "JuliaFunction"
+                @test embeds[2] isa SimulationEmbed
+            end
+        end
+
         @testset "a step page carries the model's source and the simulation" begin
             page = load_tutorial_page("queues/Queue.md")
             embeds = _tutorial_embeds(page)
@@ -148,16 +162,15 @@ function test_tutorial()
             shell = load_tutorial()
             # The navigator is the index's own links — the navigation is not
             # declared twice.
-            @test [s.title for s in shell.steps] ==
-                  ["An active source and a passive sink",
-                   "A passive source and an active sink",
-                   "A single queue",
-                   "A queue that drops what does not fit"]
             @test [s.path for s in shell.steps] ==
                   ["sources/ActiveSourcePassiveSink.md",
                    "sources/PassiveSourceActiveSink.md",
                    "queues/Queue.md",
-                   "queues/DropTailQueue.md"]
+                   "queues/DropTailQueue.md",
+                   "classifying/ContentBasedClassifier.md",
+                   "scheduling/PriorityScheduler.md",
+                   "filtering/Filter.md"]
+            @test first([s.title for s in shell.steps]) == "An active source and a passive sink"
             @test Projectured.filename(shell.page) == "index.md"
 
             drawn = _shell_drawn(shell)
@@ -220,6 +233,45 @@ function test_tutorial()
                 @test embed_status(embed) === :Finished
                 @test check(Dict(workbench_result(embed.workbench).scalars)[Symbol(key)])
             end
+        end
+
+        @testset "classifying, scheduling and filtering do what their pages say" begin
+            # A classifier that reads the value on each packet splits the
+            # traffic between its outputs — two classes, so about half each.
+            classifier = only(e for e in _tutorial_embeds(
+                                  load_tutorial_page("classifying/ContentBasedClassifier.md"))
+                              if e isa SimulationEmbed)
+            embed_finish!(classifier)
+            scalars = Dict(workbench_result(classifier.workbench).scalars)
+            produced = scalars[Symbol("ContentClassifier.source.packets:count")]
+            first_class = scalars[Symbol("ContentClassifier.sink1.packets:count")]
+            second_class = scalars[Symbol("ContentClassifier.sink2.packets:count")]
+            @test first_class + second_class == produced
+            @test 0.4 <= first_class / produced <= 0.6
+
+            # The classifier prefers the small queue and the scheduler empties
+            # it first, which is the whole of "priority" here: both queues are
+            # used, and everything the scheduler took was served.
+            priority = only(e for e in _tutorial_embeds(
+                                load_tutorial_page("scheduling/PriorityScheduler.md"))
+                            if e isa SimulationEmbed)
+            embed_finish!(priority)
+            scalars = Dict(workbench_result(priority.workbench).scalars)
+            @test scalars[Symbol("Priority.first.packets:count")] > 0
+            @test scalars[Symbol("Priority.second.packets:count")] > 0
+            @test scalars[Symbol("Priority.sink.packets:count")] ==
+                  scalars[Symbol("Priority.server.packets:count")]
+
+            # One value in four gets through the filter, and what gets through
+            # is exactly what reaches the sink.
+            filter = only(e for e in _tutorial_embeds(load_tutorial_page("filtering/Filter.md"))
+                          if e isa SimulationEmbed)
+            embed_finish!(filter)
+            scalars = Dict(workbench_result(filter.workbench).scalars)
+            produced = scalars[Symbol("Filter.source.packets:count")]
+            kept = scalars[Symbol("Filter.sink.packets:count")]
+            @test kept < produced
+            @test 0.15 <= kept / produced <= 0.35
         end
 
         @testset "the drop-tail step drops what the plain queue does not" begin

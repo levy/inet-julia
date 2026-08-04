@@ -20,9 +20,9 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [sources]
 InetPacket = {path = "../../packet/main"}
 InetQueuing = {path = "../main"}
-OmnetppPresentation = {path = "../../../../omnetpp-julia/package/presentation/main"}
-OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
-Projectured = {path = "../../../../projectured-julia/package/projectured/main"}
+OmnetppPresentation = {path = "../../../../omnetpp-julia-tutorial/package/presentation/main"}
+OmnetppSimulator = {path = "../../../../omnetpp-julia-tutorial/package/simulator/main"}
+Projectured = {path = "../../../../projectured-julia-tutorial/package/projectured/main"}
 
 [compat]
 julia = "1.11"

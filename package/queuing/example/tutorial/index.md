@@ -22,3 +22,18 @@ sets, because in this port the Julia form *is* the model.
   served one at a time, and are counted.
 - [A queue that drops what does not fit](queues/DropTailQueue.md) — what a
   queue does when more arrives than it can hold.
+
+## Classifying
+
+- [Classifying by what a packet says](classifying/ContentBasedClassifier.md) —
+  a value on each packet, and a fork that reads it.
+
+## Scheduling
+
+- [A priority queue, assembled from parts](scheduling/PriorityScheduler.md) —
+  a classifier, two queues and a scheduler, and what "priority" turns out to be.
+
+## Filtering
+
+- [Filtering packets out](filtering/Filter.md) — passing on some packets and
+  dropping the rest.
