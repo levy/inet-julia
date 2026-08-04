@@ -129,6 +129,9 @@ NetworkModule.module_starts(::ActivePacketSourceModule) = true
 NetworkModule.start_module!(ctx, m::ActivePacketSourceModule) =
     (_schedule_and_produce!(ctx, m); m)
 
+NetworkModule.module_status(m::ActivePacketSourceModule) =
+    string(m.statistics.num_packets, " sent")
+
 NetworkModule.reset_module!(m::ActivePacketSourceModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

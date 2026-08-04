@@ -9,6 +9,7 @@
 using Test
 using OmnetppPresentation: SimulationEmbed, simulation_embed_entry, embed_finish!,
     embed_status
+import OmnetppPresentation
 using OmnetppSimulator: workbench_result, workbench_assignment, model_topology,
     build_model, model_parameter_space, resolve_parameters, ParameterAssignment
 using Projectured.ChainingProjectionModule: ChainingProjection
@@ -457,6 +458,25 @@ function test_tutorial()
             key = Symbol("Queuing.queue.droppedPacketsQueueOverflow:count")
             @test Dict(workbench_result(plain.workbench).scalars)[key] == 0
             @test Dict(workbench_result(dropping.workbench).scalars)[key] > 100
+        end
+
+        @testset "the diagram in the card is live while the run advances" begin
+            embed = only(e for e in _tutorial_embeds(load_tutorial_page("queues/Queue.md"))
+                         if e isa SimulationEmbed)
+            iomap = Projectured.print_document(
+                OmnetppPresentation.SimulationEmbedToWidget(), embed)
+            pane = collect(iomap.output.children)[5]
+            # Nothing to say before the run …
+            @test pane.content == ""
+            embed_finish!(embed)
+            # … and afterwards, one line per module with what it is doing, from
+            # the same wiring the engine read.
+            drawn = pane.content
+            @test occursin("Queuing.source", drawn)
+            @test occursin("Queuing.queue", drawn)
+            @test occursin("waiting", drawn)      # the queue's own status
+            @test occursin("received", drawn)     # the sink's
+            @test occursin("3 links", drawn)
         end
 
         @testset "the step's diagram is derived from its own wiring" begin

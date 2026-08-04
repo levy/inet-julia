@@ -131,6 +131,11 @@ NetworkModule.module_starts(::PacketServerModule) = true
 
 NetworkModule.start_module!(ctx, m::PacketServerModule) = (_start_if_possible!(ctx, m); m)
 
+# A server is either working on something or it is not; how long it has been at
+# it is a statistic, not a badge.
+NetworkModule.module_status(m::PacketServerModule) =
+    m.states.packet === nothing ? "idle" : "serving"
+
 NetworkModule.reset_module!(m::PacketServerModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

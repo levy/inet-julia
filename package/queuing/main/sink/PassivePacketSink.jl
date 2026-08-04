@@ -123,6 +123,9 @@ function NetworkModule.start_module!(ctx, m::PassivePacketSinkModule)
     m
 end
 
+NetworkModule.module_status(m::PassivePacketSinkModule) =
+    string(m.statistics.num_packets, " received")
+
 NetworkModule.reset_module!(m::PassivePacketSinkModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

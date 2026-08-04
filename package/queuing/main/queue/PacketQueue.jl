@@ -199,6 +199,10 @@ end
 NetworkModule.register_module_statistics!(m::PacketQueueModule, path::AbstractString, recorder) =
     register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
 
+# What a queue is doing now: how much it is holding.
+NetworkModule.module_status(m::PacketQueueModule) =
+    string(queue_length(m), " waiting")
+
 NetworkModule.reset_module!(m::PacketQueueModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 
