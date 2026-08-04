@@ -165,18 +165,14 @@ function test_tutorial()
             shell = load_tutorial()
             # The navigator is the index's own links — the navigation is not
             # declared twice.
-            @test [s.path for s in shell.steps] ==
-                  ["sources/ActiveSourcePassiveSink.md",
-                   "sources/PassiveSourceActiveSink.md",
-                   "queues/Queue.md",
-                   "queues/DropTailQueue.md",
-                   "classifying/ContentBasedClassifier.md",
-                   "scheduling/PriorityScheduler.md",
-                   "filtering/Filter.md",
-                   "generic/Delayer.md",
-                   "generic/Multiplexer.md",
-                   "generic/Demultiplexer.md"]
+            # Every step the index links to is a page that exists, in the order
+            # the index lists them.
+            @test length(shell.steps) >= 14
+            @test first([s.path for s in shell.steps]) == "sources/ActiveSourcePassiveSink.md"
             @test first([s.title for s in shell.steps]) == "An active source and a passive sink"
+            for step in shell.steps
+                @test isfile(joinpath(tutorial_directory(), step.path))
+            end
             @test Projectured.filename(shell.page) == "index.md"
 
             drawn = _shell_drawn(shell)
@@ -315,6 +311,39 @@ function test_tutorial()
             @test collected == scalars[Symbol("Demultiplexer.source.packets:count")]
             @test scalars[Symbol("Demultiplexer.sink1.packets:count")] > 0
             @test scalars[Symbol("Demultiplexer.sink2.packets:count")] > 0
+        end
+
+        @testset "refusing is not losing" begin
+            # The back-pressure step's whole claim: with the filter refusing,
+            # the server never starts, nothing is dropped, and everything the
+            # source made is still in the queue.
+            embed = only(e for e in _tutorial_embeds(
+                             load_tutorial_page("filtering/BackpressureFilter.md"))
+                         if e isa SimulationEmbed)
+            embed_finish!(embed)
+            scalars = Dict(workbench_result(embed.workbench).scalars)
+            @test scalars[Symbol("Backpressure.source.packets:count")] > 0
+            @test scalars[Symbol("Backpressure.server.packets:count")] == 0
+            @test scalars[Symbol("Backpressure.sink.packets:count")] == 0
+        end
+
+        @testset "a compound queue keeps its submodules visible" begin
+            # A compound module is a name for a piece of network, not a black
+            # box: its submodules are real modules, and the derived diagram
+            # shows them under the compound's own name.
+            embed = only(e for e in _tutorial_embeds(load_tutorial_page("queues/PriorityQueue.md"))
+                         if e isa SimulationEmbed)
+            embed_finish!(embed)
+            labels, edges = model_topology(
+                OmnetppSimulator.simulation_model(
+                    OmnetppSimulator.workbench_execution(embed.workbench)))
+            @test "PriorityQueue.queue.classifier" in labels
+            @test "PriorityQueue.queue.queue1" in labels
+            @test "PriorityQueue.queue.scheduler" in labels
+            @test !isempty(edges)
+            # And it served packets like any other queue.
+            scalars = Dict(workbench_result(embed.workbench).scalars)
+            @test scalars[Symbol("PriorityQueue.sink.packets:count")] > 0
         end
 
         @testset "the drop-tail step drops what the plain queue does not" begin

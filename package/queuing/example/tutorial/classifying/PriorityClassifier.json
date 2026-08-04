@@ -1,0 +1,12 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Classifying by what the outputs will take",
+  "model": "PriorityQueueChainModel",
+  "parameters": {
+    "arrival_rate": 20.0,
+    "processing_time": 0.1,
+    "first_capacity": 5,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

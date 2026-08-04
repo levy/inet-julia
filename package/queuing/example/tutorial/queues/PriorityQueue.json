@@ -1,0 +1,13 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "The priority queue as one element",
+  "model": "PriorityQueueModel",
+  "parameters": {
+    "arrival_rate": 20.0,
+    "processing_time": 0.1,
+    "priorities": 2,
+    "level_capacity": 3,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

@@ -1,0 +1,12 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "The server, and what it costs to serve",
+  "model": "QueuingModel",
+  "parameters": {
+    "arrival_rate": 9.0,
+    "service_rate": 10.0,
+    "packet_capacity": 0,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

@@ -13,6 +13,8 @@ using InetQueuing: ActivePacketSourceModule, ActivePacketSourceParameters,
     content_based_classifier, priority_classifier, priority_scheduler,
     PacketTemplate, packet_data, check_packet_connections
 using OmnetppSimulator.VolatileModule: Volatile, intuniform
+using OmnetppSimulator: MersenneTwister
+using InetQueuing: drop_at_end
 
 export ContentBasedClassifierModel, PriorityQueueChainModel, FilterModel
 

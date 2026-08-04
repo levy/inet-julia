@@ -38,11 +38,15 @@ ahead costs you only the sentence that says "as in the previous step".
   served one at a time, and are counted.
 - [A queue that drops what does not fit](queues/DropTailQueue.md) — what a
   queue does when more arrives than it can hold.
+- [The priority queue as one element](queues/PriorityQueue.md) — a compound
+  module, and what is still visible inside one.
 
 ## Classifying
 
 - [Classifying by what a packet says](classifying/ContentBasedClassifier.md) —
   a value on each packet, and a fork that reads it.
+- [Classifying by what the outputs will take](classifying/PriorityClassifier.md)
+  — the other kind, which does not look at the packet at all.
 
 ## Scheduling
 
@@ -53,6 +57,13 @@ ahead costs you only the sentence that says "as in the previous step".
 
 - [Filtering packets out](filtering/Filter.md) — passing on some packets and
   dropping the rest.
+- [Refusing instead of dropping](filtering/BackpressureFilter.md) — what back
+  pressure is, and who feels it.
+
+## Serving
+
+- [The server, and what it costs to serve](serving/Server.md) — the element
+  that makes a queue necessary.
 
 ## Generic elements
 
