@@ -25,7 +25,7 @@ using InetQueuing
 using OmnetppPresentation: register_doctype_module!
 import Projectured
 
-export tutorial_directory, load_tutorial_page, test_tutorial
+export tutorial_directory, load_tutorial, load_tutorial_page, test_tutorial
 
 """
     tutorial_directory() -> String
@@ -34,6 +34,19 @@ Where the tutorial's content lives — the base directory every marker path in
 it resolves against.
 """
 tutorial_directory() = joinpath(@__DIR__, "tutorial")
+
+"""
+    load_tutorial() -> TutorialShell
+
+Open the tutorial: the shell described by `tutorial/root.json`, with its
+navigator built from `index.md`'s links and the index showing.
+
+This is `realize(file("root.json"))` at the tutorial's root — the same pair of
+marker functions a page uses to embed a step.
+"""
+load_tutorial() =
+    Projectured.evaluate_marker("realize(file(\"root.json\"))",
+                                Projectured.LoaderContext(tutorial_directory()))
 
 """
     load_tutorial_page(name = "index.md"; force = true) -> MarkdownFile
@@ -49,6 +62,11 @@ function load_tutorial_page(name::AbstractString = "index.md"; force::Bool = tru
     page
 end
 
+# The tutorial as one navigable thing: the steps down the left, the step you
+# are reading on the right.
+include("TutorialShell.jl")
+include("TutorialShellToWidget.jl")
+
 # The tutorial's own check: every page loads, every embed resolves, and every
 # step's simulation runs to its limit. It lives with the content because that is
 # what it tests.
@@ -59,6 +77,9 @@ include("TutorialTest.jl")
 # has to know the library exists.
 function __init__()
     register_doctype_module!(InetQueuing)
+    # And this package itself, so `root.json`'s `$doctype: "TutorialShell"`
+    # resolves.
+    register_doctype_module!(@__MODULE__)
 end
 
 end # module InetQueuingExample

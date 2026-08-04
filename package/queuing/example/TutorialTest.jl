@@ -11,6 +11,12 @@ using OmnetppPresentation: SimulationEmbed, simulation_embed_entry, embed_finish
     embed_status
 using OmnetppSimulator: workbench_result, workbench_assignment, model_topology,
     build_model, model_parameter_space, resolve_parameters, ParameterAssignment
+using Projectured.ChainingProjectionModule: ChainingProjection
+using Projectured.RecursiveProjectionModule: RecursiveProjection
+using Projectured.ProjectionApiModule: read_intent
+using Projectured.OperationModule: ReplaceSelectionOperation
+using Projectured.ReferenceModule: ConcreteReference, FieldReferenceStep,
+    ElementReferenceStep, EmptyReference
 using InetQueuing: QueuingModel
 
 _tutorial_measure(text, _font) = (length(text) * 10, 20)
@@ -31,10 +37,19 @@ function _tutorial_embeds(page)
     values
 end
 
-# Every string the rendered page draws.
-function _tutorial_drawn(page)
-    drawn, pending, seen = String[], Any[Projectured.print_document(
-        _tutorial_renderer(), Projectured.content(page)).output], Set{UInt64}()
+# The shell renders as a widget stage followed by the page renderer — the
+# workbench's own shape, and what keeps a page's embeds live inside it.
+_shell_renderer() = ChainingProjection(RecursiveProjection(TutorialShellToWidget()),
+                                       _tutorial_renderer())
+
+_tutorial_drawn(page) = _drawn_from(Projectured.print_document(
+    _tutorial_renderer(), Projectured.content(page)).output)
+
+_shell_drawn(shell) = _drawn_from(Projectured.print_document(_shell_renderer(), shell).output)
+
+# Every string a rendered tree draws.
+function _drawn_from(root)
+    drawn, pending, seen = String[], Any[root], Set{UInt64}()
     while !isempty(pending)
         node = pop!(pending)
         while node isa Projectured.CellModule.AbstractCell
@@ -48,6 +63,10 @@ function _tutorial_drawn(page)
             for element in node.elements
                 push!(pending, element)
             end
+        elseif node isa Projectured.GraphicsModule.GraphicsViewport
+            # A pane's content lives behind its viewport, which is where every
+            # scrolled page and navigator row is.
+            push!(pending, node.content)
         elseif string(typeof(node).name.name) == "GraphicsText"
             push!(drawn, string(node.text))
         end
@@ -106,6 +125,55 @@ function test_tutorial()
             result = workbench_result(embed.workbench)
             @test result !== nothing
             @test length(result.scalars) > 0
+        end
+
+        @testset "the shell lists the steps and opens one" begin
+            shell = load_tutorial()
+            # The navigator is the index's own links — the navigation is not
+            # declared twice.
+            @test [s.title for s in shell.steps] == ["A single queue"]
+            @test [s.path for s in shell.steps] == ["queues/Queue.md"]
+            @test Projectured.filename(shell.page) == "index.md"
+
+            drawn = _shell_drawn(shell)
+            @test "Contents" in drawn
+            @test any(t -> occursin("A single queue", t), drawn)
+            @test any(t -> occursin("queueing network", t), drawn)
+
+            open_step!(shell, 1)
+            @test Projectured.filename(shell.page) == "queues/Queue.md"
+            drawn = _shell_drawn(shell)
+            # The page arrives with its embeds live: prose, the model's source,
+            # and the card's own button …
+            @test any(t -> occursin("M/M/1/K", t), drawn)
+            @test any(t -> occursin("connect!", t), drawn)
+            @test "Run" in drawn
+            # … and the navigator is still beside it.
+            @test "Contents" in drawn
+
+            # Back to the index, and the step reopened is the SAME document —
+            # the session interns it, so a simulation keeps its state.
+            page = shell.page
+            open_step!(shell, 0)
+            @test Projectured.filename(shell.page) == "index.md"
+            open_step!(shell, 1)
+            @test shell.page === page
+        end
+
+        @testset "clicking a navigator row opens that step" begin
+            shell = load_tutorial()
+            iomap = Projectured.print_document(TutorialShellToWidget(), shell)
+            # A click lands on the navigator list's k-th item.
+            path = foldr((s, t) -> ConcreteReference(s, t),
+                         Any[FieldReferenceStep("children"), ElementReferenceStep(1),
+                             FieldReferenceStep("content"), FieldReferenceStep("items"),
+                             ElementReferenceStep(2)];
+                         init = EmptyReference())
+            operation = read_intent(iomap.projection, iomap, ReplaceSelectionOperation(path))
+            # The reader RETURNS the action rather than performing it.
+            @test Projectured.filename(shell.page) == "index.md"
+            operation.action.callback(nothing)
+            @test Projectured.filename(shell.page) == "queues/Queue.md"
         end
 
         @testset "the step's diagram is derived from its own wiring" begin

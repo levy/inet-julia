@@ -2,17 +2,21 @@
 #
 #     julia --project=. package/queuing/example/run.jl
 #
-# The page renders through the natural renderer with the simulation-embed entry
-# spliced in, which is what makes an embedded card a real widget: its Run button
-# is clickable, and the run drives the same workflow the full stage column does.
+# The shell renders as a widget stage followed by the page renderer — the
+# workbench's own shape. The simulation-embed entry is what makes an embedded
+# card a real widget: its Run button is clickable, and the run drives the same
+# workflow the full stage column does.
 using InetQueuingExample
 using OmnetppPresentation: simulation_embed_entry
 using Projectured
+using Projectured.ChainingProjectionModule: ChainingProjection
+using Projectured.RecursiveProjectionModule: RecursiveProjection
 
-page = InetQueuingExample.load_tutorial_page("queues/Queue.md")
+shell = InetQueuingExample.load_tutorial()
 
-renderer = Projectured.NaturalToGraphics(
-    measure = Projectured.truetype_measure_text,
-    extra   = Pair{Type,Any}[simulation_embed_entry()])
+renderer = ChainingProjection(
+    RecursiveProjection(InetQueuingExample.TutorialShellToWidget()),
+    Projectured.NaturalToGraphics(measure = Projectured.truetype_measure_text,
+                                  extra   = Pair{Type,Any}[simulation_embed_entry()]))
 
-Projectured.run_editor!(Projectured.Editor(Projectured.content(page), renderer))
+Projectured.run_editor!(Projectured.Editor(shell, renderer))
