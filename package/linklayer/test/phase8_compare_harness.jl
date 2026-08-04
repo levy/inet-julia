@@ -74,6 +74,41 @@ end
     @test r.missing_right[1].name == "y"
 end
 
+# --- T1S tolerance rules ---------------------------------------------------
+# The rules key on the signal's BASE name, because a recorded vector is named
+# `<signal>:<mode>` — a table keyed on bare names expands to nothing and every
+# signal silently falls back to :exact.
+
+@testset "signal_base_name strips the recording-mode suffix" begin
+    @test signal_base_name("curID:vector") == "curID"
+    @test signal_base_name("decapPk:vector(packetBytes)") == "decapPk"
+    @test signal_base_name("channelOwner:channelOwner") == "channelOwner"
+    @test signal_base_name("curID") == "curID"
+end
+
+@testset "t1s_vector_rules expands over the recorded names" begin
+    f = _mkfile([_mkvec(0, "Net.node[0]", "curID:vector",          [(0.0, 1.0)]),
+                 _mkvec(1, "Net.node[0]", "packetInterval:vector", [(0.0, 1.0)]),
+                 _mkvec(2, "Net.node[0]", "unlisted:vector",       [(0.0, 1.0)])])
+    rules = t1s_vector_rules(f)
+    @test rules[("Net.node[0]", "curID:vector")] == (:exact,)
+    @test rules[("Net.node[0]", "packetInterval:vector")] == (:count_within, 2)
+    # No entry → compare_vec_files applies its own (:exact,) default.
+    @test !haskey(rules, ("Net.node[0]", "unlisted:vector"))
+end
+
+@testset "compare_t1s_vectors applies the RNG tolerance" begin
+    # packetInterval is RNG-driven: a one-draw count difference must pass,
+    # while the same difference on a deterministic signal must not.
+    a = _mkfile([_mkvec(0, "N", "packetInterval:vector", [(0.0, 1.0), (1e-6, 2.0), (2e-6, 3.0)])])
+    b = _mkfile([_mkvec(0, "N", "packetInterval:vector", [(0.0, 9.0), (1e-6, 8.0)])])
+    @test isempty(compare_t1s_vectors(a, b).mismatches)
+
+    c = _mkfile([_mkvec(0, "N", "curID:vector", [(0.0, 1.0), (1e-6, 2.0), (2e-6, 3.0)])])
+    d = _mkfile([_mkvec(0, "N", "curID:vector", [(0.0, 1.0), (1e-6, 2.0)])])
+    @test Base.length(compare_t1s_vectors(c, d).mismatches) == 1
+end
+
 # --- INET reference comparison: skip gracefully if reference files absent ---
 
 const _INET_REF_DIR = joinpath(@__DIR__, "inet-reference")

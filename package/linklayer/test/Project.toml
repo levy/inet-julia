@@ -7,7 +7,7 @@ entryfile = "InetLinkLayerTest.jl"
 # Test package for InetLinkLayer — the phased 10BASE-T1S / PLCA conformance
 # suite, ported behaviour by behaviour from INET, plus the golden network
 # hashes that pin reproducibility. `inet-reference/` holds the .vec files INET
-# itself produced; `compare_t1s_vectors.jl` diffs a run against them.
+# itself produced; `compare_t1s_vectors(left, right)` diffs a run against them.
 
 [deps]
 InetLinkLayer = "6936b046-6a37-41be-850a-5641ac0f1d4b"

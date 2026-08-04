@@ -8,10 +8,17 @@ callable from a REPL and from the repository-wide aggregator, alongside the
 The suite body lives in `runtests.jl` as one file per phase of
 `plan/done/ten-base-t1s-plca.md` and `plan/done/ten-base-t1s-statistics.md`;
 `test_linklayer()` includes it inside one enclosing testset.
+
+Also exposes the T1S `.vec` comparison — `compare_t1s_vectors(left, right)`
+under the per-signal tolerance rules in `t1s_vector_rules()` — so a run can be
+diffed against the INET reference from a REPL, not only from inside the suite.
 """
 module InetLinkLayerTest
 
 using Test
+using OmnetppSimulator: VecFile, read_vec_file, compare_vec_files
+
+include(joinpath(@__DIR__, "T1sVectorComparison.jl"))
 
 """
     test_linklayer()
@@ -28,5 +35,7 @@ end
 const test_all = test_linklayer
 
 export test_linklayer, test_all
+export T1S_VECTOR_RULES, t1s_vector_rules, compare_t1s_vectors, print_t1s_comparison
+export signal_base_name
 
 end # module InetLinkLayerTest
