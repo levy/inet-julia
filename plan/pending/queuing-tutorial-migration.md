@@ -324,6 +324,11 @@ content. Each phase = one commit series; tick + log here.
       caret walks md → embedded Julia fragment and maps back to the same path
 - [x] A3: save-path invariance — `document_to_text` emits the marker fence only,
       forced or not
+- [x] A4 (**added**): a page renders as a **stack of blocks** at the graphics
+      layer (`MarkdownRootToVerticalLayout`), so an embed whose document is a
+      *widget* — a live simulation card — reaches the widget renderer and can be
+      clicked. See the implementation log: this is what C2 needs and what the
+      draft plan assumed without saying how.
 
 ### Phase B — the marker language (projectured-julia) — **done**
 - [x] B1: marker bodies are restricted Julia — Julia-parse + interpreter over call
@@ -340,9 +345,11 @@ content. Each phase = one commit series; tick + log here.
 - [ ] C1: `ParameterFormToWidget` extracted as a standalone, reference-mapped projection
 - [ ] C2: `SimulationEmbed` doctype + compact card projection (form, Run/Pause/Reset,
       progress, chart) driving the existing lifecycle; validation surfaces on the card
-- [ ] C3: `realize(doc)` registered in the marker vocabulary — the presentation's
+- [x] C3: `realize(doc)` registered in the marker vocabulary — the presentation's
       `$doctype` realiser as an explicit function: interns per load session, remembers
-      the realised ↔ JSON pairing for save-back; step files are plain `.json`
+      the realised ↔ JSON pairing for save-back; step files are plain `.json`.
+      `load_project(OmnetppWorkbench, "root.json", dir)` **is** now
+      `evaluate_marker("realize(file(\"root.json\"))")`
 - [ ] C4: `network_topology(::Network)` derivation + the embed's topology pane with
       **live node badges** — per-module state refreshed during the run via the embed's
       per-slice hook; layout frozen after the first pass
@@ -475,4 +482,56 @@ round-trip tests assert marker-verbatimness and save-idempotence instead of
 byte-equality with the hand-written file.
 
 Tests: `test_marker_language` (base, 35), `test_marker_vocabulary` (domain, 14),
-`test_markdown_embed` (domain, 20).
+`test_markdown_embed` (domain, 25).
+
+### A4 — a page is a stack of blocks (the finding this phase turned up)
+
+The draft assumed an embedded live simulation could simply be spliced into the
+page. It cannot, not through the syntax layer: markdown projects to *syntax*,
+which becomes text and then graphics, while a simulation card is a **widget**.
+A widget forced through the to-syntax fabric arrives as reflected text — and,
+the part that matters, never receives a click, so "runnable from the tutorial
+itself" would be dead on arrival. (Inlining a pre-projected canvas as a
+`TextGraphics`, the way a `BookPicture` embeds one, renders but is equally
+unclickable — the text layer maps a click to a character offset, not into the
+canvas.)
+
+The fix is the idiom the natural renderer already uses for a collection:
+`MarkdownRoot` renders as a `VerticalLayout` of its elements, and the *renderer*
+recurses each block by type. Prose still goes through the to-syntax fabric; a
+widget block goes to the widget renderer; a JSON block renders as JSON. The
+rewrap does not transform anything (`elements[i] ↔ children[i]`), so the
+reference maps only relocate the head.
+
+Both embed rules turned out to be domain-neutral where it counts — they hand the
+embedded value to `recursion` — so the same two rules serve the to-syntax fabric
+and the to-graphics table. Only their *unforced* fallback has to know which
+table it is in (`unforced = :syntax | :prose`).
+
+What this leaves for C2: the card itself. The seam it plugs into now exists and
+is tested (a widget embed inside a page draws its own label through the widget
+renderer, with the page's prose around it).
+
+**Not yet addressed:** markdown prose does not word-wrap in this renderer (it
+never did — it goes through the no-wrap syntax route). A tutorial wants wrapping;
+that is a separate, small piece of work on the markdown block route.
+
+### C3 — `realize`, and what it settled (omnetpp-julia, worktree `omnetpp-julia-tutorial`)
+
+`realize(document)` is registered by `OmnetppPresentation` and is the `$doctype`
+realiser as an ordinary vocabulary function. The equivalence the design predicted
+is now literal: `Projectured.load_project(OmnetppWorkbench, "root.json", dir)`
+evaluates `realize(file("root.json"))` and nothing else.
+
+The realised ↔ JSON pairing needed no registry. The load session already interns
+`file("X.json")` and `realize(file("X.json"))` side by side, so `realized_source(ctx,
+document)` reads the pairing back out of the context — nothing to maintain and
+nothing to leak. (`WeakKeyDict` is not an option here: its keys must be mutable,
+and every `@document` is an immutable struct of cells.)
+
+Tests: `test_realize_marker` (presentation, 11); `test_presentation` 180/180.
+
+**Note for whoever picks this up:** the `omnetpp-julia-tutorial` worktree's root
+`Project.toml` has its `[sources]` pointed at `../projectured-julia-tutorial/...`
+so it resolves against the phase-A/B work. That edit is deliberately
+**uncommitted**; it goes away when the projectured-julia branch lands on main.
