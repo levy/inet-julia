@@ -1,0 +1,13 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "PLCA on a multidrop bus",
+  "model": "T1sModel",
+  "parameters": {
+    "n_nodes": 5,
+    "time_limit": 0.0001,
+    "scenario": "notraffic"
+  },
+  "limit": { "sim_time": 0.0001 },
+  "panes": ["parameters", "controls", "progress", "chart"],
+  "series": 2
+}

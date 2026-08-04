@@ -48,6 +48,8 @@ feature anyone built for the tour.
 
 ## 10BASE-T1S, faithfully
 
+- [A bus that takes turns](pages/Plca.md) — PLCA arbitration on a real
+  junction-chain bus, and a cycle length you can predict to the nanosecond.
 - [State machines, generated](pages/Fsm.md) — the protocol's machines are
   documents, and the running code is generated from them.
 - [The same numbers as INET](pages/Statistics.md) — INET's own signal names and

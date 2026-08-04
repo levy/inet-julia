@@ -125,7 +125,39 @@ end
             ran += 1
         end
     end
-    @test ran >= 3                      # the cards, not zero of them
+    @test ran >= 4                      # the cards, not zero of them
+end
+
+@testset "the PLCA page's cycle length is the one the prose derives" begin
+    # The page's whole claim: a cycle is a 2 µs beacon, 1 ns of syncing and one
+    # 3.2 µs transmit opportunity per node, so it is predictable to the
+    # nanosecond and grows by exactly 3.2 µs per node. Asserted from the page's
+    # own step file with one parameter changed, not from a copy of it.
+    cycles(n) = begin
+        embed = Projectured.evaluate_marker("realize(file(\"pages/Plca.json\"))",
+                                            Projectured.LoaderContext(demo_directory()))
+        for binding in workbench_assignment(embed.workbench).values
+            binding.name === :n_nodes && (binding.value.value = n)
+        end
+        embed_finish!(embed)
+        vectors = workbench_result_vectors(embed.workbench)
+        i = findfirst(v -> v.name == "cycleLength:vector", vectors)
+        @test i !== nothing
+        unique(sample[2] for sample in vectors[i].samples)
+    end
+    predicted(n) = 2e-6 + 1e-9 + n * 3.2e-6
+    for n in (3, 5)
+        measured = cycles(n)
+        @test length(measured) == 1                  # every cycle the same
+        @test only(measured) ≈ predicted(n) rtol = 1e-9
+    end
+    # And the model's `:scenario` really is a Symbol by the time it is resolved
+    # — the round trip through the form that used to break this card.
+    embed = Projectured.evaluate_marker("realize(file(\"pages/Plca.json\"))",
+                                        Projectured.LoaderContext(demo_directory()))
+    resolved = resolve_parameters(model_parameter_space(T1sModel),
+                                  workbench_assignment(embed.workbench))
+    @test resolved[:scenario] === :notraffic
 end
 
 @testset "a chart pane names a series the run actually has" begin
@@ -133,8 +165,13 @@ end
     # one thing that goes wrong silently: out of range falls back to the first
     # vector, so a page meaning to chart the queue would chart packet lengths
     # and look perfectly fine doing it.
+    # What each charting page means to draw. Naming it is the point: "some
+    # vector exists at that index" is true of the wrong index too.
+    CHARTED = Dict("pages/Mm1kChain.md"   => "queueLength:vector",
+                   "pages/Backpressure.md" => "queueLength:vector",
+                   "pages/Plca.md"         => "cycleLength:vector")
     shell = demo_catalog()
-    charted = 0
+    charted = String[]
     for (i, entry) in enumerate(shell.entries)
         entry.section && continue
         open_page!(shell, i)
@@ -147,13 +184,12 @@ end
             vectors = workbench_result_vectors(embed.workbench)
             @test embed.series isa Integer
             @test 1 <= embed.series <= length(vectors)
-            # Both charting pages are about a queue filling, so both should be
-            # pointed at the queue's own length.
-            @test vectors[embed.series].name == "queueLength:vector"
-            charted += 1
+            @test haskey(CHARTED, entry.path)
+            @test vectors[embed.series].name == get(CHARTED, entry.path, nothing)
+            push!(charted, entry.path)
         end
     end
-    @test charted >= 2
+    @test Set(charted) == Set(keys(CHARTED))
 end
 
 @testset "the tutorial's own step files still travel" begin

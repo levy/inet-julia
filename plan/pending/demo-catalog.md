@@ -201,34 +201,33 @@ document. Then the "How to read" preamble and the grouped table of contents.
       the suite — then switches scenario and node count and watches the
       cycle stretch.
 
-      **BLOCKED, upstream.** `T1sModel` cannot run through a
-      `SimulationEmbed` card at all, whatever the step file says, and the
-      cause is one line in `OmnetppSimulator`:
+      **Written, and gated on an omnetpp-julia branch — see "Landing gate"
+      below.** `T1sModel` could not run through a `SimulationEmbed` card at
+      all, whatever the step file said, because of one line in
+      `OmnetppSimulator`:
 
           lift_parameter_value(v::Symbol) = PrimitiveString(String(v))
           lower_parameter_value(v::PrimitiveDocument) = v.value        # a String
 
-      A parameter with a Symbol domain round-trips through the workbench's
+      A parameter with a Symbol default round-trips through the workbench's
       parameter form as a String and then fails its own domain check —
       `value "notraffic" for parameter :scenario is not in its domain
-      [:notraffic, :bestcase, :worstcase]`. `T1sModel` declares exactly such a
-      parameter (`:scenario`), so the failure is at `embed_finish!` and does
-      not depend on the step file mentioning `scenario`: omitting it still
-      lifts the default. Nothing in omnetpp-julia's own catalog exercises the
-      path, which is why it has not been hit before.
+      [:notraffic, :bestcase, :worstcase]`. The failure is at `embed_finish!`
+      and does not depend on the step file mentioning `scenario`: omitting it
+      still lifts the default. Nothing in omnetpp-julia's own catalog declares
+      a Symbol parameter, which is why it had not been hit before.
 
-      The fix belongs to whoever owns the shared machinery (a `PrimitiveSymbol`,
-      or lowering back to a Symbol when the parameter's domain is symbolic).
-      Until then the page has no card and is not written — a page whose one
-      instruction to the reader is "press Run" ships when Run works.
+      Fixed on omnetpp-julia's `symbol-parameter-roundtrip`: the declared
+      default is the authority on the type, exactly as it already is for the
+      dimension, so the value is restored to a Symbol before the domain check.
 
-      Two smaller notes for when it is unblocked, both found while probing:
+      Two smaller findings, both from probing, both now reflected in the page:
       `scenario`'s `:bestcase` and `:worstcase` are **placeholders** —
       `_sources_for_scenario` gives both the same fixed 10 µs cadence and the
-      comment says the real per-node offsets are a follow-up — so the prose
-      must not promise that switching between them shows INET's two cases.
-      And `T1sModel` defines no `model_topology`, so the card should not ask
-      for the `:topology` pane.
+      comment says the real per-node offsets are a follow-up — so the page says
+      outright that switching between them changes nothing today. And
+      `T1sModel` defines no `model_topology`, so the card asks for
+      parameters/controls/progress/chart and not `:topology`.
 - [x] *Four state machines, generated* — **demonstrates:** the protocol's
       four FSMs (MAC, PLCA control, PLCA data, PHY) are documents — 
       generated, rendered, and navigable, with the running code generated
@@ -275,15 +274,30 @@ document. Then the "How to read" preamble and the grouped table of contents.
       exported from `InetExample`; `demo/run.jl` for shell use.
 - [x] **P2 — packet pages**: the four packet pages; `packet_api_demo.jl`
       refactored only as far as naming the definitions the pages embed.
-- [ ] **P3 — T1S pages**: run card, FSM page (static embed first; assess the
-      live overlay), statistics page. **Two of three.** The FSM page and the
-      statistics page are written; the run card is blocked on the Symbol
-      parameter round-trip recorded against *A bus that takes turns* above,
-      and is the only piece of this plan not delivered.
+- [x] **P3 — T1S pages**: run card, FSM page (static embed first; assess the
+      live overlay), statistics page. All three. The run card needed a fix in
+      omnetpp-julia first — see the landing gate below.
 - [x] **P4 — tutorial hand-off + lookup page**: the tutorial section links,
       the lookup page.
 - [x] **P5 — test**: the walker (load `demo.json`, open every page, resolve
       every marker, drive each embed briefly), added to `InetTest`'s scope.
+
+## Landing gate
+
+**`symbol-parameter-roundtrip` merges to omnetpp-julia's main before this
+branch merges to inet-julia's**, and this is not optional: without it
+*A bus that takes turns* fails, because `T1sModel`'s `:scenario` is a Symbol
+and no card of it can run. `test_inet()` is where that shows.
+
+That branch is a single commit touching
+`package/simulator/main/src/lifecycle/Parameters.jl` and its test, and it is
+green on omnetpp-julia's own suites (`test_simulator()` 5566, `test_presentation()`
+711, both with no failures). Nothing else in this branch depends on it.
+
+The T1S page was written against the fix through an uncommitted `[sources]`
+redirect to the `omnetpp-julia-symbol-params` worktree — the same pattern the
+prerequisite section describes. The redirect is dropped; the committed
+`Project.toml` points at `../omnetpp-julia` as it always did.
 
 ## Open decisions — answered
 
@@ -342,6 +356,7 @@ Three things this work turned up that were not in the plan.
   named `incomplete = true` as the way through, and that opt-in died on a
   MethodError. And marking an already-marked header had no rewrap at all.
 
-- **A Symbol-domain parameter cannot go through a workbench form**, which is
-  what blocks the T1S run card. Recorded in full against *A bus that takes
-  turns*.
+- **A Symbol-valued parameter could not go through a workbench form**, which
+  kept any `T1sModel` card from running at all. Fixed on omnetpp-julia's
+  `symbol-parameter-roundtrip`; recorded in full against *A bus that takes
+  turns*, and gated above.
