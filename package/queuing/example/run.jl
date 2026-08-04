@@ -7,15 +7,14 @@
 # card a real widget: its Run button is clickable, and the run drives the same
 # workflow the full stage column does.
 using InetQueuingExample
-using OmnetppPresentation: simulation_embed_entry
+using OmnetppPresentation: simulation_embed_entry, CatalogShellToWidget
 using Projectured
 using Projectured.ChainingProjectionModule: ChainingProjection
-using Projectured.RecursiveProjectionModule: RecursiveProjection
 
 shell = InetQueuingExample.load_tutorial()
 
 renderer = ChainingProjection(
-    RecursiveProjection(InetQueuingExample.TutorialShellToWidget()),
+    CatalogShellToWidget(),
     Projectured.NaturalToGraphics(measure = Projectured.truetype_measure_text,
                                   extra   = Pair{Type,Any}[simulation_embed_entry()]))
 

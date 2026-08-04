@@ -8,12 +8,11 @@
 
 using Test
 using OmnetppPresentation: SimulationEmbed, simulation_embed_entry, embed_finish!,
-    embed_status
+    embed_status, CatalogShellToWidget, catalog_pages, open_page!
 import OmnetppPresentation
 using OmnetppSimulator: workbench_result, workbench_assignment, model_topology,
     build_model, model_parameter_space, resolve_parameters, ParameterAssignment
 using Projectured.ChainingProjectionModule: ChainingProjection
-using Projectured.RecursiveProjectionModule: RecursiveProjection
 using Projectured.ProjectionApiModule: read_intent
 using Projectured.OperationModule: ReplaceSelectionOperation
 using Projectured.ReferenceModule: ConcreteReference, FieldReferenceStep,
@@ -40,8 +39,16 @@ end
 
 # The shell renders as a widget stage followed by the page renderer — the
 # workbench's own shape, and what keeps a page's embeds live inside it.
-_shell_renderer() = ChainingProjection(RecursiveProjection(TutorialShellToWidget()),
-                                       _tutorial_renderer())
+_shell_renderer() = ChainingProjection(CatalogShellToWidget(), _tutorial_renderer())
+
+# Which navigator row a page is. The shell's entries are the index's sections
+# AND its links, so a step's row is not its step number — asking by path is the
+# only form that survives someone adding a section to `index.md`.
+function _step_row(shell, path::AbstractString)
+    i = findfirst(e -> !e.section && e.path == path, collect(shell.entries))
+    i === nothing && error("no navigator entry for ", repr(path))
+    i
+end
 
 _tutorial_drawn(page) = _drawn_from(Projectured.print_document(
     _tutorial_renderer(), Projectured.content(page)).output)
@@ -99,7 +106,7 @@ function test_tutorial()
             # that stopped evaluating (a renamed definition, a moved file) fails
             # here rather than the first time a reader opens that page.
             shell = load_tutorial()
-            for step in shell.steps
+            for step in catalog_pages(shell)
                 page = load_tutorial_page(step.path)
                 embeds = _tutorial_embeds(page)
                 @test length(embeds) == 2
@@ -164,16 +171,20 @@ function test_tutorial()
 
         @testset "the shell lists the steps and opens one" begin
             shell = load_tutorial()
-            # The navigator is the index's own links — the navigation is not
-            # declared twice.
+            # The navigator is the index's own sections and links — the
+            # navigation is not declared twice.
             # Every step the index links to is a page that exists, in the order
             # the index lists them.
-            @test length(shell.steps) >= 14
-            @test first([s.path for s in shell.steps]) == "sources/ActiveSourcePassiveSink.md"
-            @test first([s.title for s in shell.steps]) == "An active source and a passive sink"
-            for step in shell.steps
+            steps = catalog_pages(shell)
+            @test length(steps) >= 14
+            @test first([s.path for s in steps]) == "sources/ActiveSourcePassiveSink.md"
+            @test first([s.title for s in steps]) == "An active source and a passive sink"
+            for step in steps
                 @test isfile(joinpath(tutorial_directory(), step.path))
             end
+            # The index's own `##` headings are rows too, and they group the
+            # steps under them rather than naming a page.
+            @test any(e -> e.section && e.title == "Queues", collect(shell.entries))
             @test Projectured.filename(shell.page) == "index.md"
 
             drawn = _shell_drawn(shell)
@@ -181,7 +192,8 @@ function test_tutorial()
             @test any(t -> occursin("A single queue", t), drawn)
             @test any(t -> occursin("queueing network", t), drawn)
 
-            open_step!(shell, 3)
+            queue_row = _step_row(shell, "queues/Queue.md")
+            open_page!(shell, queue_row)
             @test Projectured.filename(shell.page) == "queues/Queue.md"
             drawn = _shell_drawn(shell)
             # The page arrives with its embeds live: prose, the model's source,
@@ -195,26 +207,41 @@ function test_tutorial()
             # Back to the index, and the step reopened is the SAME document —
             # the session interns it, so a simulation keeps its state.
             page = shell.page
-            open_step!(shell, 0)
+            open_page!(shell, 0)
             @test Projectured.filename(shell.page) == "index.md"
-            open_step!(shell, 3)
+            open_page!(shell, queue_row)
             @test shell.page === page
         end
 
         @testset "clicking a navigator row opens that step" begin
             shell = load_tutorial()
-            iomap = Projectured.print_document(TutorialShellToWidget(), shell)
-            # A click lands on the navigator list's k-th item.
+            iomap = Projectured.print_document(CatalogShellToWidget(), shell)
+            # A click lands on the navigator list's k-th item. The two panes sit
+            # in a `WidgetSplitPane`, whose children field is `elements` — name
+            # it wrong and every path simply stops matching, so the tutorial
+            # renders perfectly and goes dead to clicks.
+            row = _step_row(shell, "sources/ActiveSourcePassiveSink.md")
             path = foldr((s, t) -> ConcreteReference(s, t),
-                         Any[FieldReferenceStep("children"), ElementReferenceStep(1),
+                         Any[FieldReferenceStep("elements"), ElementReferenceStep(1),
                              FieldReferenceStep("content"), FieldReferenceStep("items"),
-                             ElementReferenceStep(2)];
+                             ElementReferenceStep(row + 1)];
                          init = EmptyReference())
             operation = read_intent(iomap.projection, iomap, ReplaceSelectionOperation(path))
             # The reader RETURNS the action rather than performing it.
             @test Projectured.filename(shell.page) == "index.md"
             operation.action.callback(nothing)
             @test Projectured.filename(shell.page) == "sources/ActiveSourcePassiveSink.md"
+        end
+
+        @testset "a section row goes nowhere" begin
+            # A heading is a label, not a destination: clicking one must leave
+            # the reader where they were rather than opening whatever page
+            # happens to follow it.
+            shell = load_tutorial()
+            i = findfirst(e -> e.section, collect(shell.entries))
+            @test i !== nothing
+            open_page!(shell, i)
+            @test shell.page === shell.index
         end
 
         @testset "every step's simulation makes the claim its page makes" begin

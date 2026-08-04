@@ -1,4 +1,4 @@
 {
-  "$doctype": "TutorialShell",
+  "$doctype": "CatalogShell",
   "index": "index.md"
 }

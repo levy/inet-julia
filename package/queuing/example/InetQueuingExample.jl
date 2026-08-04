@@ -43,10 +43,17 @@ it resolves against.
 tutorial_directory() = joinpath(@__DIR__, "tutorial")
 
 """
-    load_tutorial() -> TutorialShell
+    load_tutorial() -> CatalogShell
 
 Open the tutorial: the shell described by `tutorial/root.json`, with its
-navigator built from `index.md`'s links and the index showing.
+navigator built from `index.md`'s own sections and links, and the index
+showing.
+
+The shell is `OmnetppPresentation`'s `CatalogShell` — a project of markdown
+pages open at one of them, which is what a tutorial is and what a catalog is.
+The tutorial's own copy of it was the first one written; the general version
+carries the sections, the draggable divider and the survives-a-broken-embed
+behaviour, so there is one shell rather than two that drift.
 
 This is `realize(file("root.json"))` at the tutorial's root — the same pair of
 marker functions a page uses to embed a step.
@@ -78,11 +85,6 @@ include("steps/serve.jl")
 include("steps/marking.jl")
 include("steps/network.jl")
 
-# The tutorial as one navigable thing: the steps down the left, the step you
-# are reading on the right.
-include("TutorialShell.jl")
-include("TutorialShellToWidget.jl")
-
 # The tutorial's own check: every page loads, every embed resolves, and every
 # step's simulation runs to its limit. It lives with the content because that is
 # what it tests.
@@ -93,8 +95,8 @@ include("TutorialTest.jl")
 # has to know the library exists.
 function __init__()
     register_doctype_module!(InetQueuing)
-    # And this package itself, so `root.json`'s `$doctype: "TutorialShell"`
-    # resolves.
+    # And this package itself, so a step file naming one of the models declared
+    # under `steps/` resolves it.
     register_doctype_module!(@__MODULE__)
 end
 
