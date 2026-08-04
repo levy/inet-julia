@@ -73,3 +73,8 @@ ahead costs you only the sentence that says "as in the previous step".
   chain from several places.
 - [Sharing one source between several collectors](generic/Demultiplexer.md) —
   the same idea in the pull direction.
+
+## Complex examples
+
+- [Putting it together](complex/Network.md) — every element so far in one
+  network, and what none of them had to be told.

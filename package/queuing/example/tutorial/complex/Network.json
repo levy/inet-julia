@@ -1,0 +1,14 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Putting it together",
+  "model": "ComplexNetworkModel",
+  "parameters": {
+    "arrival_rate": 8.0,
+    "processing_time": 0.08,
+    "priorities": 2,
+    "level_capacity": 4,
+    "pass_rate": 0.75,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

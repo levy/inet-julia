@@ -63,9 +63,12 @@ function _build_priority_queue_network(m)
     source = _step_source(network, m)
     # One element, several submodules: `priority_queue` builds the classifier,
     # the levels and the scheduler, and registers them all in the network.
+    # The levels REFUSE when full rather than dropping: a level that drops
+    # accepts the packet first, and the classifier — which only moves on when an
+    # output will not take a packet — would never reach the next level. Refusing
+    # is what makes the overflow an overflow.
     queue = priority_queue(network, :queue, m.priorities;
-        queue_parameters = PacketQueueParameters(packet_capacity = m.level_capacity,
-                                                 dropper = drop_at_end))
+        queue_parameters = PacketQueueParameters(packet_capacity = m.level_capacity))
     server = add_module!(network, PacketServerModule(:server,
         PacketServerParameters(processing_time = m.processing_time)))
     sink = _step_sink(network, :sink)

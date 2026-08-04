@@ -18,9 +18,15 @@ piece of network, and everything in it is a module like any other.
 ## Run it
 
 `priorities` is how many levels the queue has and `level_capacity` how much
-each holds. Packets fill the first level until it is full, overflow into the
-second, and are served highest level first — the classifier and the scheduler
-inside the element doing exactly what you wired by hand two steps ago.
+each holds. A packet goes to the first level that will take it and the
+scheduler always drains the first level first, so the second is used only for
+what arrives while the first is full — with the server keeping up, that is a
+small share of the traffic, and it grows as you lower `level_capacity` or
+raise `arrival_rate`.
+
+The levels *refuse* when full rather than dropping, which is what makes the
+overflow an overflow: a level that dropped would accept the packet first, and
+the classifier would never reach the second level at all.
 
 ```pred-ref
 <<realize(file("queues/PriorityQueue.json"))>>

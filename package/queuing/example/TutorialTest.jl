@@ -341,9 +341,34 @@ function test_tutorial()
             @test "PriorityQueue.queue.queue1" in labels
             @test "PriorityQueue.queue.scheduler" in labels
             @test !isempty(edges)
-            # And it served packets like any other queue.
+            # And it served packets like any other queue — with the second
+            # level taking what the first refused, which is the page's claim
+            # and only true because the levels refuse rather than drop.
             scalars = Dict(workbench_result(embed.workbench).scalars)
             @test scalars[Symbol("PriorityQueue.sink.packets:count")] > 0
+            @test scalars[Symbol("PriorityQueue.queue.queue1.packets:count")] > 0
+            @test scalars[Symbol("PriorityQueue.queue.queue2.packets:count")] > 0
+        end
+
+        @testset "the complex network is the elements composed" begin
+            embed = only(e for e in _tutorial_embeds(load_tutorial_page("complex/Network.md"))
+                         if e isa SimulationEmbed)
+            embed_finish!(embed)
+            scalars = Dict(workbench_result(embed.workbench).scalars)
+            # Two sources joined into one stream …
+            produced = scalars[Symbol("Complex.source1.packets:count")] +
+                       scalars[Symbol("Complex.source2.packets:count")]
+            @test produced > 0
+            # … through a compound queue whose levels are both used …
+            @test scalars[Symbol("Complex.queue.queue1.packets:count")] > 0
+            @test scalars[Symbol("Complex.queue.queue2.packets:count")] > 0
+            # … a server that took what the scheduler handed it …
+            @test scalars[Symbol("Complex.server.packets:count")] <=
+                  scalars[Symbol("Complex.queue.scheduler.packets:count")]
+            # … and a filter that let about three quarters of it through.
+            served = scalars[Symbol("Complex.server.packets:count")]
+            arrived = scalars[Symbol("Complex.sink.packets:count")]
+            @test 0.6 <= arrived / served <= 0.9
         end
 
         @testset "the drop-tail step drops what the plain queue does not" begin
