@@ -391,11 +391,12 @@ content. Each phase = one commit series; tick + log here.
 - [x] Complex examples: `Network` (`complex/Network.md`)
 - [x] `gettingstarted` → the "how to read a step" introduction in `index.md`
 
-### Phase F — element gaps + content wave 2 (15 steps)
+### Phase F — element gaps + content wave 2 — **2 of 7 groups done**
 New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance test):
-- [ ] WRR classifier + scheduler presets → `WrrClassifier`, `WrrScheduler`,
-      `PriorityQueue`-with-WRR, `CompoundQueue`
-- [ ] Markov classifier + scheduler → `MarkovClassifier`, `MarkovScheduler`
+- [x] WRR classifier + scheduler presets → `scheduling/WeightedRoundRobin.md`
+      (the `PriorityQueue`-with-WRR and `CompoundQueue` variants fold into the
+      same page's `policy` parameter rather than earning pages of their own)
+- [x] Markov classifier + scheduler → `scheduling/MarkovScheduler.md`
 - [ ] data comparator preset → `Comparator`
 - [ ] ordinal dropper preset → `OrdinalBasedDropper`
 - [ ] duplicator + cloner elements (+ ordinal duplicator preset) → `Duplicator`,
@@ -754,3 +755,30 @@ overflow.
 That is twice now that a page's claim, asserted as a number, caught something a
 "the run produced output" assertion would have passed. It is the discipline this
 content is worth having.
+
+### Phase F so far — the policies
+
+WRR and Markov are **presets, not elements**: the classifier and the scheduler
+each take a function, so a policy is a closure over its own state. Four of them
+(`weighted_round_robin_classifier` / `_scheduler`, `markov_classifier` /
+`_scheduler`) and no new module types.
+
+One asymmetry runs through all of them and is worth stating once, because every
+remaining preset will meet it: **a classifier is told, a scheduler is asked.**
+A classifier picks an output and pushes, so a full output loses its turn — and
+pushing into a bounded queue that cannot refuse is an *error*, not a policy. A
+scheduler is asked whether it can pull at all, so an empty input must forfeit
+the rest of its run rather than stall the cycle behind it.
+
+That decides the queue shape behind a fork, which the shared-chain step model
+now derives from the policy: bounded (refusing) for priority, where refusal is
+the overflow mechanism; unbounded for a share policy, where the share handed
+out is the share received.
+
+Content-wise the four WRR/Markov steps the draft listed became **two** pages
+with a `policy` parameter — the networks were identical, and a page per
+constructor would have been four pages making one point.
+
+**The parser gap bit again**, this time on `"… got $(m.policy)"`. Avoided with
+`error("…", value)`. Twice now in ordinary code; string interpolation and
+`where` are the two that will keep happening.
