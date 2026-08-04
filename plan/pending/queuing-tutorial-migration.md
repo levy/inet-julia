@@ -419,20 +419,23 @@ New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance
 
 ## 8. Open decisions
 
-- [ ] `SimulationEmbed` naming, and whether its card should optionally expand into the
-      full six-stage workflow column (sweeps from within the tutorial) — start compact,
-      single-run.
-- [ ] Inline (non-fenced) marker syntax for small in-paragraph embeds — fenced blocks
-      only for now; revisit if prose wants inline fragments.
-- [ ] Markers *into* prose (addressing a markdown section for cross-step deep links — a
-      `section(doc, "title")` vocabulary function, same pattern as `definition`) — not
-      needed for the tutorial's first waves.
-- [ ] How far the marker interpreter's subset may grow (today: call chains with literal
-      arguments; the reserve position is sandbox-eval if genuine computation is ever
-      wanted) — grow deliberately, per function, never to full eval by default.
-- [ ] Whether the finished tutorial should also render to static HTML (the markdown is
-      already the source; a marker could render as a code block + screenshot) — out of
-      scope here.
+- [x] **Decided 2026-08-04: the card stays compact.** One run, one set of values. A
+      reader who wants sweeps opens the project in the workbench, where the full
+      stage column already lives — a second entry point into the same machinery, in
+      a page element that could grow taller than the page, is not worth it.
+- [ ] **Decided 2026-08-04: add it.** An inline (non-fenced) marker for small
+      in-paragraph embeds, alongside the fenced form. Costs a second marker shape in
+      each host format's parse and save path.
+- [ ] **Decided 2026-08-04: add it.** `section(doc, "title")` in the marker
+      vocabulary, same pattern as `definition` — a page can embed or link a named
+      section of another page, and it follows a renamed heading.
+- [x] **Settled by experience.** Twenty steps in, the marker interpreter's subset has
+      never needed to grow: every marker is still a call chain over literals. What did
+      need to grow is the **Julia domain's parser**, which is a different thing —
+      markers stayed data while the *embedded source* wanted ordinary Julia.
+- [x] **Decided 2026-08-04: not now.** The tutorial's point is that the simulation
+      is live, and a static render loses exactly that. Revisit only if the content
+      has to be publishable outside the editor.
 
 ## 9. Follow-up plans
 
