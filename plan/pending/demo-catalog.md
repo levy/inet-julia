@@ -287,7 +287,15 @@ document. Then the "How to read" preamble and the grouped table of contents.
 **`symbol-parameter-roundtrip` merges to omnetpp-julia's main before this
 branch merges to inet-julia's**, and this is not optional: without it
 *A bus that takes turns* fails, because `T1sModel`'s `:scenario` is a Symbol
-and no card of it can run. `test_inet()` is where that shows.
+and no card of it can run.
+
+Measured, so the gate is exact. Against an omnetpp-julia main without the fix,
+`test_inet()` is **123 pass / 3 errors**, and all three are the PLCA card
+failing to run — one in "every embedded simulation runs", one in "a chart pane
+names a series the run actually has", one in "the PLCA page's cycle length is
+the one the prose derives". Every page still opens, resolves its markers and
+renders, because the shell survives a page it cannot fully build. With the fix
+the same suite is **139 pass / 0**.
 
 That branch is a single commit touching
 `package/simulator/main/src/lifecycle/Parameters.jl` and its test, and it is
