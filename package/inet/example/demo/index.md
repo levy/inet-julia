@@ -41,3 +41,10 @@ feature anyone built for the tour.
 
 - [The M/M/1/K chain](pages/Mm1kChain.md) — four elements in a row, and a
   queue whose measured behaviour is checked against the closed form.
+
+## 10BASE-T1S, faithfully
+
+- [State machines, generated](pages/Fsm.md) — the protocol's machines are
+  documents, and the running code is generated from them.
+- [The same numbers as INET](pages/Statistics.md) — INET's own signal names and
+  module paths, and a diffing harness with its tolerances written down.
