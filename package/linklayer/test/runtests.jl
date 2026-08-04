@@ -24,4 +24,7 @@ using Test
     include("phase6_stats_phy.jl")
     include("phase7_vec_reader.jl")
     include("phase8_compare_harness.jl")
+    # Communication capture over the stack's boundary seams
+    # (omnetpp-julia plan/pending/observable-communication.md, Phase 2).
+    include("phase10_capture.jl")
 end

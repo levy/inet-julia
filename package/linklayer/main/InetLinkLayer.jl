@@ -46,6 +46,10 @@ using ProjecturedKernel.CellModule: ImmutableCell, set_cell_function!
 # multidrop network and drives it from the lifecycle.
 include("t1s/T1s.jl")
 include("t1s/T1sModel.jl")
+# The stack's observation seams: attach_capture_seams! re-wraps the layer
+# boundary slots wired above, so a capture observes T1S with no protocol
+# code involved (omnetpp-julia plan/pending/observable-communication.md P2).
+include("t1s/T1sCapture.jl")
 
 export
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
