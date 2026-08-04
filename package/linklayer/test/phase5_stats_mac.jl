@@ -48,8 +48,8 @@ end
 
 @testset "notraffic: MAC never sees CRS/state change (PLCA carrier_status stays false)" begin
     res = _run(:notraffic)
-    # PLCA's carrier_status is derived from DS_HOLD/TRANSMIT/COLLIDE which
-    # DS_IDLE-only operation never enters. So MAC stays at MAC_IDLE and
+    # PLCA's carrier_status is derived from DATA_S_HOLD/TRANSMIT/COLLIDE which
+    # DATA_S_IDLE-only operation never enters. So MAC stays at MAC_IDLE and
     # sees no CRS transitions — this is the correct INET behaviour, not a
     # missing hook.
     v_crs = filter(x -> occursin("MultidropNetwork.controller.eth[0].mac", x.module_path) &&

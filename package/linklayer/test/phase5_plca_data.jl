@@ -1,8 +1,8 @@
 # ============================================================================
 # Phase 5 conformance — PLCA data FSM, transmit path only.
 #
-# Only DS_IDLE / DS_WAIT_IDLE / DS_HOLD / DS_TRANSMIT / DS_RECEIVE exercised.
-# The recovery path (DS_COLLIDE / DS_DELAY_PENDING / DS_PENDING / DS_WAIT_MAC)
+# Only DATA_S_IDLE / DATA_S_WAIT_IDLE / DATA_S_HOLD / DATA_S_TRANSMIT / DATA_S_RECEIVE exercised.
+# The recovery path (DATA_S_COLLIDE / DATA_S_DELAY_PENDING / DATA_S_PENDING / DATA_S_WAIT_MAC)
 # lands in Phase 7 once MAC (Phase 6) closes the collision loop.
 # ============================================================================
 using Test
@@ -37,7 +37,7 @@ end
 
 # --- Coordinator with a packet ready: HOLD → COMMIT → TRANSMIT ---------------
 
-@testset "coord holds packet in DS_HOLD, then transmits at own TO" begin
+@testset "coord holds packet in DATA_S_HOLD, then transmits at own TO" begin
     sim = _build_sim(2)
     sigs = Any[]
     frames = Any[]
@@ -76,7 +76,7 @@ end
     @test ends[1][2] - starts[1][4] == to_simtime(584 / 10e6)
 end
 
-# --- Packet arrives well before own TO — DS_HOLD holds it ------------------
+# --- Packet arrives well before own TO — DATA_S_HOLD holds it ------------------
 
 @testset "packet arrives early, waits in HOLD until own TO" begin
     sim = _build_sim(2)
@@ -102,19 +102,27 @@ end
                    ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
     run!(sim)
 
-    # DS_HOLD should have held the packet across the BEACON emission
+    # DATA_S_HOLD should have held the packet across the BEACON emission
     # (2 µs) and the SYNCING gap (1 ns), then transmitted at t = 2µs + 1 ns.
     starts = filter(f -> f[1] === :start_frame, frames)
     @test Base.length(starts) >= 1
     @test starts[1][4] == to_simtime(2e-6) + to_simtime(1e-9)
 end
 
-# --- data FSM state accessor -------------------------------------------------
+# --- the two machines share one struct ---------------------------------------
 
-@testset "plca_data(plca) returns a stable per-PLCA data FSM" begin
+@testset "control and data are two machines on one PlcaState" begin
     plca = PlcaState(2, PlcaConfig(plca_node_count = 3, local_node_id = 0))
-    d1 = plca_data(plca)
-    d2 = plca_data(plca)
-    @test d1 === d2
-    @test d1.ds === DS_IDLE
+    # Both machines are fields, so the data FSM's state needs no side table —
+    # it used to live in a module-level IdDict keyed by the PlcaState, because
+    # the hand-written struct had nowhere to put it.
+    @test fsm_state(plca.fsm_data) == DATA_S_IDLE
+    @test fsm_state(plca.fsm_control) == CONTROL_S_DISABLE
+    @test plca.fsm_data !== plca.fsm_control
+    # And the variables they pass between them are fields of the same struct.
+    @test plca.packet_pending == false
+    @test plca.tx_en == false
+    # Each machine owns its deferred queue, which is what keeps one machine's
+    # pending injection out of the other's drain.
+    @test plca.fsm_data.deferred !== plca.fsm_control.deferred
 end

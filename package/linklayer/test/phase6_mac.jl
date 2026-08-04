@@ -2,7 +2,7 @@
 # Phase 6 conformance — MAC 6-state FSM.
 #
 # JAMMING/BACKOFF paths get unit-test coverage but are only really exercised
-# in Phase 7 (DS_COLLIDE closes the loop). Phase 6 focuses on the tx path.
+# in Phase 7 (DATA_S_COLLIDE closes the loop). Phase 6 focuses on the tx path.
 # ============================================================================
 using Test
 using OmnetppSimulator
@@ -81,7 +81,7 @@ end
     @test delivered[1] === frame_us
 end
 
-@testset "MAC — JAM path (unit test only, DS_COLLIDE not present in phase 6)" begin
+@testset "MAC — JAM path (unit test only, DATA_S_COLLIDE not present in phase 6)" begin
     sim = _build_sim(2)
     log = Any[]
     mac = MacState(2, UInt64(0x1); downlink = _rec_mac_downlink(log), seed = 42)

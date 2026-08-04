@@ -1,6 +1,6 @@
 # ============================================================================
-# The PLCA control state machine, as an `fsm` document, and the generator that
-# turns it into `package/linklayer/main/t1s/PlcaControlFsm.jl`.
+# The PLCA state machines — control and data — as ONE `fsm` document, and the
+# generator that turns them into `package/linklayer/main/t1s/PlcaFsm.jl`.
 #
 #     julia --project=tool tool/generate_plca_control_fsm.jl
 #
@@ -11,10 +11,18 @@
 # either: they are *polled* in guards through `is_scheduled`, because a timer
 # expiring is only half a condition (`!is_scheduled(to_timer) && !crs`).
 #
-# The data FSM stays hand-written for now. It shares `PlcaState` with this one,
-# which is why every field of that struct is declared here — the generated
-# struct is the one both machines use, and `ds` is an ordinary variable the
-# hand-written data FSM owns.
+# The two machines are declared in ONE component, which is what lets them share
+# `PlcaState` directly: `fsm_control` and `fsm_data` are both fields of it, and
+# so are the variables they pass between them (`packet_pending`, `tx_en`,
+# `carrier_status`, `signal_status`). That replaces a real hack — the
+# hand-written data FSM kept its state in a module-level `IdDict` keyed by
+# `PlcaState`, because the hand-written struct had no slot for it.
+#
+# They inject events into each other, and every such call is deferred. The
+# control machine's `CS_COMMIT` entry fires `COMMIT_TO` into the data machine;
+# the data machine's entries re-run the control machine. Calling straight
+# through would re-enter a cascade already in flight, which is exactly why the
+# C++ wraps each of these in `FSMA_Delay_Action`.
 #
 # Faithfulness notes:
 #
@@ -32,7 +40,7 @@ using Projectured
 
 j(source) = juliaparse(source)
 
-function plca_control_component()
+function plca_component()
     # No events: this machine is driven by re-evaluation alone.
     #
     # No timer *triggers* either. All nine timers are declared because they are
@@ -41,6 +49,7 @@ function plca_control_component()
     timers = [FsmTimer(name) for name in
               ("beacon_timer", "beacon_det_timer", "to_timer", "syncing_timer",
                "burst_timer", "hold_timer", "pending_timer", "commit_timer", "tx_timer")]
+    by_name = Dict(t.name => t for t in timers)
 
     # ── states ───────────────────────────────────────────────────────────
     # Declaration order fixes the recorded values (0-based), so it matches the
@@ -142,12 +151,86 @@ function plca_control_component()
         # is the normal outcome of every run.
         on_unhandled = :ignore)
 
+    data_events, data_machine = plca_data_machine(by_name)
+
     FsmComponent("Plca";
         variables = plca_variables(),
         timers = timers,
-        events = FsmEvent[],
-        machines = [machine],
-        helpers = plca_helpers())
+        events = data_events,
+        machines = [machine, data_machine],
+        helpers = vcat(plca_helpers(), plca_data_helpers()))
+end
+
+# The data machine: nine states, genuinely event-driven, sharing every variable
+# with the control machine above. State order fixes the recorded values, so it
+# matches INET's `DataState` enum (WAIT_IDLE = 0).
+function plca_data_machine(timer)
+    start_frame = FsmEvent("START_FRAME_TRANSMISSION")
+    end_signal  = FsmEvent("END_SIGNAL_TRANSMISSION")
+    commit_to   = FsmEvent("COMMIT_TO")
+    rx_start    = FsmEvent("RECEPTION_START")
+    rx_end      = FsmEvent("RECEPTION_END")
+    events = [start_frame, end_signal, commit_to, rx_start, rx_end]
+
+    wait_idle     = FsmState("WAIT_IDLE";     entry = j("_plca_enter_wait_idle!(ctx, m)"))
+    idle          = FsmState("IDLE";          entry = j("_plca_enter_idle!(ctx, m)"))
+    receive       = FsmState("RECEIVE";       entry = j("_plca_enter_receive!(ctx, m)"))
+    hold          = FsmState("HOLD";          entry = j("_plca_enter_hold!(ctx, m)"))
+    collide       = FsmState("COLLIDE";       entry = j("_plca_enter_collide!(ctx, m)"))
+    delay_pending = FsmState("DELAY_PENDING"; entry = j("_plca_enter_delay_pending!(ctx, m)"))
+    pending       = FsmState("PENDING";       entry = j("_plca_enter_pending!(ctx, m)"))
+    wait_mac      = FsmState("WAIT_MAC";      entry = j("_plca_enter_wait_mac!(ctx, m)"))
+    transmit      = FsmState("TRANSMIT";      entry = j("_plca_enter_transmit_data!(ctx, m)"))
+
+    tr(state; kwargs...) = push!(state.transitions, FsmTransition(; kwargs...))
+
+    # IDLE — a frame from the MAC is held until our transmit opportunity; a
+    # peer's data puts us in receive.
+    tr(idle, trigger = start_frame,
+             action = j("_plca_accept_frame!(ctx, m, payload)"), target = hold)
+    tr(idle, trigger = rx_start, guard = j("payload.kind === SIG_DATA"), target = receive)
+
+    # WAIT_IDLE — the opportunity is still ours, so a frame goes straight out.
+    tr(wait_idle, trigger = start_frame,
+                  action = j("_plca_accept_frame!(ctx, m, payload)"), target = transmit)
+
+    # RECEIVE — the MAC handing us a frame mid-reception is a collision.
+    tr(receive, trigger = start_frame, action = j("m.current_tx = nothing"), target = collide)
+    tr(receive, trigger = rx_end, target = idle)
+
+    # HOLD — the token arrives, a peer starts talking, or we waited too long.
+    tr(hold, trigger = commit_to, action = j("cancel!(m.hold_timer)"), target = transmit)
+    tr(hold, trigger = rx_start, guard = j("payload.kind === SIG_DATA"),
+             action = j("_plca_abandon_frame!(ctx, m)"), target = collide)
+    tr(hold, trigger = timer["hold_timer"], action = j("m.current_tx = nothing"), target = collide)
+
+    # COLLIDE — the MAC's jam finished.
+    tr(collide, trigger = end_signal, target = delay_pending)
+
+    # DELAY_PENDING / PENDING — back off, then wait for the token again.
+    tr(delay_pending, trigger = timer["pending_timer"], target = pending)
+    tr(pending, trigger = commit_to, target = wait_mac)
+
+    # WAIT_MAC — the MAC retransmits, or it does not.
+    # The arrival time is deliberately NOT reset here: the pending delay is
+    # measured from the frame's original arrival, across recovery cycles.
+    tr(wait_mac, trigger = start_frame, action = j("m.current_tx = payload"), target = transmit)
+    tr(wait_mac, trigger = timer["commit_timer"], target = wait_idle)
+
+    # TRANSMIT — until the frame is on the wire.
+    tr(transmit, trigger = timer["tx_timer"],
+                 action = j("_plca_finish_frame!(ctx, m)"), target = wait_idle)
+
+    machine = FsmMachine("Data";
+        initial = idle,
+        states = [wait_idle, idle, receive, hold, collide, delay_pending,
+                  pending, wait_mac, transmit],
+        # The hand-written entry points silently ignored an event that did not
+        # apply — except `plca_start_frame_transmission!`, which errored. That
+        # one check lives in the handler, where it can name the state.
+        on_unhandled = :ignore)
+
+    (events, machine)
 end
 
 # Every field of the shared `PlcaState`, except `cs` — that is the machine.
@@ -159,7 +242,6 @@ function plca_variables()
         v("module_id", "Int"),
         v("config", "PlcaConfig"),
         v("bitrate", "Float64", "10.0e6"),
-        v("ds", "UInt8", "0x00"),
         v("packet_pending", "Bool", "false"),
         v("tx_en", "Bool", "false"),
         v("carrier_status", "Bool", "false"),
@@ -185,6 +267,11 @@ function plca_variables()
         v("packets_in_to", "Int", "0"),
         v("packets_in_cycle", "Int", "0"),
         v("packets_in_own_to", "Int", "0"),
+        # What the hand-written data FSM kept in a module-level IdDict, because
+        # its struct had no slot for them. Now they are just fields.
+        v("current_tx", "Union{Nothing, Packet}", "nothing"),
+        v("packet_arrival_time", "SimTime", "SimTime(0)"),
+        v("last_tx_time", "SimTime", "SimTime(0)"),
     ]
 end
 
@@ -306,7 +393,7 @@ function plca_helpers()
               m.committed = true
               cancel!(m.to_timer)
               m.bc = 0
-              m.upcalls.commit_to(ctx, m)
+              fsm_defer!(m.fsm_control, () -> m.upcalls.commit_to(ctx, m))
           end
           """),
         j("""
@@ -391,11 +478,192 @@ function plca_helpers()
     ]
 end
 
+# The data machine's own code: the entry actions, the small shared actions, and
+# the handler layer that turns a MAC or PHY call into a dispatch.
+#
+# Every entry re-runs the control machine, synchronously — the control
+# machine's own `in_fsm` guard makes that safe, and it is the order the port
+# had. The deferral sits on the OTHER side, where the C++ puts it: the control
+# machine's `CS_COMMIT` entry defers its injection into the data machine, so
+# control is never re-entered from inside its own cascade. Each machine drains
+# its own queue, which is what keeps one machine's pending injection out of the
+# other's drain.
+function plca_data_helpers()
+    [
+        j("_plca_run_control!(ctx, m::PlcaState) = handle_with_control_fsm!(ctx, m)"),
+
+        # ── shared transition actions ───────────────────────────────────
+        j("""
+          function _plca_accept_frame!(ctx, m::PlcaState, packet)
+              m.current_tx = packet
+              m.packet_arrival_time = ctx.timestamp
+          end
+          """),
+        j("""
+          function _plca_abandon_frame!(ctx, m::PlcaState)
+              cancel!(m.hold_timer)
+              m.current_tx = nothing
+          end
+          """),
+        j("""
+          function _plca_finish_frame!(ctx, m::PlcaState)
+              m.downlink.end_frame_tx(ctx)
+              m.current_tx = nothing
+          end
+          """),
+
+        # ── entry actions ───────────────────────────────────────────────
+        j("""
+          function _plca_enter_idle!(ctx, m::PlcaState)
+              m.packet_pending = false
+              m.carrier_status = false
+              m.signal_status = false
+              m.tx_en = false
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("""
+          function _plca_enter_wait_idle!(ctx, m::PlcaState)
+              m.packet_pending = false
+              m.carrier_status = false
+              m.signal_status = false
+              m.tx_en = false
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("""
+          function _plca_enter_hold!(ctx, m::PlcaState)
+              m.packet_pending = true
+              m.carrier_status = true
+              hold_bits = 4 * m.config.delay_line_length
+              schedule_timer!(ctx, _bits_to_time(m, hold_bits), m.module_id, m.hold_timer,
+                  (ctx2) -> data_dispatch!(ctx2, m, T_HOLD_TIMER, nothing))
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("""
+          function _plca_enter_receive!(ctx, m::PlcaState)
+              m.carrier_status = m.crs && m.rx_cmd !== CMD_COMMIT
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("""
+          function _plca_enter_collide!(ctx, m::PlcaState)
+              m.packet_pending = false
+              m.carrier_status = true
+              m.signal_status = true
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("""
+          function _plca_enter_delay_pending!(ctx, m::PlcaState)
+              m.signal_status = false
+              schedule_timer!(ctx, _bits_to_time(m, m.config.pending_timer_length_bits),
+                  m.module_id, m.pending_timer,
+                  (ctx2) -> data_dispatch!(ctx2, m, T_PENDING_TIMER, nothing))
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("""
+          function _plca_enter_pending!(ctx, m::PlcaState)
+              m.packet_pending = true
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("""
+          function _plca_enter_wait_mac!(ctx, m::PlcaState)
+              m.carrier_status = false
+              schedule_timer!(ctx, _bits_to_time(m, m.config.commit_timer_length_bits),
+                  m.module_id, m.commit_timer,
+                  (ctx2) -> data_dispatch!(ctx2, m, T_COMMIT_TIMER, nothing))
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("""
+          function _plca_enter_transmit_data!(ctx, m::PlcaState)
+              m.packet_pending = false
+              m.carrier_status = true
+              m.signal_status = false
+              m.tx_en = true
+              if m.tx_cmd === CMD_COMMIT
+                  m.downlink.end_signal_tx(ctx)
+                  _set_tx_cmd!(m, ctx, CMD_NONE)
+              end
+              _emit_time!(m, ctx, :packetPendingDelay, SimTime(ctx.timestamp - m.packet_arrival_time))
+              if m.last_tx_time > zero(m.last_tx_time)
+                  _emit_time!(m, ctx, :packetInterval, SimTime(ctx.timestamp - m.last_tx_time))
+              end
+              m.last_tx_time = ctx.timestamp
+              m.packets_in_to = m.packets_in_to + 1
+              m.packets_in_cycle = m.packets_in_cycle + 1
+              pk = m.current_tx::Packet
+              data_bits = data_length(pk).bits
+              tx_bits = data_bits + ETHERNET_PHY_HEADER_LEN_BYTES * 8 + ETHERNET_PHY_ESD_LEN_BYTES * 8
+              schedule_timer!(ctx, to_simtime(tx_bits / m.bitrate), m.module_id, m.tx_timer,
+                  (ctx2) -> data_dispatch!(ctx2, m, T_TX_TIMER, nothing))
+              esd = _plca_esd(m)
+              m.downlink.start_frame_tx(ctx, pk, esd)
+              _plca_run_control!(ctx, m)
+          end
+          """),
+        j("_plca_esd(m::PlcaState) = m.bc < m.config.max_bc - 1 ? ESD_BRS : ESD_ESD"),
+
+        # ── the transition hook ─────────────────────────────────────────
+        j("""
+          function _plca_on_data_transition(plca::PlcaState, to)
+              _emit_count!(plca, _plca_ctx[], :dataState, UInt8(to))
+              nothing
+          end
+          """),
+
+        # ── the handler layer ───────────────────────────────────────────
+        # A MAC or PHY call becomes a dispatch. The one state check the
+        # hand-written code made loudly (a frame arriving where none can be
+        # accepted) stays loud, and stays here where it can name the state.
+        j("""
+          function plca_start_frame_transmission!(ctx, plca::PlcaState, packet::Packet)
+              _plca_ctx[] = ctx
+              s = fsm_state(plca.fsm_data)
+              if !(s == DATA_S_IDLE || s == DATA_S_WAIT_IDLE || s == DATA_S_RECEIVE || s == DATA_S_WAIT_MAC)
+                  error("plca_start_frame_transmission!: unexpected ds=" * DATA_STATE_NAMES[s + 1])
+              end
+              data_dispatch!(ctx, plca, E_START_FRAME_TRANSMISSION, packet)
+          end
+          """),
+        j("plca_end_frame_transmission!(ctx, plca::PlcaState) = nothing"),
+        j("plca_start_signal_from_mac!(ctx, plca::PlcaState, kind) = nothing"),
+        j("""
+          function plca_end_signal_from_mac!(ctx, plca::PlcaState)
+              _plca_ctx[] = ctx
+              data_dispatch!(ctx, plca, E_END_SIGNAL_TRANSMISSION, nothing)
+          end
+          """),
+        j("""
+          function plca_commit_to!(ctx, plca::PlcaState)
+              _plca_ctx[] = ctx
+              data_dispatch!(ctx, plca, E_COMMIT_TO, nothing)
+          end
+          """),
+        j("""
+          function plca_data_on_reception_start!(ctx, plca::PlcaState, sig)
+              _plca_ctx[] = ctx
+              data_dispatch!(ctx, plca, E_RECEPTION_START, sig)
+          end
+          """),
+        j("""
+          function plca_data_on_reception_end!(ctx, plca::PlcaState, sig)
+              _plca_ctx[] = ctx
+              data_dispatch!(ctx, plca, E_RECEPTION_END, sig)
+          end
+          """),
+    ]
+end
+
 const OUTPUT = joinpath(@__DIR__, "..", "package", "linklayer", "main", "t1s",
-                        "PlcaControlFsm.jl")
+                        "PlcaFsm.jl")
 
 function main()
-    export_component(plca_control_component(), normpath(OUTPUT); wrap_module = false)
+    export_component(plca_component(), normpath(OUTPUT); wrap_module = false)
     println("wrote ", normpath(OUTPUT))
 end
 

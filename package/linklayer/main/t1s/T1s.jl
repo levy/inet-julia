@@ -68,9 +68,9 @@ export
     plca_on_reception_start!, plca_on_reception_end!,
     plca_on_collision_start!, plca_on_collision_end!,
     # PLCA data
-    PlcaDataState, DS_IDLE, DS_WAIT_IDLE, DS_RECEIVE, DS_HOLD, DS_TRANSMIT,
-    DS_COLLIDE, DS_DELAY_PENDING, DS_PENDING, DS_WAIT_MAC,
-    PlcaDataFsm, plca_data,
+    DATA_S_IDLE, DATA_S_WAIT_IDLE, DATA_S_RECEIVE, DATA_S_HOLD, DATA_S_TRANSMIT,
+    DATA_S_COLLIDE, DATA_S_DELAY_PENDING, DATA_S_PENDING, DATA_S_WAIT_MAC,
+    DATA_STATE_NAMES, data_dispatch!,
     plca_start_frame_transmission!, plca_end_frame_transmission!,
     plca_start_signal_from_mac!, plca_end_signal_from_mac!,
     plca_commit_to!,
@@ -93,7 +93,6 @@ include("Wire.jl")
 include("Phy.jl")
 include("Junction.jl")
 include("PlcaControl.jl")
-include("PlcaData.jl")
 include("Mac.jl")
 include("App.jl")
 

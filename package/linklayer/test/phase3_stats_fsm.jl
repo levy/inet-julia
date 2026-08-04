@@ -30,12 +30,12 @@ end
     @test length(v[1].samples) > 20
 end
 
-@testset "dataStateChanged fires (at least the DS_IDLE emit on start)" begin
+@testset "dataStateChanged fires (at least the DATA_S_IDLE emit on start)" begin
     res = _run_stats()
     v = filter(x -> occursin("MultidropNetwork.controller.eth[0].plca", x.module_path) &&
                      x.name == "dataState:vector", res.vectors)
     @test !isempty(v)
-    # With no traffic the data FSM stays in DS_IDLE — but the very first
+    # With no traffic the data FSM stays in DATA_S_IDLE — but the very first
     # entry emits once. (Phase 5+ tests exercise the transmit path.)
     @test length(v[1].samples) >= 0
 end

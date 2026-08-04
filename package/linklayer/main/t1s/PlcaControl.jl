@@ -103,20 +103,21 @@ function PlcaConfig(; plca_node_count::Int, local_node_id::Int,
 end
 
 # The state struct — everything PLCA needs to run.
-# The 14-state control machine is NOT written here. It is a state machine
+# Neither PLCA machine is written here. It is a state machine
 # document, and `PlcaControlFsm.jl` beside this file is generated from it:
 #
-#     tool/generate_plca_control_fsm.jl   the machine (states, the conditions
-#                                         that move it, the code around them)
-#     t1s/PlcaControlFsm.jl               generated — do not edit
+#     tool/generate_plca_control_fsm.jl   both machines (control and data) as
+#                                         one component
+#     t1s/PlcaFsm.jl                      generated — do not edit
 #
-# The generated file defines `PlcaState` (shared with the data FSM, whose `ds`
-# is an ordinary field it owns), the state constants, `control_dispatch!`, the
-# entry actions and `handle_with_control_fsm!`. What stays here is the part
+# The generated file defines `PlcaState` — which holds BOTH machines, and every
+# variable they pass between them — the state constants, `control_dispatch!`
+# and `data_dispatch!`, the entry actions, the handler layer, and
+# `handle_with_control_fsm!`. What stays here is the part
 # ahead of that struct — the enums and interface types its fields are
 # annotated with — plus the keyword constructor and the PHY-facing callbacks.
 
-include("PlcaControlFsm.jl")
+include("PlcaFsm.jl")
 
 """
     PlcaState(module_id, config; bitrate, upcalls, downlink)
@@ -128,12 +129,11 @@ explicitly rather than positionally by accident.
 function PlcaState(module_id::Int, config::PlcaConfig; bitrate::Float64 = 10.0e6,
                    upcalls::PlcaControlUpcalls = NO_PLCA_UPCALLS,
                    downlink::PlcaDownlink = NO_PLCA_DOWNLINK)
-    plca = PlcaState(Fsm(:Control, CONTROL_S_DISABLE),
+    plca = PlcaState(Fsm(:Control, CONTROL_S_DISABLE), Fsm(:Data, DATA_S_IDLE),
                      TimerHandle(), TimerHandle(), TimerHandle(), TimerHandle(),
                      TimerHandle(), TimerHandle(), TimerHandle(), TimerHandle(),
                      TimerHandle(),
                      module_id, config, bitrate,
-                     0x00,                # ds — the data FSM's, not ours
                      false, false, false, false,   # packet_pending/tx_en/carrier/signal
                      false, false, false,          # crs/col/receiving
                      CMD_NONE, CMD_NONE,           # rx_cmd/tx_cmd
@@ -142,8 +142,10 @@ function PlcaState(module_id::Int, config::PlcaConfig; bitrate::Float64 = 10.0e6
                      false,                        # in_fsm re-entrancy guard
                      upcalls, downlink,
                      nothing, 0, Dict{Symbol,Int}(),
-                     SimTime(0), SimTime(0), 0, 0, 0)
+                     SimTime(0), SimTime(0), 0, 0, 0,
+                     nothing, SimTime(0), SimTime(0))   # current_tx + timestamps
     plca.fsm_control.on_transition = (fsm, from, to, index) -> _plca_on_transition(plca, to)
+    plca.fsm_data.on_transition = (fsm, from, to, index) -> _plca_on_data_transition(plca, to)
     plca
 end
 
@@ -171,11 +173,11 @@ function plca_start!(ctx, plca::PlcaState)
     # curID is the ONE signal INET actually init-emits (the initial value
     # `plca_node_count` is set in the setter INET traces). Others follow
     # emit-on-change during the FSM run — matching INET's default emit()
-    # semantics. dataState is emitted here too as it stays in DS_IDLE
+    # semantics. dataState is emitted here too as it stays in DATA_S_IDLE
     # under notraffic and INET emits its initial value.
     _emit_count!(plca, ctx, :curID, plca.cur_id)
-    # dataState initial = DS_IDLE = 1 (INET enum order — see PlcaData.jl).
-    _emit_count!(plca, ctx, :dataState, UInt8(DS_IDLE))
+    # dataState initial = DATA_S_IDLE = 1 (INET enum order).
+    _emit_count!(plca, ctx, :dataState, UInt8(DATA_S_IDLE))
     _emit_count!(plca, ctx, :controlState, UInt8(CS_RESYNC))
     _emit_count!(plca, ctx, :carrierSense, 0)   # crs starts false
     _emit_count!(plca, ctx, :collision, 0)      # col starts false
