@@ -13,8 +13,12 @@ sets, because in this port the Julia form *is* the model.
 
 - [An active source and a passive sink](sources/ActiveSourcePassiveSink.md) —
   the smallest network there is, and the arrival process every later step uses.
+- [A passive source and an active sink](sources/PassiveSourceActiveSink.md) —
+  the same two elements with the initiative the other way round.
 
 ## Queues
 
 - [A single queue](queues/Queue.md) — packets arrive, wait their turn, are
   served one at a time, and are counted.
+- [A queue that drops what does not fit](queues/DropTailQueue.md) — what a
+  queue does when more arrives than it can hold.

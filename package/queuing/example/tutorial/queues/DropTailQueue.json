@@ -1,0 +1,12 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "A queue that drops what does not fit",
+  "model": "QueuingModel",
+  "parameters": {
+    "arrival_rate": 12.0,
+    "service_rate": 10.0,
+    "packet_capacity": 5,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

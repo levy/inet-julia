@@ -149,9 +149,15 @@ function test_tutorial()
             # The navigator is the index's own links — the navigation is not
             # declared twice.
             @test [s.title for s in shell.steps] ==
-                  ["An active source and a passive sink", "A single queue"]
+                  ["An active source and a passive sink",
+                   "A passive source and an active sink",
+                   "A single queue",
+                   "A queue that drops what does not fit"]
             @test [s.path for s in shell.steps] ==
-                  ["sources/ActiveSourcePassiveSink.md", "queues/Queue.md"]
+                  ["sources/ActiveSourcePassiveSink.md",
+                   "sources/PassiveSourceActiveSink.md",
+                   "queues/Queue.md",
+                   "queues/DropTailQueue.md"]
             @test Projectured.filename(shell.page) == "index.md"
 
             drawn = _shell_drawn(shell)
@@ -159,7 +165,7 @@ function test_tutorial()
             @test any(t -> occursin("A single queue", t), drawn)
             @test any(t -> occursin("queueing network", t), drawn)
 
-            open_step!(shell, 2)
+            open_step!(shell, 3)
             @test Projectured.filename(shell.page) == "queues/Queue.md"
             drawn = _shell_drawn(shell)
             # The page arrives with its embeds live: prose, the model's source,
@@ -175,7 +181,7 @@ function test_tutorial()
             page = shell.page
             open_step!(shell, 0)
             @test Projectured.filename(shell.page) == "index.md"
-            open_step!(shell, 2)
+            open_step!(shell, 3)
             @test shell.page === page
         end
 
@@ -193,6 +199,43 @@ function test_tutorial()
             @test Projectured.filename(shell.page) == "index.md"
             operation.action.callback(nothing)
             @test Projectured.filename(shell.page) == "sources/ActiveSourcePassiveSink.md"
+        end
+
+        @testset "every step's simulation makes the claim its page makes" begin
+            # One page, one claim, checked as a number. A result that merely
+            # exists proves nothing — it is what an unrun execution also
+            # produces.
+            for (page, key, check) in (
+                    # The consumer sets the rate here, not the producer: 10 s at
+                    # one collection every 0.2 s.
+                    ("sources/PassiveSourceActiveSink.md",
+                     "PullSourceSink.sink.packets:count", n -> n == 50),
+                    # Arrivals faster than service, and a queue with room for 5:
+                    # it fills, and from then on what arrives is dropped.
+                    ("queues/DropTailQueue.md",
+                     "Queuing.queue.droppedPacketsQueueOverflow:count", n -> n > 100))
+                embed = only(e for e in _tutorial_embeds(load_tutorial_page(page))
+                             if e isa SimulationEmbed)
+                embed_finish!(embed)
+                @test embed_status(embed) === :Finished
+                @test check(Dict(workbench_result(embed.workbench).scalars)[Symbol(key)])
+            end
+        end
+
+        @testset "the drop-tail step drops what the plain queue does not" begin
+            # The two queue steps run the same model and differ only in their
+            # configuration, which is the point the pages make.
+            plain = only(e for e in _tutorial_embeds(load_tutorial_page("queues/Queue.md"))
+                         if e isa SimulationEmbed)
+            dropping = only(e for e in _tutorial_embeds(
+                                load_tutorial_page("queues/DropTailQueue.md"))
+                            if e isa SimulationEmbed)
+            @test plain.model === dropping.model
+            embed_finish!(plain)
+            embed_finish!(dropping)
+            key = Symbol("Queuing.queue.droppedPacketsQueueOverflow:count")
+            @test Dict(workbench_result(plain.workbench).scalars)[key] == 0
+            @test Dict(workbench_result(dropping.workbench).scalars)[key] > 100
         end
 
         @testset "the step's diagram is derived from its own wiring" begin

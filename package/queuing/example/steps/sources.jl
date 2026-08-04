@@ -8,6 +8,8 @@
 # ────────────────────────────────────────────────────────────────────────────
 
 using InetQueuing: ActivePacketSourceModule, ActivePacketSourceParameters,
+    PassivePacketSourceModule, PassivePacketSourceParameters,
+    ActivePacketSinkModule, ActivePacketSinkParameters,
     PassivePacketSinkModule, PacketTemplate, check_packet_connections
 using OmnetppSimulator: AbstractModel, AbstractEngine, AbstractResolvedParameters,
     Parameter, ParameterSpace, StructuralDOF, StochasticDOF, SimTimeLimit,
@@ -22,7 +24,7 @@ import OmnetppSimulator: model_module_count, model_barrier_module, model_delay_e
     model_topology, model_description, model_parameter_space, build_model,
     reset_model!, schedule_initial_events!, finalize_model!
 
-export ActiveSourcePassiveSinkModel
+export ActiveSourcePassiveSinkModel, PassiveSourceActiveSinkModel
 
 """
     ActiveSourcePassiveSinkModel
@@ -98,4 +100,79 @@ function schedule_initial_events!(m::AbstractActiveSourcePassiveSinkModel,
 end
 
 finalize_model!(m::AbstractActiveSourcePassiveSinkModel, recorder) =
+    finalize_network!(m.network, recorder)
+
+"""
+    PassiveSourceActiveSinkModel
+
+The same two elements with the initiative the other way round: the sink decides
+when it wants a packet, and the source hands one over on request.
+
+Nothing about the packets changes — what changes is who drives. Every element
+in this library plays one of these two roles at each of its gates, which is why
+a queue can sit between a pushing source and a pulling server without either
+knowing about the other.
+"""
+@document struct PassiveSourceActiveSinkModel <: AbstractModel
+    collection_interval::Float64   # seconds between collections (mean, when random)
+    random_intervals::Bool
+    packet_bytes::Int
+    time_limit::Float64
+    seed::Int
+    network::Any
+end
+
+model_module_count(m::AbstractPassiveSourceActiveSinkModel)   = network_module_count(m.network)
+model_barrier_module(m::AbstractPassiveSourceActiveSinkModel) = network_barrier(m.network)
+model_delay_edges(m::AbstractPassiveSourceActiveSinkModel)    = network_delay_edges(m.network)
+model_topology(m::AbstractPassiveSourceActiveSinkModel)       = network_topology(m.network)
+
+model_description(::Type{PassiveSourceActiveSinkModel}) =
+    "A sink that collects packets on its own from a source that provides them on request."
+
+model_parameter_space(::Type{PassiveSourceActiveSinkModel}) = ParameterSpace(Parameter[
+    Parameter(:collection_interval, 0.2,   nothing, StructuralDOF),
+    Parameter(:random_intervals,    false, nothing, StructuralDOF),
+    Parameter(:packet_bytes,        50,    nothing, StructuralDOF),
+    Parameter(:time_limit,          10.0,  nothing, StructuralDOF),
+    Parameter(:seed,                42,    nothing, StochasticDOF),
+])
+
+function build_model(::Type{PassiveSourceActiveSinkModel}, r::AbstractResolvedParameters)
+    m = PassiveSourceActiveSinkModelMut(Float64(r[:collection_interval]),
+                                        Bool(r[:random_intervals]),
+                                        Int(r[:packet_bytes]),
+                                        Float64(r[:time_limit]), Int(r[:seed]), nothing)
+    m.network = _build_pull_network(m)
+    m
+end
+
+function _build_pull_network(m)
+    network = Network(:PullSourceSink)
+    source = add_module!(network, PassivePacketSourceModule(:source,
+        PassivePacketSourceParameters(
+            packet = PacketTemplate(length = Bytes(m.packet_bytes)));
+        seed = m.seed))
+    interval = m.random_intervals ? Volatile(exponential(m.collection_interval)) :
+                                    m.collection_interval
+    sink = add_module!(network, ActivePacketSinkModule(:sink,
+        ActivePacketSinkParameters(collection_interval = interval); seed = m.seed + 1))
+    connect!(source.out, sink.in)
+    initialize_network!(network)
+    check_packet_connections(network)
+    network
+end
+
+reset_model!(m::AbstractPassiveSourceActiveSinkModel) = (reset_network!(m.network); m)
+
+function schedule_initial_events!(m::AbstractPassiveSourceActiveSinkModel,
+                                  engine::AbstractEngine, recorder)
+    register_network_statistics!(m.network, recorder)
+    start_network!(engine, m.network)
+    schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
+                   ctx -> stop!(ctx.sim, SimTimeLimit))
+    engine
+end
+
+finalize_model!(m::AbstractPassiveSourceActiveSinkModel, recorder) =
     finalize_network!(m.network, recorder)
