@@ -1,39 +1,55 @@
 """
     InetPacketExample
 
-Runnable demonstrations of `InetPacket`: `packet_api_demo.jl`, a worked tour of
-the packet & chunk API — headers, tags, quality, and what `peek` materialises.
+Runnable demonstrations of `InetPacket`. Each demo is a function, so it is
+discoverable, callable with keywords, and returns what it built:
 
-Each is a standalone script rather than a registered example object — they
-print, they do not open an editor. Run one with:
+    using InetPacketExample
+    demos()                 # [:packet_api]
+    run_demo(:packet_api)   # or packet_api_demo() directly
 
-    julia --project=package/packet/example package/packet/example/packet_api_demo.jl
-
-`script_path(name)` locates them so a test or a driver can find them by name.
+`packet_api_demo` is a worked tour of the packet & chunk API — headers, tags,
+duplication with a shared payload, the bytes-on-the-wire view, and what the R9
+reinterpretation guard refuses.
 """
 module InetPacketExample
 
-"""
-    script_path(name::AbstractString) -> String
+using InetPacket.PacketModule
 
-Absolute path to a bundled example script, with or without the `.jl` suffix
-(`script_path("packet_api_demo")`).
+include(joinpath(@__DIR__, "packet_api_demo.jl"))
+
 """
-function script_path(name::AbstractString)
-    file = endswith(name, ".jl") ? String(name) : String(name) * ".jl"
-    path = abspath(joinpath(@__DIR__, file))
-    isfile(path) || error("no example script named ", repr(name), " at ", path)
-    path
+    DEMOS :: Dict{Symbol, Function}
+
+Every bundled demo, by name. `run_demo` dispatches through this and `demos()`
+lists it, so adding a demo is one entry rather than a file someone has to know
+to look for.
+"""
+const DEMOS = Dict{Symbol, Function}(
+    :packet_api => packet_api_demo,
+)
+
+"""
+    demos() -> Vector{Symbol}
+
+The name of every bundled demo.
+"""
+demos() = sort!(collect(keys(DEMOS)))
+
+"""
+    run_demo(name::Symbol; kwargs...)
+
+Run the named demo, forwarding `kwargs` to it — `run_demo(:packet_api)` is
+`packet_api_demo()`.
+"""
+function run_demo(name::Symbol; kwargs...)
+    haskey(DEMOS, name) ||
+        error("unknown demo ", repr(name), "; available: ", join(demos(), ", "))
+    DEMOS[name](; kwargs...)
 end
 
-"""
-    scripts() -> Vector{String}
-
-Every bundled example script name, without the `.jl` suffix.
-"""
-scripts() = sort([replace(f, ".jl" => "") for f in readdir(@__DIR__)
-                  if endswith(f, ".jl") && f != "InetPacketExample.jl"])
-
-export script_path, scripts
+export DEMOS, demos, run_demo
+export packet_api_demo, make_packet, forward!, broadcast_packet
+export Ipv4Header, RoutingRequest, CreationTimeTag, HopCountTag
 
 end # module InetPacketExample

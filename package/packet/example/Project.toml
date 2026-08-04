@@ -5,7 +5,7 @@ authors = []
 entryfile = "InetPacketExample.jl"
 
 # Example package for InetPacket: the runnable demonstrations of the packet &
-# chunk API, each a standalone entry point.
+# chunk API, each an exported function reached through `run_demo(name)`.
 
 [deps]
 InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
