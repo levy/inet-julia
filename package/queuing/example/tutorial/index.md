@@ -5,9 +5,25 @@ a page like this one: prose that explains an element, the model's own source
 next to it, and the simulation itself — configurable and runnable without
 leaving the page.
 
+## How to read a step
+
+Each step's page has the same three parts.
+
+The **prose** says what the element does and what to watch for. The **network**
+is the model's own source, embedded from the file it lives in — not a quotation
+of it, so it cannot drift from what actually runs. The **simulation** is live:
+its parameters are the model's declared degrees of freedom, and editing one and
+pressing Run runs the edited model.
+
 The models are Julia. Where INET's tutorial shows a NED network and an INI
 config, this one shows the code that builds the network and the values the step
-sets, because in this port the Julia form *is* the model.
+sets, because in this port the Julia form *is* the model. Nothing is generated
+from anything: the diagram, the parameter form and the run all read the same
+network the engine reads.
+
+Steps are meant to be read in order — each one is the previous one with a
+single element added or swapped — but every page stands on its own, so skipping
+ahead costs you only the sentence that says "as in the previous step".
 
 ## Sources and sinks
 
@@ -37,3 +53,12 @@ sets, because in this port the Julia form *is* the model.
 
 - [Filtering packets out](filtering/Filter.md) — passing on some packets and
   dropping the rest.
+
+## Generic elements
+
+- [Holding a packet for a while](generic/Delayer.md) — the element that
+  changes only *when* a packet arrives.
+- [Joining several chains into one](generic/Multiplexer.md) — feeding one
+  chain from several places.
+- [Sharing one source between several collectors](generic/Demultiplexer.md) —
+  the same idea in the pull direction.

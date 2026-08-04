@@ -1,0 +1,7 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Joining several chains into one",
+  "model": "MultiplexerModel",
+  "parameters": { "arrival_rate": 5.0, "sources": 3, "time_limit": 100.0 },
+  "limit": { "sim_time": 100.0 }
+}

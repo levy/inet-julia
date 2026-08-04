@@ -1,0 +1,7 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Sharing one source between several collectors",
+  "model": "DemultiplexerModel",
+  "parameters": { "collection_interval": 0.2, "sinks": 2, "time_limit": 100.0 },
+  "limit": { "sim_time": 100.0 }
+}

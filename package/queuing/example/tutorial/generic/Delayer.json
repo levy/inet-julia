@@ -1,0 +1,7 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Holding a packet for a while",
+  "model": "DelayerModel",
+  "parameters": { "arrival_rate": 10.0, "delay": 0.5, "random_delay": false, "time_limit": 100.0 },
+  "limit": { "sim_time": 100.0 }
+}

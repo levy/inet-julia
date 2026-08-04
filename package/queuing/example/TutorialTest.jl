@@ -88,6 +88,9 @@ function test_tutorial()
             drawn = _tutorial_drawn(page)
             @test any(t -> occursin("The queuing tutorial", t), drawn)
             @test any(t -> occursin("A single queue", t), drawn)
+            # The introduction says how to read a step, which is what INET's
+            # "getting started" page is for.
+            @test any(t -> occursin("How to read a step", t), drawn)
         end
 
         @testset "every page loads and every embed resolves" begin
@@ -169,7 +172,10 @@ function test_tutorial()
                    "queues/DropTailQueue.md",
                    "classifying/ContentBasedClassifier.md",
                    "scheduling/PriorityScheduler.md",
-                   "filtering/Filter.md"]
+                   "filtering/Filter.md",
+                   "generic/Delayer.md",
+                   "generic/Multiplexer.md",
+                   "generic/Demultiplexer.md"]
             @test first([s.title for s in shell.steps]) == "An active source and a passive sink"
             @test Projectured.filename(shell.page) == "index.md"
 
@@ -272,6 +278,43 @@ function test_tutorial()
             kept = scalars[Symbol("Filter.sink.packets:count")]
             @test kept < produced
             @test 0.15 <= kept / produced <= 0.35
+        end
+
+        @testset "the plumbing steps move packets and change nothing else" begin
+            # A delayer holds packets: everything produced arrives, apart from
+            # the few still in flight when the run ends.
+            delayer = only(e for e in _tutorial_embeds(load_tutorial_page("generic/Delayer.md"))
+                           if e isa SimulationEmbed)
+            embed_finish!(delayer)
+            scalars = Dict(workbench_result(delayer.workbench).scalars)
+            produced = scalars[Symbol("Delayer.source.packets:count")]
+            arrived = scalars[Symbol("Delayer.sink.packets:count")]
+            @test produced > 0
+            @test arrived <= produced
+            @test produced - arrived <= 20        # a 0.5 s delay at 10/s
+
+            # A multiplexer joins: the sink sees exactly the sum of its inputs.
+            multiplexer = only(e for e in _tutorial_embeds(
+                                   load_tutorial_page("generic/Multiplexer.md"))
+                               if e isa SimulationEmbed)
+            embed_finish!(multiplexer)
+            scalars = Dict(workbench_result(multiplexer.workbench).scalars)
+            sent = sum(scalars[Symbol("Multiplexer.source$(index).packets:count")]
+                       for index in 1:3)
+            @test scalars[Symbol("Multiplexer.sink.packets:count")] == sent
+
+            # A demultiplexer splits: what the collectors took is what the one
+            # provider produced, and neither collector was starved.
+            demultiplexer = only(e for e in _tutorial_embeds(
+                                     load_tutorial_page("generic/Demultiplexer.md"))
+                                 if e isa SimulationEmbed)
+            embed_finish!(demultiplexer)
+            scalars = Dict(workbench_result(demultiplexer.workbench).scalars)
+            collected = scalars[Symbol("Demultiplexer.sink1.packets:count")] +
+                        scalars[Symbol("Demultiplexer.sink2.packets:count")]
+            @test collected == scalars[Symbol("Demultiplexer.source.packets:count")]
+            @test scalars[Symbol("Demultiplexer.sink1.packets:count")] > 0
+            @test scalars[Symbol("Demultiplexer.sink2.packets:count")] > 0
         end
 
         @testset "the drop-tail step drops what the plain queue does not" begin
