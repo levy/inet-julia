@@ -315,25 +315,26 @@ keystroke away for editing, embeds included, since both styles share the dispatc
 Phases A–C are framework (parallelizable to a degree; A2/A3 before D); D onward is
 content. Each phase = one commit series; tick + log here.
 
-### Phase A — markdown embeds (projectured-julia)
-- [ ] A1: embed rendering — resolved `FileDocument` renders its content via
-      `print_child`; stub renders the fence; entries in **both** style dispatchers;
-      `MarkdownDocument` added to `NaturalToGraphics`
-- [ ] A2: selection descent through the embed (tail pass-through + iomap), test: caret
-      walks md → embedded Julia fragment → back
-- [ ] A3: save-path invariance test — embedding renders inline but `document_to_text`
-      still emits the marker fence only
+### Phase A — markdown embeds (projectured-julia) — **done**
+- [x] A1: embed rendering — a forced stub prints its value and a `FileDocument`
+      prints its content, both through `print_child`, as two neutral rules in the
+      **shared to-syntax fabric** (`EmbedToSyntax.jl` →
+      `natural_to_syntax_dispatch`); `MarkdownDocument` joins that fabric
+- [x] A2: selection descent through the embed — `.resolved` is the structural step;
+      caret walks md → embedded Julia fragment and maps back to the same path
+- [x] A3: save-path invariance — `document_to_text` emits the marker fence only,
+      forced or not
 
-### Phase B — the marker language (projectured-julia)
-- [ ] B1: marker bodies become restricted Julia — Julia-parse + interpreter over call
+### Phase B — the marker language (projectured-julia) — **done**
+- [x] B1: marker bodies are restricted Julia — Julia-parse + interpreter over call
       chains with literal arguments, vocabulary registry; `file(…)` backed by the
       project loader (interning, cycle placeholders); the stub keeps its source text
-      verbatim; parse/evaluation failure renders as the fence. Replaces the
-      reference-path marker codec — `FileReferenceStep` falls out of use (§9)
-- [ ] B2: `definition(doc, "name")` registered by the Julia domain — finds the named
-      top-level definition (duplicates error)
-- [ ] B3: round-trip: markers in `.md` and in JSON string values → parse → evaluate →
-      render → save → byte-identical file
+      verbatim; a body that does not parse is simply not a marker. Replaces the
+      reference-path marker codec — `FileReferenceStep` is no longer constructed (§9)
+- [x] B2: `definition(doc, "name")` registered by the Julia domain — finds the named
+      top-level definition (missing/duplicate names error)
+- [x] B3: round-trip: markers in `.md` and in JSON string values survive load →
+      force → save unchanged, spacing included
 
 ### Phase C — the simulation embed (omnetpp-julia)
 - [ ] C1: `ParameterFormToWidget` extracted as a standalone, reference-mapped projection
@@ -422,4 +423,56 @@ New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance
 
 ## Implementation log
 
-(append per phase: decisions, deviations, golden hashes)
+### Phases A + B — projectured-julia, worktree `projectured-julia-tutorial` (branch `tutorial-embeds`)
+
+**Order.** B1 was implemented *before* A: what a marker *is* had to settle before
+the rules that render one could be written against it. A/B are otherwise as planned.
+
+**The reading/writing split replaces the "embed knob".** The draft had A1 adding
+inline rendering to both markdown style dispatchers, which collides with A3 —
+`document_to_text` picks a domain's projection through
+`natural_syntax_projection`, so an inline-rendering markdown projection would
+write embedded content into the `.md`. The resolution is cleaner than a knob and
+needs no new option:
+
+- **Reading** goes through the *shared fabric* (`natural_to_syntax_dispatch`),
+  because that is what the renderer (`NaturalToGraphics`) and every cross-domain
+  slot use. Two new neutral rules live there — `ReferenceStubToSyntax` (print the
+  value the marker evaluated to) and `FileDocumentToSyntax` (print the file's
+  content) — plus `MarkdownDocument => MarkdownToSyntax(style = :rendered)`, which
+  is what makes markdown a first-class member of that fabric and is what lets an
+  embed of *any* domain render inside a page.
+- **Writing** goes through the *domain projection alone*, whose own table renders
+  a stub as the marker in that format's syntax. So saving is by-marker by
+  construction, in every format, with no flag to get wrong.
+
+Both markdown styles now carry stub/`FileDocument` entries (`:rendered` used to
+error on a stub), so the domain projection is total either way.
+
+**`.resolved` is the step into an embed.** A stub's evaluated value lives in a
+reactive cell; a `FieldReferenceStep("resolved")` evaluates it (through
+`unwrap_cell`), which is all selection propagation needs — the stub itself has no
+`selection` field and `_set_selection_walk!` skips such a node and writes the
+suffix into the embedded document. Verified end to end: forward projection
+carries the caret into the fragment and `map_reference_backward` returns exactly
+the path that was selected. On an *unforced* stub the path is storable but
+projects to `nothing` — a marker is a leaf with no interior.
+
+**Printing never resolves.** Forcing writes a reactive cell; doing that inside a
+printer's computed cell would invalidate the computation that is running. So
+`resolve!` stays explicit, and `resolve_stubs!(root)` (new) forces a whole graph
+transitively for callers that want it. Because the printer *reads* `stub.resolved`
+through the cell, forcing an embed re-derives the output by itself — laziness and
+reactivity fall out of the same field.
+
+**Interning is per canonical call source**, so `file("a.json")`, `file( "a.json" )`
+and `file("./a.json")` are one object, and a nested `realize(file(…))` interns at
+both levels (this is what Phase C3 relies on).
+
+**Known wart (not introduced here):** the markdown printer drops a file's trailing
+newline, so the first save of a hand-written `.md` rewrites one byte. The
+round-trip tests assert marker-verbatimness and save-idempotence instead of
+byte-equality with the hand-written file.
+
+Tests: `test_marker_language` (base, 35), `test_marker_vocabulary` (domain, 14),
+`test_markdown_embed` (domain, 20).
