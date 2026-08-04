@@ -378,19 +378,17 @@ content. Each phase = one commit series; tick + log here.
 - [x] D3b: `ActiveSourcePassiveSink` — its own model in the example package's
       `steps/`, with the step's claim (100 packets in 10 s) asserted exactly
 
-### Phase E — content wave 1: the 15 portable steps — **10 of 15 done**
+### Phase E — content wave 1: the 15 portable steps — **done**
 - [x] Sources and Sinks: `ActiveSourcePassiveSink`, `PassiveSourceActiveSink`
 - [x] Queues: `Queue`, `DropTailQueue`
-- [ ] Classifying: `PriorityClassifier` (its own page — the element is already
-      used by the scheduling step), ~~`ContentBasedClassifier`~~
+- [x] Classifying: `PriorityClassifier`, `ContentBasedClassifier`
 - [x] Scheduling: `PriorityScheduler`
-- [ ] Filtering: ~~`Filter1`~~ (shipped as `filtering/Filter.md`), `Filter2`
-      (the back-pressure variant)
-- [ ] Serving: `Server`
+- [x] Filtering: `Filter1` (`filtering/Filter.md`), `Filter2`
+      (`filtering/BackpressureFilter.md`)
+- [x] Serving: `Server`
 - [x] Generic elements: `Delayer`, `Multiplexer`, `Demultiplexer`
-- [ ] Advanced queues: `PriorityQueue` (the element, not the assembled chain the
-      scheduling step builds)
-- [ ] Complex examples: `Network`
+- [x] Advanced queues: `PriorityQueue` (the compound element)
+- [x] Complex examples: `Network` (`complex/Network.md`)
 - [x] `gettingstarted` → the "how to read a step" introduction in `index.md`
 
 ### Phase F — element gaps + content wave 2 (15 steps)
@@ -717,6 +715,23 @@ Three things worth knowing before writing the rest:
 - **Give each source its own seed.** Several sources with one seed draw the same
   intervals and produce the same stream — a mistake worth making once.
 
-The five that remain: `PriorityClassifier` as its own page, `Filter2` (the
-back-pressure variant), `Server`, the `PriorityQueue` *element* (as opposed to
-the chain the scheduling step assembles), and `Network` (nested compounds).
+### Phase E is done — fifteen steps
+
+The last five went in over two model files. Three of them are pages over models
+that already existed: `PriorityClassifier` and `PriorityScheduler` share one
+chain and differ in which end of it the prose looks at, and `Server` shares the
+queue steps' chain. That is what a step sometimes is, and the plan's
+one-model-per-step reading was too strict.
+
+**The bug the last step found.** The priority-queue step's levels were built
+with `drop_at_end`, so a full level *accepted* the packet and threw it away —
+and the classifier, which moves on only when an output *refuses*, never reached
+the second level. The page claimed packets overflow into it and the counter said
+zero. Writing the complex example, which uses the same compound, is what
+surfaced it. Both models now let their levels refuse; the test asserts **both**
+levels are used, and the page explains why refusing is what makes an overflow an
+overflow.
+
+That is twice now that a page's claim, asserted as a number, caught something a
+"the run produced output" assertion would have passed. It is the discipline this
+content is worth having.
