@@ -66,24 +66,30 @@ harness with Wave C.
 
 ## 4. In-flight branches — landing gates
 
-- **`observable-communication`** (worktree `inet-julia-capture`): finished
-  increment (T1S + queuing capture seams, 2 commits, tests included). Gate:
-  merge the **omnetpp-julia** capture branch first (the simulator half defines
-  `attach_capture_seams!` etc.), then this one; its files
-  (`t1s/T1sCapture.jl`, `QueuingCapture.jl`, capture test phases) enter
-  `SEALING.md` unsealed at their include positions. The uncommitted
-  `[sources]` redirects in the worktree stay uncommitted, per convention.
-- **`queuing-tutorial`** (worktree `inet-julia-tutorial`): large and active
-  (phases A, B, D, E done; C partial — C4b live node badges outstanding; F
-  partial; new package `InetQueuingExample`; library-gap
-  edits inside `queuing` main: `PacketSource`, `PacketClassifier`,
-  `PacketScheduler`, new `common/PacketPredicates.jl`; new test phases). Gate:
-  land it (or at least its `queuing`-main library edits) **before** the
-  `queuing` audit wave, else the audit reviews files a branch is about to
-  rewrite. The tutorial-example package joins Wave D when it lands.
-- **`fsm-mac`** (worktree `inet-julia-fsm`): merged — P7b landed on main as
-  `cbe605b` (control and data machines in one component); the worktree and
-  branch are stale, remove when convenient.
+**Landed since this plan was written**: `observable-communication`
+(`t1s/T1sCapture.jl`, `QueuingCapture.jl`, `phase10_capture.jl`,
+`phase5_capture.jl` — now ordinary unsealed entries in `SEALING.md`) and
+`fsm-mac` (P7b, `cbe605b`).
+
+Open gates:
+
+- **`queuing-tutorial`** (worktree `inet-julia-tutorial`, ~30 commits ahead):
+  large and active — phases A, B, D, E done; C partial (C4b live node badges
+  outstanding); F partial. It adds the `InetQueuingExample` package and edits
+  `queuing` main directly: `base/PacketSource.jl`,
+  `classifier/PacketClassifier.jl`, `scheduler/PacketScheduler.jl`, plus two
+  new files in the base/composition layers (`common/PacketPredicates.jl`,
+  `common/PacketMarking.jl`). Gate: land it — or at least its `queuing`-main
+  library edits — **before** waves A4–A5, else the audit reviews files a
+  branch is about to rewrite. The tutorial-example package joins Wave D when
+  it lands.
+- **`demo-catalog`** (`plan/pending/demo-catalog.md`, new): builds a second
+  demo on the tutorial machinery, and states that `TutorialShell` (which the
+  `queuing-tutorial` branch puts in `package/queuing/example/`) is "to be
+  promoted to `CatalogShell` in `OmnetppPresentation`". That promotion moves
+  the shell — and presumably its widget projection — out of this repo, so
+  sequence it before Wave D, or Wave D audits a package about to lose its
+  shell.
 
 ## 5. Phase 0 — accept the requirements documents
 
@@ -103,6 +109,11 @@ harness with Wave C.
   layers.
 - [ ] **P0.4** Reconcile `SEALING.md` group names with whatever P0.1–P0.3
   changed (renaming groups is allowed; reordering entries is not).
+- [ ] **P0.5 Layout alignment.** Decide and execute the folder moves in
+  [folder-layout-alignment.md](folder-layout-alignment.md) (two moves inside
+  `InetQueuing` — retiring the `common/` grab-bag and filing the compound
+  queue with the compounds — plus four leave-as-is decisions to record).
+  Gated on `queuing-tutorial` landing.
 
 ## 6. The audit waves
 
