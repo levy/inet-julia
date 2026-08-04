@@ -703,11 +703,30 @@ as a number.
 Three things worth knowing before writing the rest:
 
 - **The embedded file must parse, not just the fragment.** `definition(file(f),
-  name)` parses *f* whole, so a construct the Julia domain cannot read fails the
-  page even when the embedded function is fine. `export`/`public` were added
-  (they are unavoidable in a real file); **comprehensions and `let` are still
-  unsupported**, so a step builder writes an explicit loop. Worth fixing in the
-  Julia domain rather than in every step — a follow-up.
+  name)` parses *f* whole, so one construct the Julia domain cannot read fails
+  every embed from that file, even when the embedded function itself is fine.
+  `export`/`public` were added (unavoidable in a real file). Measured
+  2026-08-04, still unsupported:
+
+  | construct | example |
+  |---|---|
+  | comprehension / typed comprehension | `[f(i) for i in 1:3]`, `Any[…]` |
+  | generator | `sum(f(i) for i in 1:3)` |
+  | `let` | `let x = 1; … end` |
+  | `do` block | `map(xs) do x … end` |
+  | splat | `f(xs...)` |
+  | broadcast | `f.(xs)` |
+  | string interpolation | `"a $(x) b"` |
+  | `where` clause | `f(x::T) where {T}` |
+  | named tuple | `(; a = 1)` |
+  | `module` | `module M … end` |
+
+  A step builder can dodge these (an explicit loop instead of a comprehension,
+  a named factory function instead of a `let`), but a **library** source cannot:
+  `where` and string interpolation are everywhere in real code, and a `module`
+  wrapper means a whole file can never be embedded. Embedding library sources
+  beyond the handful the tutorial already names needs these in the parser —
+  a follow-up plan of its own, in projectured-julia.
 - **A demultiplexer is not a multiplexer's opposite.** It sits on the *pull*
   side: one provider, several collectors. Wiring it push-first fails at
   `initialize_module!` with a message naming the gate, which is the error a step
