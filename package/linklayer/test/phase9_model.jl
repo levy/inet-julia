@@ -62,15 +62,28 @@ end
     @test Base.length(unique(hashes)) == 3   # each n produces a distinct trace
 end
 
-@testset "T1sModel — bestcase runs and produces events (placeholder)" begin
+# The `:notraffic` hash above never takes a MAC out of `MAC_IDLE` — with no
+# traffic there is nothing for it to do — so it guards the PLCA control FSM and
+# the PHY, and nothing else. This scenario is the MAC's guard: over 500 µs the
+# followers actually contend and transmit, so every MAC transition the model
+# takes is folded into the hash. Run long enough that frames really go out (at
+# 100 µs only one does).
+@testset "T1sModel — bestcase pins hash (the MAC's guard)" begin
     t = SimulationType(T1sModel)
     a = ParameterAssignment(Dict{Symbol,Any}(
-        :n_nodes => 4, :time_limit => 100e-6, :scenario => :bestcase))
+        :n_nodes => 4, :time_limit => 500e-6, :scenario => :bestcase))
     run = expand_simulation(configure_simulation(t, a))[1]
     inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
+    model = simulation_model(inst)
     run_simulation!(inst)
     res = finish_simulation!(inst)
-    @test total_event_count(simulation_engine(inst)) > 0
+
+    @test res.network_hash == 0x6f8ce88a8da52eab756161a1cd751395
+    @test total_event_count(simulation_engine(inst)) == 480
+    # The point of the scenario: frames really are transmitted and received,
+    # so the hash covers the MAC's transmit path and not only its idle state.
+    @test sum(n.mac.num_frames_sent for n in model.state.nodes) == 7
+    @test sum(n.mac.num_frames_received for n in model.state.nodes) == 7
 end
 
 @testset "T1sModel — model interface plumbs through cleanly" begin
