@@ -1,0 +1,12 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Making more packets",
+  "model": "ClonerModel",
+  "parameters": {
+    "arrival_rate": 10.0,
+    "branches": 2,
+    "duplicate_every": 2,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

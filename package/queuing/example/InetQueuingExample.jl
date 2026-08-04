@@ -75,6 +75,7 @@ include("steps/sources.jl")
 include("steps/classify.jl")
 include("steps/plumbing.jl")
 include("steps/serve.jl")
+include("steps/marking.jl")
 include("steps/network.jl")
 
 # The tutorial as one navigable thing: the steps down the left, the step you

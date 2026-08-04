@@ -1,0 +1,7 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Writing on a packet",
+  "model": "LabelerModel",
+  "parameters": { "arrival_rate": 10.0, "labels": 2, "time_limit": 100.0 },
+  "limit": { "sim_time": 100.0 }
+}

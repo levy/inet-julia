@@ -80,6 +80,13 @@ ahead costs you only the sentence that says "as in the previous step".
 - [Sharing one source between several collectors](generic/Demultiplexer.md) —
   the same idea in the pull direction.
 
+## Labelling and copying
+
+- [Writing on a packet](marking/Labeler.md) — how a stream acquires the
+  property a classifier sorts by.
+- [Making more packets](marking/Cloner.md) — fanning a stream out, and
+  thickening one in place.
+
 ## Complex examples
 
 - [Putting it together](complex/Network.md) — every element so far in one

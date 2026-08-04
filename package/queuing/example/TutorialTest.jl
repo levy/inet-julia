@@ -393,6 +393,35 @@ function test_tutorial()
             @test 0.15 <= kept / produced <= 0.35
         end
 
+        @testset "a labeler puts there what the classifier sorts by" begin
+            # The source says nothing; the labeler writes; the classifier
+            # sorts. Two labels, so the sinks split about evenly — and every
+            # packet reached one of them, which is the part that proves the
+            # classifier read what the labeler wrote.
+            embed = only(e for e in _tutorial_embeds(load_tutorial_page("marking/Labeler.md"))
+                         if e isa SimulationEmbed)
+            embed_finish!(embed)
+            scalars = Dict(workbench_result(embed.workbench).scalars)
+            produced = scalars[Symbol("Labeling.source.packets:count")]
+            first_label = scalars[Symbol("Labeling.sink1.packets:count")]
+            second_label = scalars[Symbol("Labeling.sink2.packets:count")]
+            @test first_label + second_label == produced
+            @test 0.4 <= first_label / produced <= 0.6
+        end
+
+        @testset "a cloner copies and a duplicator thickens" begin
+            embed = only(e for e in _tutorial_embeds(load_tutorial_page("marking/Cloner.md"))
+                         if e isa SimulationEmbed)
+            embed_finish!(embed)
+            scalars = Dict(workbench_result(embed.workbench).scalars)
+            produced = scalars[Symbol("Cloning.source.packets:count")]
+            # The plain branch gets one copy of everything …
+            @test scalars[Symbol("Cloning.sink2.packets:count")] == produced
+            # … and the thickened one gets that plus every second packet again.
+            thickened = scalars[Symbol("Cloning.sink1.packets:count")]
+            @test thickened == produced + produced ÷ 2
+        end
+
         @testset "the complex network is the elements composed" begin
             embed = only(e for e in _tutorial_embeds(load_tutorial_page("complex/Network.md"))
                          if e isa SimulationEmbed)
