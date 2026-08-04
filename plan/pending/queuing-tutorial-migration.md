@@ -341,21 +341,29 @@ content. Each phase = one commit series; tick + log here.
 - [x] B3: round-trip: markers in `.md` and in JSON string values survive load →
       force → save unchanged, spacing included
 
-### Phase C — the simulation embed (omnetpp-julia)
-- [ ] C1: `ParameterFormToWidget` extracted as a standalone, reference-mapped projection
-- [ ] C2: `SimulationEmbed` doctype + compact card projection (form, Run/Pause/Reset,
-      progress, chart) driving the existing lifecycle; validation surfaces on the card
+### Phase C — the simulation embed (omnetpp-julia) — **C4 pane outstanding**
+- [x] C1: `ParameterFormToWidget` as a standalone, reference-mapped projection —
+      `values[i].value.<rest> ↔ children[i].children[2].content.<rest>`, an ordinary
+      IoMap rather than a widget→document registry
+- [x] C2: `SimulationEmbed` doctype + compact card projection (title, form,
+      Run/Pause/Reset, status) driving the existing lifecycle
 - [x] C3: `realize(doc)` registered in the marker vocabulary — the presentation's
       `$doctype` realiser as an explicit function: interns per load session, remembers
       the realised ↔ JSON pairing for save-back; step files are plain `.json`.
       `load_project(OmnetppWorkbench, "root.json", dir)` **is** now
       `evaluate_marker("realize(file(\"root.json\"))")`
-- [ ] C4: `network_topology(::Network)` derivation + the embed's topology pane with
-      **live node badges** — per-module state refreshed during the run via the embed's
-      per-slice hook; layout frozen after the first pass
-- [ ] C5: multi-embed refresh registry; test with two embeds, one running
-- [ ] C6: headless integration test: markdown page embedding a fragment, a realised step
-      `.json` and the same file raw, run to limit, assert results and selection walk
+- [x] C4a: `network_topology(::Network) -> (labels, edges)` derived from the wiring —
+      compound walls collapsed, duplicate links merged, so a module-built model gets
+      `model_topology(m) = network_topology(m.network)` for free
+- [ ] C4b: the embed's topology pane with **live node badges** — per-module state
+      refreshed during the run; layout frozen after the first pass. Needs the graph
+      projection (and its layout engine) spliced into the page renderer, and a
+      per-module status hook the badges read
+- [x] C5: several embeds on one page — each keeps its own workbench and driver; one
+      marker written twice is *one* simulation (interning), which is the sharper case
+- [x] C6: headless integration — a page embedding a realised step `.json` draws the
+      live card among its prose, the same file embedded raw shows the JSON, and a
+      caret walks into a parameter and back
 
 ### Phase D — tutorial scaffold (inet-julia)
 - [ ] D1: `package/queuing/example/` package (`InetQueuingExample`), `tutorial/root.json`,
@@ -535,3 +543,57 @@ Tests: `test_realize_marker` (presentation, 11); `test_presentation` 180/180.
 `Project.toml` has its `[sources]` pointed at `../projectured-julia-tutorial/...`
 so it resolves against the phase-A/B work. That edit is deliberately
 **uncommitted**; it goes away when the projectured-julia branch lands on main.
+
+### Phase C — the embeddable simulation (omnetpp-julia)
+
+**C1 is a real projection, not an extraction.** The workflow column's configure
+card builds its form inline and maps references through a widget→document
+*registry* (`_selectable!` / `_wire_selection!` / `_field_forward`), which works
+but cannot be rendered anywhere else. `ParameterFormToWidget` is written the
+other way round — an ordinary IoMap whose correspondence is
+`values[i].value.<rest> ↔ children[i].children[2].content.<rest>` — and that is
+what makes the form embeddable. Each box carries the binding's value *document*
+(not a copy of its text), so typing writes through and there is nothing to
+commit; rows reconcile by binding identity (`reconcile_child_iomaps`), so
+reseeding the assignment keeps the rows that survive it.
+
+The column was left on its registry. Adopting the new projection there is a
+worthwhile follow-up but it is a refactor of a 1300-line printer with live
+editor behaviour, and nothing in the tutorial needs it.
+
+**C2's document mirrors the file.** `SimulationEmbed`'s fields *are* the step
+`.json` — `model`, `title`, `parameters`, `limit`, `series` — plus `workbench`,
+the live object derived from them and the one field a step file never writes.
+(The loader rejects a JSON key that is not a field, which is what forced this
+and improved it.) The card delegates the form through its child IoMap in both
+directions and drives the workflow's own lifecycle, so an embed is a smaller
+view of the same machine rather than a second implementation.
+
+Run does collect its results: when the driver task ends and the run actually
+reached its end, the result stage is advanced — on a task, never in a cell
+(AR-NO-WRITE-IN-THUNK). `embed_finish!` is the synchronous counterpart, which
+is how a test (or a batch render) runs a page's simulations without a driver.
+
+`simulation_embed_entry()` is the renderer entry a page needs:
+
+    NaturalToGraphics(measure = measure, extra = [simulation_embed_entry()])
+
+With A4's block split, the card arrives as a *real widget* in the page, which
+is what makes its buttons clickable.
+
+**Verified end to end, headless:** a page embedding `<<realize(file("Step.json"))>>`
+draws Run/Reset among its prose; the same file embedded raw shows the JSON; a
+caret walks page → card → form row → parameter and maps back; two embeds keep
+their own state; one marker written twice is one simulation.
+
+Tests: `test_parameter_form_projection`, `test_simulation_embed_document`,
+`test_simulation_embed_card`, `test_simulation_embed_in_page`,
+`test_two_embeds_on_one_page` — `test_presentation` 232/232.
+
+**C4 is half done.** `network_topology(::Network)` derives `(labels, edges)`
+from the wiring (module-layer tests 65/65). The *pane* is not wired into the
+card: rendering a graph inside a page needs the graph projection and its layout
+engine spliced into the page renderer, and live badges need a per-module status
+hook. Note that `MM1KModel` — the model the tests use — is built from the older
+`ModelStructure` vocabulary, not the module layer, so the first model to show a
+derived diagram will be a queuing one from Phase D.
