@@ -1,0 +1,13 @@
+{
+  "$doctype": "SimulationEmbed",
+  "title": "Naming a policy instead of writing it",
+  "model": "NamedPolicyModel",
+  "parameters": {
+    "arrival_rate": 10.0,
+    "classes": 4,
+    "policy": "data_equals",
+    "argument": 1,
+    "time_limit": 100.0
+  },
+  "limit": { "sim_time": 100.0 }
+}

@@ -12,13 +12,13 @@ using InetQueuing: ActivePacketSourceModule, ActivePacketSourceParameters,
     PacketFilterModule, PacketFilterParameters,
     content_based_classifier, priority_classifier, priority_scheduler,
     weighted_round_robin_classifier, weighted_round_robin_scheduler, markov_classifier,
-    PacketTemplate, packet_data, check_packet_connections
+    PacketTemplate, packet_data, packet_predicate, check_packet_connections
 using OmnetppSimulator.VolatileModule: Volatile, intuniform
 using OmnetppSimulator: MersenneTwister
 using InetQueuing: drop_at_end
 
 export ContentBasedClassifierModel, PriorityQueueChainModel, FilterModel,
-    SharedChainModel
+    SharedChainModel, NamedPolicyModel
 
 # The three models below wire the same skeleton, so the pieces they share are
 # built here rather than three times over.
@@ -390,3 +390,79 @@ function schedule_initial_events!(m::AbstractSharedChainModel, engine::AbstractE
 end
 
 finalize_model!(m::AbstractSharedChainModel, recorder) = finalize_network!(m.network, recorder)
+
+# ── Naming a policy instead of writing it ───────────────────────────────────
+
+"""
+    NamedPolicyModel
+
+A source, a filter and a sink, with the filter's rule chosen **by name**.
+
+A step file is JSON, and JSON cannot hold a function. So a configuration names
+a registered policy and its argument — `data_equals` with `3`, `every_nth` with
+`4` — and the model builds the predicate from the pair. That is this library's
+answer to INET's `classifierClass = "inet::…"`: a name still selects a policy,
+but what it names is a function anyone can register rather than a class.
+"""
+@document struct NamedPolicyModel <: AbstractModel
+    arrival_rate::Float64
+    classes::Int                 # values the source writes
+    policy::Symbol               # the registered predicate to use
+    argument::Any                # its parameter
+    time_limit::Float64
+    seed::Int
+    network::Any
+end
+
+model_module_count(m::AbstractNamedPolicyModel)   = network_module_count(m.network)
+model_barrier_module(m::AbstractNamedPolicyModel) = network_barrier(m.network)
+model_delay_edges(m::AbstractNamedPolicyModel)    = network_delay_edges(m.network)
+model_topology(m::AbstractNamedPolicyModel)       = network_topology(m.network)
+
+model_description(::Type{NamedPolicyModel}) =
+    "A filter whose rule is chosen by name from the registered policies."
+
+model_parameter_space(::Type{NamedPolicyModel}) = ParameterSpace(Parameter[
+    Parameter(:arrival_rate, 10.0,          nothing, StructuralDOF),
+    Parameter(:classes,      4,             nothing, StructuralDOF),
+    Parameter(:policy,       :data_equals,  nothing, StructuralDOF),
+    Parameter(:argument,     1,             nothing, StructuralDOF),
+    Parameter(:time_limit,   100.0,         nothing, StructuralDOF),
+    Parameter(:seed,         42,            nothing, StochasticDOF),
+])
+
+function build_model(::Type{NamedPolicyModel}, r::AbstractResolvedParameters)
+    m = NamedPolicyModelMut(Float64(r[:arrival_rate]), Int(r[:classes]),
+                            Symbol(r[:policy]), r[:argument],
+                            Float64(r[:time_limit]), Int(r[:seed]), nothing)
+    m.network = _build_named_policy_network(m)
+    m
+end
+
+function _build_named_policy_network(m)
+    network = Network(:NamedPolicy)
+    source = _step_source(network, m; data = Volatile(intuniform(1, m.classes)))
+    # The name and its argument come from the step file; the predicate is built
+    # here, and an unregistered name fails loudly rather than passing nothing on.
+    predicate = packet_predicate(m.policy, m.argument)
+    filter = add_module!(network, PacketFilterModule(:filter,
+        PacketFilterParameters(predicate = predicate)))
+    sink = _step_sink(network, :sink)
+    connect!(source.out, filter.in)
+    connect!(filter.out, sink.in)
+    initialize_network!(network)
+    check_packet_connections(network)
+    network
+end
+
+reset_model!(m::AbstractNamedPolicyModel) = (reset_network!(m.network); m)
+
+function schedule_initial_events!(m::AbstractNamedPolicyModel, engine::AbstractEngine, recorder)
+    register_network_statistics!(m.network, recorder)
+    start_network!(engine, m.network)
+    schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
+                   ctx -> stop!(ctx.sim, SimTimeLimit))
+    engine
+end
+
+finalize_model!(m::AbstractNamedPolicyModel, recorder) = finalize_network!(m.network, recorder)

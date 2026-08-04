@@ -379,6 +379,20 @@ function test_tutorial()
             @test 0.45 <= first_path / (first_path + second_path) <= 0.55
         end
 
+        @testset "a policy named in the step file is the policy that runs" begin
+            # The step names :data_equals with 1, over four equally likely
+            # labels — so about a quarter of the traffic survives, and the name
+            # in the JSON is what decided that.
+            embed = only(e for e in _tutorial_embeds(load_tutorial_page("filtering/NamedPolicy.md"))
+                         if e isa SimulationEmbed)
+            @test embed.model === NamedPolicyModel
+            embed_finish!(embed)
+            scalars = Dict(workbench_result(embed.workbench).scalars)
+            produced = scalars[Symbol("NamedPolicy.source.packets:count")]
+            kept = scalars[Symbol("NamedPolicy.sink.packets:count")]
+            @test 0.15 <= kept / produced <= 0.35
+        end
+
         @testset "the complex network is the elements composed" begin
             embed = only(e for e in _tutorial_embeds(load_tutorial_page("complex/Network.md"))
                          if e isa SimulationEmbed)

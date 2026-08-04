@@ -63,6 +63,8 @@ ahead costs you only the sentence that says "as in the previous step".
   dropping the rest.
 - [Refusing instead of dropping](filtering/BackpressureFilter.md) — what back
   pressure is, and who feels it.
+- [Naming a policy instead of writing it](filtering/NamedPolicy.md) — how a
+  choice lives in data rather than in code.
 
 ## Serving
 
