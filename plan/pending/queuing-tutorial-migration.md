@@ -391,19 +391,19 @@ content. Each phase = one commit series; tick + log here.
 - [x] Complex examples: `Network` (`complex/Network.md`)
 - [x] `gettingstarted` → the "how to read a step" introduction in `index.md`
 
-### Phase F — element gaps + content wave 2 — **2 of 7 groups done**
+### Phase F — element gaps + content wave 2 — **5 of 7 groups done**
 New elements in `InetQueuing` (each ports its tutorial step(s) as the acceptance test):
 - [x] WRR classifier + scheduler presets → `scheduling/WeightedRoundRobin.md`
       (the `PriorityQueue`-with-WRR and `CompoundQueue` variants fold into the
       same page's `policy` parameter rather than earning pages of their own)
 - [x] Markov classifier + scheduler → `scheduling/MarkovScheduler.md`
-- [ ] data comparator preset → `Comparator`
-- [ ] ordinal dropper preset → `OrdinalBasedDropper`
+- [x] data comparator preset → `data_predicate` in `PacketPredicateModule`
+- [x] ordinal dropper preset → `ordinal_predicate` in the same module
 - [ ] duplicator + cloner elements (+ ordinal duplicator preset) → `Duplicator`,
       `Cloner`, `OrdinalBasedDuplicator`
 - [ ] labeler + label classifier → `Labeler`
-- [ ] named-preset registry (a name → function catalog the form can offer) →
-      `GenericClassifier`, `GenericScheduler`
+- [x] named-preset registry → `register_packet_predicate!` / `packet_predicate`,
+      with the step at `filtering/NamedPolicy.md`
 
 ### Later waves — gated on queuing subsystems (see `queuing-model-migration.md`)
 - token subsystem → 10 steps (server, 4 generators, LeakyBucket, TokenBucket,
@@ -782,3 +782,27 @@ constructor would have been four pages making one point.
 **The parser gap bit again**, this time on `"… got $(m.policy)"`. Avoided with
 `error("…", value)`. Twice now in ordinary code; string interpolation and
 `where` are the two that will keep happening.
+
+### Three of Phase F's groups are one module
+
+The comparator, the ordinal dropper and the named-preset registry are all the
+same question — *what does an element ask about a packet?* — so they are one
+module, `PacketPredicateModule`, and no new element types at all:
+
+- `data_predicate(relation, value)` compares what the source wrote. A packet
+  carrying nothing is a plain **no** rather than an error; a stream where only
+  some packets are labelled is ordinary.
+- `ordinal_predicate(accept)` asks *which* packet this is. The count lives in
+  the predicate, so two built from one rule count their own streams — which is
+  what you want when two elements each watch their own traffic.
+- `register_packet_predicate!` / `packet_predicate` is the named catalog. A
+  name takes **parameters**, so `:data_equals` covers a family rather than one
+  fixed predicate.
+
+The registry earns its place for exactly one reason, which the step page states:
+a step file is JSON and JSON cannot hold a function. In a program you pass the
+closure.
+
+Remaining in F: the duplicator/cloner elements and the labeler — the only two
+groups that need real new module types, because both *change* a packet or the
+number of them, which no predicate can do.
