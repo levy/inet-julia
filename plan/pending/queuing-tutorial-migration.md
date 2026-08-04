@@ -365,14 +365,19 @@ content. Each phase = one commit series; tick + log here.
       live card among its prose, the same file embedded raw shows the JSON, and a
       caret walks into a parameter and back
 
-### Phase D — tutorial scaffold (inet-julia)
-- [ ] D1: `package/queuing/example/` package (`InetQueuingExample`), `tutorial/root.json`,
-      `index.md`, `run.jl`; master–detail shell with navigator from `index.md`;
-      link-based step switching
+### Phase D — tutorial scaffold (inet-julia) — **shell + second step outstanding**
+- [x] D1a: `package/queuing/example/` package (`InetQueuingExample`), `tutorial/`
+      with `index.md` and one step, `run.jl`
+- [ ] D1b: `tutorial/root.json` + the master–detail shell (navigator parsed from
+      `index.md`, link-based step switching). The entry point today is `index.md`
+      itself; the shell needs a document of its own, which is what `root.json`
+      would name
 - [ ] D2: `PacketTemplate` gains `data` (+ data tag; content predicates/comparator read
       it) — in `InetQueuing` main
-- [ ] D3: first two steps end-to-end as the proof: `ActiveSourcePassiveSink` and `Queue`
-      (prose, fragment, live sim, derived diagram, golden hash)
+- [x] D3a: `Queue` end-to-end — prose, the model's own source as a fragment, the
+      live simulation, the derived diagram, results
+- [ ] D3b: `ActiveSourcePassiveSink` — needs a source→sink model of its own
+      (`QueuingModel` is the four-element chain)
 
 ### Phase E — content wave 1: the 15 portable steps
 - [ ] Sources and Sinks: `ActiveSourcePassiveSink`, `PassiveSourceActiveSink`
@@ -597,3 +602,34 @@ engine spliced into the page renderer, and live badges need a per-module status
 hook. Note that `MM1KModel` — the model the tests use — is built from the older
 `ModelStructure` vocabulary, not the module layer, so the first model to show a
 derived diagram will be a queuing one from Phase D.
+
+### Phase D — the first step is live (inet-julia)
+
+`InetQueuingExample` is the tutorial package. `tutorial/queues/Queue.md` carries
+two markers and nothing else out of the ordinary: `definition(…,
+"_build_queuing_network")` embeds the model's **own source**, and
+`realize(file("queues/Queue.json"))` embeds the simulation. The page renders as
+prose with a Julia fragment and a live card in it, the card's Run drives the
+workflow, and the run produces results — all headless (`test_tutorial`, 18/18).
+
+Three things this first step settled:
+
+- **A model library makes its models findable.** A step file says
+  `"model": "QueuingModel"`, which nothing in the presentation stack knows
+  about. `register_doctype_module!(InetQueuing)` — called from the *example*
+  package's `__init__`, never from the library — adds it to the name search, so
+  the dependency stays one-way (`main/` still does not depend on presentation).
+- **The derived diagram is real now.** `QueuingModel` implements
+  `model_topology(m) = network_topology(m.network)` and yields
+  `source → queue → server → sink` from the very wiring the engine reads. It is
+  the first model to do so — `MM1KModel` is built from the older `ModelStructure`
+  vocabulary, which is why C4's pane had nothing to show before this.
+- **Embedding the library's own source works** through a relative path out of
+  the tutorial directory (`../../main/QueuingModel.jl`). The reader sees the
+  current source of the model they are about to run, so a quotation cannot drift.
+
+**Worktree note:** the three `Project.toml` files that point at sibling
+worktrees (`inet-julia-tutorial`'s root and its example package,
+`omnetpp-julia-tutorial`'s root) carry **uncommitted** path overrides so each
+env resolves against the phase-A/B/C work. They go away when the branches land
+on `main`; the committed paths are the ordinary sibling ones.
