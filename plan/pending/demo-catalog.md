@@ -24,12 +24,21 @@ inet-julia content and the few pieces specific to it.
 - **`inet_simulation_catalog()`** — `QueuingModel` and `T1sModel`, the two
   models step files can name.
 
-## Prerequisite
+## Prerequisite — done
 
 The three tutorial branches land first (the omnetpp-julia plan's P0 lists the
 order and the rebase caveat). For this repo specifically: `queuing-tutorial`
 merges to main, the tutorial's `root.json` doctype string follows the shell's
 promotion, and the worktree's uncommitted `[sources]` redirect is dropped.
+
+All three hold. `queuing-tutorial` is on main, and omnetpp-julia's P0–P5 have
+landed, so `CatalogShell`, `SimulationEmbed`, the pane registry and the marker
+vocabulary all come from `OmnetppPresentation`. The tutorial's `root.json` now
+names `CatalogShell` and the two local shell files are deleted: the general
+shell is a strict superset — sections derived from the index's `##` headings, a
+draggable divider, panes that size to the window instead of to a constant, a
+scroll reset on opening a page, and a page whose embed cannot resolve opening
+as prose rather than taking the shell down.
 
 ## Design
 
@@ -103,7 +112,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
 
 ### The packet, taken apart
 
-- [ ] *A packet is chunks* — **demonstrates:** the packet API's core idea —
+- [x] *A packet is chunks* — **demonstrates:** the packet API's core idea —
       immutable, structurally-shared content under a mutable envelope; a
       thousand copies cost one payload; `dup` is O(1).
       **On screen:** prose; the build/broadcast/forward definitions embedded
@@ -114,7 +123,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
       **The reader:** follows one payload through a broadcast to ten peers
       and a three-hop forward, and the prose keeps score of what was copied:
       envelopes, never bytes.
-- [ ] *Headers declare their own bytes* — **demonstrates:** `@header` — one
+- [x] *Headers declare their own bytes* — **demonstrates:** `@header` — one
       declaration yields the struct *and* its bit-exact codec; plus the
       reinterpretation guard that refuses a cross-type `peek` unless asked.
       **On screen:** prose; the `Ipv4Header` declaration embedded; the wire
@@ -123,7 +132,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
       **The reader:** matches a field to its bytes by eye — the prose points
       at the TTL — then reads the guard's refusal and why an accidental
       reinterpretation should be loud.
-- [ ] *Knowing what you know* — **demonstrates:** the quality lattice —
+- [x] *Knowing what you know* — **demonstrates:** the quality lattice —
       `incomplete`/`incorrect`/`misrepresented` compose monotonically, and
       `peek` is strict by default: corrupted data must be asked for
       explicitly.
@@ -133,7 +142,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
       **The reader:** mostly reads; this page argues correctness culture.
       The closing prose lands it: a protocol model that silently parses
       garbage is how simulators lie.
-- [ ] *Reassembly without ceremony* — **demonstrates:** `ChunkQueue` and
+- [x] *Reassembly without ceremony* — **demonstrates:** `ChunkQueue` and
       `ChunkBuffer` — straddling pops normalize, sparse segments merge,
       gaps and overlap policies are explicit values.
       **On screen:** prose; an embedded fragment feeding out-of-order
@@ -145,7 +154,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
 
 ### Queuing, element by element
 
-- [ ] *The M/M/1/K chain* — **demonstrates:** the queuing element library in
+- [x] *The M/M/1/K chain* — **demonstrates:** the queuing element library in
       its canonical arrangement — source → queue → server → sink — and the
       project's validation culture: measured against closed form.
       **On screen:** prose; the network-builder source embedded from
@@ -156,7 +165,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
       `service_rate` and runs again — the queue grows, the measured points
       track the curve. Closing prose: the phase-1 test suite makes this
       same comparison, every run.
-- [ ] *Backpressure is a conversation* — **demonstrates:** the four-role
+- [x] *Backpressure is a conversation* — **demonstrates:** the four-role
       gate contract (push/pull × active/passive) and backpressure as a
       first-class refusal, not a drop.
       **On screen:** prose explaining the contract in plain words; a card
@@ -166,7 +175,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
       **The reader:** runs, watches the produced-vs-consumed counters
       diverge and then hold, flips the filter's `backpressure` parameter to
       the silent-sieve mode, runs again, and sees drops instead of stalls.
-- [ ] *The whole tutorial* — **demonstrates:** the 21-step interactive
+- [x] *The whole tutorial* — **demonstrates:** the 21-step interactive
       queuing tutorial — itself a major deliverable — without duplicating
       it.
       **On screen:** a short page saying what the tutorial is and how it is
@@ -191,7 +200,36 @@ document. Then the "How to read" preamble and the grouped table of contents.
       states — the cycle is 18.001 µs, analytically derived and asserted in
       the suite — then switches scenario and node count and watches the
       cycle stretch.
-- [ ] *Four state machines, generated* — **demonstrates:** the protocol's
+
+      **BLOCKED, upstream.** `T1sModel` cannot run through a
+      `SimulationEmbed` card at all, whatever the step file says, and the
+      cause is one line in `OmnetppSimulator`:
+
+          lift_parameter_value(v::Symbol) = PrimitiveString(String(v))
+          lower_parameter_value(v::PrimitiveDocument) = v.value        # a String
+
+      A parameter with a Symbol domain round-trips through the workbench's
+      parameter form as a String and then fails its own domain check —
+      `value "notraffic" for parameter :scenario is not in its domain
+      [:notraffic, :bestcase, :worstcase]`. `T1sModel` declares exactly such a
+      parameter (`:scenario`), so the failure is at `embed_finish!` and does
+      not depend on the step file mentioning `scenario`: omitting it still
+      lifts the default. Nothing in omnetpp-julia's own catalog exercises the
+      path, which is why it has not been hit before.
+
+      The fix belongs to whoever owns the shared machinery (a `PrimitiveSymbol`,
+      or lowering back to a Symbol when the parameter's domain is symbolic).
+      Until then the page has no card and is not written — a page whose one
+      instruction to the reader is "press Run" ships when Run works.
+
+      Two smaller notes for when it is unblocked, both found while probing:
+      `scenario`'s `:bestcase` and `:worstcase` are **placeholders** —
+      `_sources_for_scenario` gives both the same fixed 10 µs cadence and the
+      comment says the real per-node offsets are a follow-up — so the prose
+      must not promise that switching between them shows INET's two cases.
+      And `T1sModel` defines no `model_topology`, so the card should not ask
+      for the `:topology` pane.
+- [x] *Four state machines, generated* — **demonstrates:** the protocol's
       four FSMs (MAC, PLCA control, PLCA data, PHY) are documents — 
       generated, rendered, and navigable, with the running code generated
       from the same source.
@@ -202,7 +240,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
       overlay — states lighting up while a simulation runs, as
       `watch/mac_fsm.jl` does — is this page's stretch goal (design note
       above); the page ships static and is already convincing.
-- [ ] *The same numbers as INET* — **demonstrates:** parity is not claimed,
+- [x] *The same numbers as INET* — **demonstrates:** parity is not claimed,
       it is measured — the model emits INET's own signal names and the
       comparison against a real INET `.vec` run is a harness, not a slide.
       **On screen:** prose; the statistics wiring embedded (a few of the 22
@@ -216,7 +254,7 @@ document. Then the "How to read" preamble and the grouped table of contents.
 
 ### Finding the module that answers
 
-- [ ] *Interface lookup* — **demonstrates:** `find_module_interface` — a
+- [x] *Interface lookup* — **demonstrates:** `find_module_interface` — a
       module finds its protocol peer by walking real connections or by
       reference, with claims and forwarding transparency, instead of
       hard-wired paths.
@@ -230,28 +268,80 @@ document. Then the "How to read" preamble and the grouped table of contents.
 
 ## Phases
 
-- [ ] **P0 — substrate lands** (prerequisite above; gated on the omnetpp-julia
+- [x] **P0 — substrate lands** (prerequisite above; gated on the omnetpp-julia
       plan's P0–P2 for the shell and panes).
-- [ ] **P1 — the pipeline stands**: `demo.json` + `index.md` + *The M/M/1/K
+- [x] **P1 — the pipeline stands**: `demo.json` + `index.md` + *The M/M/1/K
       chain* (reuses a tutorial step file) render and run; `run_demo()`
       exported from `InetExample`; `demo/run.jl` for shell use.
-- [ ] **P2 — packet pages**: the four packet pages; `packet_api_demo.jl`
+- [x] **P2 — packet pages**: the four packet pages; `packet_api_demo.jl`
       refactored only as far as naming the definitions the pages embed.
 - [ ] **P3 — T1S pages**: run card, FSM page (static embed first; assess the
-      live overlay), statistics page.
-- [ ] **P4 — tutorial hand-off + lookup page**: the tutorial section links,
+      live overlay), statistics page. **Two of three.** The FSM page and the
+      statistics page are written; the run card is blocked on the Symbol
+      parameter round-trip recorded against *A bus that takes turns* above,
+      and is the only piece of this plan not delivered.
+- [x] **P4 — tutorial hand-off + lookup page**: the tutorial section links,
       the lookup page.
-- [ ] **P5 — test**: the walker (load `demo.json`, open every page, resolve
+- [x] **P5 — test**: the walker (load `demo.json`, open every page, resolve
       every marker, drive each embed briefly), added to `InetTest`'s scope.
 
-## Open decisions
+## Open decisions — answered
 
 - Whether the tutorial section lists all 21 steps in the demo index or links
   only the tutorial's own `index.md` as one entry. Listing a curated few and
   linking the rest keeps the catalog a catalog.
+
+  **Neither: it links no tutorial `.md` at all, for a mechanical reason.**
+  Marker paths resolve against the *catalog's* base directory, not the file the
+  marker sits in — `open_page!` loads through the catalog's own session — so a
+  tutorial step page opened from this catalog looks for
+  `file("queues/Queue.json")` under `demo/` and does not find it. It would open
+  as prose with its embeds dead, which is worse than not linking it. Step
+  *files* travel fine, because a step file names a model rather than a path, so
+  the hand-off page embeds the tutorial's own `Queue.json` card to make exactly
+  that point, and sends the reader to `package/queuing/example/run.jl` for the
+  tutorial itself.
+
 - The FSM live overlay: embed pane vs a bespoke realized document vs staying
   static. Static ships regardless.
+
+  **Static, and the page says why.** Even the *static diagram* is out of reach
+  today: a marker embeds a file, a named definition in one, or the document a
+  step file describes, and an FSM diagram is none of those — it is what
+  `ethernet_csma_mac_component()` returns. So the page embeds the machine's
+  declaration, which is genuinely the document the code is generated from, and
+  points at `watch/mac_fsm_sdl.jl` for the live view. Getting either the static
+  or the live diagram onto a page needs a step-file doctype for a machine, or a
+  marker that can name a function — shared machinery, not content.
+
 - The packet pages show program *output* (dissections, gap lists) as code
   blocks — honest quotations, but quotations. If they drift-proof poorly,
   an evaluator embed (run the shown fragment, splice its output) is the
   general fix and would belong in the shared machinery.
+
+  **Kept, deliberately small.** Every quotation on a packet page was produced by
+  running the embedded definition next to it, and each was trimmed to the few
+  lines that carry the argument. The evaluator embed is still the right general
+  fix and still belongs upstream.
+
+## Found on the way
+
+Three things this work turned up that were not in the plan.
+
+- **`definition(…)` cannot name a macro-declared type.** The Julia domain names
+  a macro call by its first argument only when that argument is itself a
+  definition, so `@document struct Foo` resolves and `@header Ipv4Header begin
+  … end` does not. Worked around here by giving the two header declarations
+  their own file (`packet/example/demo_headers.jl`) and embedding it whole; the
+  real fix is one method on `julia_definition_name` in projectured-julia.
+
+- **Two gaps in the packet library's quality path**, both fixed with tests, both
+  on the path a marked header actually takes. `MarkedFields` is a `Chunk` but
+  not a `Fields`, so a marked header inside a `Sequence` — where a packet's
+  header always sits — matched no `_to_raw`: the strict gate refused correctly,
+  named `incomplete = true` as the way through, and that opt-in died on a
+  MethodError. And marking an already-marked header had no rewrap at all.
+
+- **A Symbol-domain parameter cannot go through a workbench form**, which is
+  what blocks the T1S run card. Recorded in full against *A bus that takes
+  turns*.
