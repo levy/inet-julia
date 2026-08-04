@@ -112,6 +112,8 @@ function NetworkModule.start_module!(ctx, m::PassivePacketSourceModule)
     m
 end
 
+NetworkModule.module_icon(::PassivePacketSourceModule) = "block/source"
+
 NetworkModule.reset_module!(m::PassivePacketSourceModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

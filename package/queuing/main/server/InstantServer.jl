@@ -94,6 +94,8 @@ NetworkModule.module_starts(::InstantServerModule) = true
 
 NetworkModule.start_module!(ctx, m::InstantServerModule) = (_serve_all!(ctx, m); m)
 
+NetworkModule.module_icon(::InstantServerModule) = "block/server"
+
 NetworkModule.reset_module!(m::InstantServerModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

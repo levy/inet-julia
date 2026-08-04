@@ -103,6 +103,8 @@ NetworkModule.module_starts(::ActivePacketSinkModule) = true
 NetworkModule.start_module!(ctx, m::ActivePacketSinkModule) =
     (_schedule_and_collect!(ctx, m); m)
 
+NetworkModule.module_icon(::ActivePacketSinkModule) = "block/sink"
+
 NetworkModule.reset_module!(m::ActivePacketSinkModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

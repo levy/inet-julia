@@ -136,6 +136,8 @@ NetworkModule.start_module!(ctx, m::PacketServerModule) = (_start_if_possible!(c
 NetworkModule.module_status(m::PacketServerModule) =
     m.states.packet === nothing ? "idle" : "serving"
 
+NetworkModule.module_icon(::PacketServerModule) = "block/server"
+
 NetworkModule.reset_module!(m::PacketServerModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

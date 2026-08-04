@@ -204,6 +204,8 @@ end
 NetworkModule.register_module_statistics!(m::PacketSchedulerModule, path::AbstractString, recorder) =
     register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
 
+NetworkModule.module_icon(::PacketSchedulerModule) = "block/join"
+
 NetworkModule.reset_module!(m::PacketSchedulerModule) = (reset_statistics!(m.statistics); m)
 
 function NetworkModule.finalize_module!(m::PacketSchedulerModule, ::Any)

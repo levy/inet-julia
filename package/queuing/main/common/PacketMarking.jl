@@ -117,6 +117,8 @@ end
 NetworkModule.register_module_statistics!(m::PacketLabelerModule, path::AbstractString, recorder) =
     register_statistics!(m.statistics.recording, recorder, path, LABELER_STATISTIC_NAMES)
 
+NetworkModule.module_icon(::PacketLabelerModule) = "block/process"
+
 NetworkModule.reset_module!(m::PacketLabelerModule) =
     (reset_statistics!(m.statistics); m.rng = MersenneTwister(m.seed); m)
 
@@ -208,6 +210,8 @@ end
 
 NetworkModule.register_module_statistics!(m::PacketClonerModule, path::AbstractString, recorder) =
     register_statistics!(m.statistics.recording, recorder, path, CLONER_STATISTIC_NAMES)
+
+NetworkModule.module_icon(::PacketClonerModule) = "block/broadcast"
 
 NetworkModule.reset_module!(m::PacketClonerModule) = (reset_statistics!(m.statistics); m)
 
@@ -313,6 +317,8 @@ end
 
 NetworkModule.register_module_statistics!(m::PacketDuplicatorModule, path::AbstractString, recorder) =
     register_statistics!(m.statistics.recording, recorder, path, DUPLICATOR_STATISTIC_NAMES)
+
+NetworkModule.module_icon(::PacketDuplicatorModule) = "block/fork"
 
 NetworkModule.reset_module!(m::PacketDuplicatorModule) = (reset_statistics!(m.statistics); m)
 

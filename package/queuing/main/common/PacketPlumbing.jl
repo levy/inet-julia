@@ -72,6 +72,8 @@ function NetworkModule.initialize_module!(::Network, m::PacketMultiplexerModule)
     m
 end
 
+NetworkModule.module_icon(::PacketMultiplexerModule) = "block/join"
+
 NetworkModule.reset_module!(m::PacketMultiplexerModule) = (m.num_packets = 0; m)
 
 PacketProtocolModule.can_push_some_packet(m::PacketMultiplexerModule, ::Gate) =
@@ -131,6 +133,8 @@ function NetworkModule.initialize_module!(::Network, m::PacketDemultiplexerModul
                     for gate in m.out]
     m
 end
+
+NetworkModule.module_icon(::PacketDemultiplexerModule) = "block/fork"
 
 NetworkModule.reset_module!(m::PacketDemultiplexerModule) = (m.num_packets = 0; m)
 
@@ -216,6 +220,8 @@ end
 
 NetworkModule.register_module_statistics!(m::PacketDelayerModule, path::AbstractString, recorder) =
     register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
+
+NetworkModule.module_icon(::PacketDelayerModule) = "block/delay"
 
 NetworkModule.reset_module!(m::PacketDelayerModule) =
     (m.rng = MersenneTwister(m.seed); m.statistics.num_packets = 0;

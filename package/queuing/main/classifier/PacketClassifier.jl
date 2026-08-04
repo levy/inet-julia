@@ -215,6 +215,8 @@ end
 NetworkModule.register_module_statistics!(m::PacketClassifierModule, path::AbstractString, recorder) =
     register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
 
+NetworkModule.module_icon(::PacketClassifierModule) = "block/classifier"
+
 NetworkModule.reset_module!(m::PacketClassifierModule) =
     (reset_statistics!(m.statistics); m)
 

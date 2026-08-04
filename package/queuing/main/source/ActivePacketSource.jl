@@ -132,6 +132,8 @@ NetworkModule.start_module!(ctx, m::ActivePacketSourceModule) =
 NetworkModule.module_status(m::ActivePacketSourceModule) =
     string(m.statistics.num_packets, " sent")
 
+NetworkModule.module_icon(::ActivePacketSourceModule) = "block/source"
+
 NetworkModule.reset_module!(m::ActivePacketSourceModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

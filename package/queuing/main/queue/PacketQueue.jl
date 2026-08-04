@@ -203,6 +203,8 @@ NetworkModule.register_module_statistics!(m::PacketQueueModule, path::AbstractSt
 NetworkModule.module_status(m::PacketQueueModule) =
     string(queue_length(m), " waiting")
 
+NetworkModule.module_icon(::PacketQueueModule) = "block/queue"
+
 NetworkModule.reset_module!(m::PacketQueueModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 

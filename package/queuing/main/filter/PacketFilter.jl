@@ -93,6 +93,8 @@ end
 NetworkModule.register_module_statistics!(m::PacketFilterModule, path::AbstractString, recorder) =
     register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
 
+NetworkModule.module_icon(::PacketFilterModule) = "block/filter"
+
 NetworkModule.reset_module!(m::PacketFilterModule) = (reset_statistics!(m.statistics); m)
 
 function NetworkModule.finalize_module!(m::PacketFilterModule, ::Any)

@@ -126,6 +126,8 @@ end
 NetworkModule.module_status(m::PassivePacketSinkModule) =
     string(m.statistics.num_packets, " received")
 
+NetworkModule.module_icon(::PassivePacketSinkModule) = "block/sink"
+
 NetworkModule.reset_module!(m::PassivePacketSinkModule) =
     (reset_states!(m.states); reset_statistics!(m.statistics); m)
 
