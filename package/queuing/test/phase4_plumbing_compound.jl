@@ -9,6 +9,9 @@ using InetQueuing.PacketQueueElement
 using InetQueuing.PacketServerElement
 using InetQueuing.PacketClassifierElement
 using InetQueuing.PacketPlumbingElement
+using InetQueuing.PacketMarkingModule
+using InetQueuing.PacketFilterElement
+using InetQueuing.PacketPredicateModule
 using InetQueuing.PriorityQueueElement
 using InetQueuing.PacketSourceModule
 using InetQueuing: QueuingModel
@@ -16,6 +19,104 @@ using InetPacket.PacketModule
 using OmnetppSimulator.VolatileModule
 
 @testset "plumbing and compound modules" begin
+
+    @testset "a labeler writes what a source did not" begin
+        # The source says nothing about its packets; the labeler writes a value
+        # every element downstream can read, because it writes the SAME tag a
+        # source would have.
+        network = Network(:Labeling)
+        source = add_module!(network, ActivePacketSourceModule(:source,
+            ActivePacketSourceParameters(production_interval = 0.1)))
+        labeler = add_module!(network, PacketLabelerModule(:labeler,
+            PacketLabelerParameters(label = 7)))
+        # A filter for the label is how the test reads it back: only packets
+        # carrying 7 reach the sink, and every one of them does.
+        wants_seven = add_module!(network, PacketFilterModule(:filter,
+            PacketFilterParameters(predicate = data_predicate(==, 7))))
+        sink = add_module!(network, PassivePacketSinkModule(:sink))
+        connect!(source.out, labeler.in)
+        connect!(labeler.out, wants_seven.in)
+        connect!(wants_seven.out, sink.in)
+        run_network!(network; until = 1.0)
+
+        @test labeler.statistics.num_packets == 11
+        @test sink.statistics.num_packets == 11
+        @test wants_seven.statistics.num_dropped == 0
+    end
+
+    @testset "a cloner sends every output its own copy" begin
+        network = Network(:Cloning)
+        source = add_module!(network, ActivePacketSourceModule(:source,
+            ActivePacketSourceParameters(production_interval = 0.1)))
+        cloner = add_module!(network, PacketClonerModule(:cloner, 3))
+        sinks = [add_module!(network, PassivePacketSinkModule(Symbol(:sink, index)))
+                 for index in 1:3]
+        connect!(source.out, cloner.in)
+        for index in 1:3
+            connect!(cloner.out[index], sinks[index].in)
+        end
+        run_network!(network; until = 1.0)
+
+        @test cloner_outputs(cloner) == 3
+        @test cloner.statistics.num_packets == 11
+        # Two copies per packet: the last output gets the original.
+        @test cloner.statistics.num_copies == 22
+        @test all(sink -> sink.statistics.num_packets == 11, sinks)
+    end
+
+    @testset "a duplicator thickens one stream in place" begin
+        network = Network(:Duplicating)
+        source = add_module!(network, ActivePacketSourceModule(:source,
+            ActivePacketSourceParameters(production_interval = 0.1)))
+        duplicator = add_module!(network, PacketDuplicatorModule(:duplicator,
+            PacketDuplicatorParameters(predicate = ordinal_predicate(n -> n % 2 == 0))))
+        sink = add_module!(network, PassivePacketSinkModule(:sink))
+        connect!(source.out, duplicator.in)
+        connect!(duplicator.out, sink.in)
+        run_network!(network; until = 1.0)
+
+        # Eleven packets, every second one sent twice: five duplicates.
+        @test duplicator.statistics.num_packets == 11
+        @test duplicator.statistics.num_duplicates == 5
+        @test sink.statistics.num_packets == 16
+    end
+
+    @testset "copies carry their own tags" begin
+        # A copy shares its content and gets its own tags, so a labeler after a
+        # cloner can mark each branch differently — which would be impossible
+        # if the tag sets were shared.
+        network = Network(:CopyTags)
+        source = add_module!(network, ActivePacketSourceModule(:source,
+            ActivePacketSourceParameters(production_interval = 0.5)))
+        cloner = add_module!(network, PacketClonerModule(:cloner, 2))
+        first_label = add_module!(network, PacketLabelerModule(:first,
+            PacketLabelerParameters(label = 1)))
+        second_label = add_module!(network, PacketLabelerModule(:second,
+            PacketLabelerParameters(label = 2)))
+        # Each branch keeps only its OWN label. Shared tag sets would mean the
+        # second labeler overwrote the first's work, and one filter would drop
+        # everything.
+        first_filter = add_module!(network, PacketFilterModule(:first_filter,
+            PacketFilterParameters(predicate = data_predicate(==, 1))))
+        second_filter = add_module!(network, PacketFilterModule(:second_filter,
+            PacketFilterParameters(predicate = data_predicate(==, 2))))
+        first_sink = add_module!(network, PassivePacketSinkModule(:sink1))
+        second_sink = add_module!(network, PassivePacketSinkModule(:sink2))
+        connect!(source.out, cloner.in)
+        connect!(cloner.out[1], first_label.in)
+        connect!(first_label.out, first_filter.in)
+        connect!(first_filter.out, first_sink.in)
+        connect!(cloner.out[2], second_label.in)
+        connect!(second_label.out, second_filter.in)
+        connect!(second_filter.out, second_sink.in)
+        run_network!(network; until = 1.0)
+
+        @test first_sink.statistics.num_packets == 3
+        @test second_sink.statistics.num_packets == 3
+        @test first_filter.statistics.num_dropped == 0
+        @test second_filter.statistics.num_dropped == 0
+    end
+
     @testset "a multiplexer merges push chains" begin
         network = Network(:Merge)
         sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index),

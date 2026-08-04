@@ -57,6 +57,7 @@ include("classifier/PacketClassifier.jl") # one way in, several ways out
 include("scheduler/PacketScheduler.jl")   # several ways in, one way out
 include("filter/PacketFilter.jl")         # passes some on, drops the rest
 include("common/PacketPlumbing.jl")       # merging, splitting, delaying
+include("common/PacketMarking.jl")        # labelling, cloning, duplicating
 include("queue/PriorityQueue.jl")         # a queue made of queues
 
 # What the elements add up to: a network the lifecycle can run and sweep.
@@ -75,6 +76,7 @@ using .PacketClassifierElement
 using .PacketSchedulerElement
 using .PacketFilterElement
 using .PacketPlumbingElement
+using .PacketMarkingModule
 using .PriorityQueueElement
 
 include("QueuingModel.jl")              # the canonical chain as a model
@@ -94,7 +96,7 @@ export
     PacketQueueElement, PacketServerElement, InstantServerElement,
     PacketPredicateModule,
     PacketClassifierElement, PacketSchedulerElement, PacketFilterElement,
-    PacketPlumbingElement, PriorityQueueElement,
+    PacketPlumbingElement, PacketMarkingModule, PriorityQueueElement,
     # the model interface implementation the lifecycle drives
     QueuingModel, AbstractQueuingModel, QueuingModelMut
 
