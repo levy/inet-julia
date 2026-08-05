@@ -31,6 +31,13 @@ using OmnetppPresentation: CatalogShell, CatalogShellToWidget, SimulationEmbed,
     simulation_embed_entry, workbench_document_dispatch
 import Projectured
 using Projectured.ChainingProjectionModule: ChainingProjection
+using Projectured.CollectionModule: CellVector
+using Projectured.ColorModule: color_solarized_blue, color_solarized_gray,
+    color_solarized_green
+using Projectured.FontModule: font_dejavu_monospace_regular_20,
+    font_ubuntu_monospace_bold_20
+using Projectured.SyntaxModule: SyntaxDocument, SyntaxLeaf, SyntaxNode
+using Projectured.TextModule: TextString
 using Projectured.FileProjectModule: register_marker_function!
 using Projectured.CellModule: ImmutableCell
 using Projectured.ColorModule: color_solarized_violet
@@ -71,6 +78,7 @@ using ProjecturedDomainExample: run_example
 
 export demo_directory, demo_catalog, demo_projection, run_demo
 export FSM_MACHINES, fsm_machines, FsmMachineToWidget, fsm_machine_entry, fsm_diagram_entry
+export PACKET_VIEWS, packet_views, packet_syntax, packet_entry
 
 let _taken = Set{Symbol}()
     for _src in (InetPacketExample, InetQueuingExample)
@@ -89,6 +97,9 @@ end
 # The protocol's state machines, and the `fsm(…)` marker that puts one on a
 # page. Loaded before the projection below, which needs the diagram pipeline.
 include("Machines.jl")
+
+# The packets a page can show as the live objects they are.
+include("Packets.jl")
 
 """
     demo_directory() -> String
@@ -144,7 +155,8 @@ demo_projection(; measure = truetype_measure_text) =
                                              extra = vcat(
                                                  Pair{Type,Any}[simulation_embed_entry(),
                                                      fsm_machine_entry(measure = measure),
-                                                     fsm_diagram_entry(measure = measure)],
+                                                     fsm_diagram_entry(measure = measure),
+                                                     packet_entry(measure = measure)],
                                                  _demo_prose_dispatch(measure),
                                                  workbench_document_dispatch(measure = measure)))))
 
@@ -245,6 +257,7 @@ function __init__()
     # functions — runtime state, registered on load rather than baked into the
     # precompiled image, the same rule `realize` follows.
     register_marker_function!(:fsm, marker_fsm)
+    register_marker_function!(:packet, marker_packet)
 end
 
 end # module InetExample

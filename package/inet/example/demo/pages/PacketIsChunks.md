@@ -26,20 +26,12 @@ carry lives in `content`. INET makes the same distinction and this port keeps
 it, because it is what stops a simulator-internal field from accidentally
 having a wire format.
 
-The packet that comes out describes itself:
+The packet that comes out is here — not a picture of one, and not a paste of
+what `describe` printed on somebody's terminal. This is the object that call
+returns, and you can open it up:
 
-```
-Packet(data=60B, ptags=3)  [60B]
-  Sequence(2)  [60B]
-    Ipv4Header  [20B]
-      version = 4
-      ihl = 5
-      total_length = 60
-      ttl = 64
-      protocol = 17
-      src_addr = 167772161
-      dst_addr = 167772162
-    Filler(fill=0)  [40B]
+```pred-ref
+<<packet("routed_ipv4")>>
 ```
 
 Sixty bytes, and not one of them allocated: the header is a struct and the

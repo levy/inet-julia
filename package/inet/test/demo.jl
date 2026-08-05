@@ -20,6 +20,14 @@ using Projectured.GraphicsModule: GraphicsCanvas
 using Projectured.IoMapModule: get_iomap_output
 using Projectured.ProjectionApiModule: print_document
 using Projectured.TrueTypeModule: truetype_measure_text
+using Projectured.PrinterContextModule: PrinterContext
+using Projectured.CellModule: Cell
+using Projectured.EventModule: MousePress
+using Projectured.IntentModule: Intent
+using Projectured.ReferenceModule: EmptyReference
+using Projectured.OperationModule: ToggleCollapseOperation
+using Projectured.ProjectionApiModule: read_intent
+using Projectured.SyntaxModule: SyntaxNode
 
 # Every ReferenceStub under a document — the markers a page carries.
 function _demo_stubs(node, acc = Any[], depth = 0)
@@ -241,6 +249,53 @@ end
     @test any(t -> occursin("timeout(backoff_timer)", t), texts)
     # The marker itself never shows: what is on the page is the machine.
     @test !any(t -> occursin("<<fsm", t), texts)
+end
+
+@testset "the packet page shows the packet, foldable" begin
+    # The page used to paste `describe(pk)` output into a code block — a
+    # quotation nothing re-checked. It now splices the packet itself, so what is
+    # asserted is what a reader sees AND that they can open it.
+    shell = demo_catalog()
+    i = findfirst(e -> !e.section && e.path == "pages/PacketIsChunks.md",
+                  collect(shell.entries))
+    @test i !== nothing
+    open_page!(shell, i)
+    out = get_iomap_output(print_document(demo_projection(measure = truetype_measure_text),
+                                          shell))
+    texts = _drawn_strings(out)
+    # The dissection, at every level: envelope, the sequence under it, the
+    # header, one of the header's decoded fields, and the payload.
+    for want in ("Packet(data=60B", "Sequence(2)", "Ipv4Header", "ttl = 64", "Filler(fill=0)")
+        @test any(t -> occursin(want, t), texts)
+    end
+    # Chunk lengths travel with the chunks — that is the whole point of the view.
+    @test any(t -> occursin("[20B]", t), texts)
+    @test !any(t -> occursin("<<packet", t), texts)
+end
+
+@testset "clicking a fold marker folds that chunk" begin
+    # A real mouse press through the projection `run_demo` builds. Without the
+    # marker glyphs configured, `SyntaxToText` draws none — and a marker that is
+    # not drawn cannot be clicked, so the tree would render identically and be
+    # dead to the reader.
+    shell = demo_catalog()
+    i = findfirst(e -> !e.section && e.path == "pages/PacketIsChunks.md",
+                  collect(shell.entries))
+    open_page!(shell, i)
+    projection = demo_projection(measure = truetype_measure_text)
+    ctx = PrinterContext(EmptyReference(), Cell(1500), Cell(1200), Dict{Symbol,Any}())
+    iomap = print_document(projection, nothing, shell, ctx)
+    toggled = nothing
+    for y in 700:2:1000, x in 420:2:470
+        intent = read_intent(projection, nothing, Intent(MousePress(:left, x, y)), iomap)
+        op = intent isa Intent ? intent.operation : intent
+        if op isa ToggleCollapseOperation
+            toggled = op
+            break
+        end
+    end
+    @test toggled !== nothing
+    @test toggled.target isa SyntaxNode
 end
 
 @testset "a machine the catalog does not know is refused by name" begin
