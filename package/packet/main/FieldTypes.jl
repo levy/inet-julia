@@ -89,6 +89,10 @@ function MacAddress(text::AbstractString)
     MacAddress((parse(UInt8, p, base = 16) for p in parts)...)
 end
 
+# An identity constructor, so a value that is already a `MacAddress` may be passed
+# wherever one is built from an integer.
+MacAddress(v::MacAddress) = v
+
 mac_octets(m::MacAddress) = ntuple(i -> UInt8((m.value >> (8 * (6 - i))) & 0xff), 6)
 
 Base.show(io::IO, m::MacAddress) =
@@ -129,6 +133,10 @@ function Ipv4Address(text::AbstractString)
     Ipv4Address((parse(UInt8, p) for p in parts)...)
 end
 
+# An identity constructor, so a value that is already a `Ipv4Address` may be passed
+# wherever one is built from an integer.
+Ipv4Address(v::Ipv4Address) = v
+
 ipv4_octets(a::Ipv4Address) = ntuple(i -> UInt8((a.value >> (8 * (4 - i))) & 0xff), 4)
 
 Base.show(io::IO, a::Ipv4Address) = print(io, join(ipv4_octets(a), "."))
@@ -162,6 +170,10 @@ const ETHERTYPE_NAMES = Dict{UInt16, String}(
     0x88a8 => "QinQ",
     0x88cc => "LLDP",
     0x88f7 => "PTP")
+
+# An identity constructor, so a value that is already a `EtherType` may be passed
+# wherever one is built from an integer.
+EtherType(v::EtherType) = v
 
 ethertype_name(t::EtherType) = get(ETHERTYPE_NAMES, t.value, nothing)
 
@@ -201,6 +213,10 @@ const IP_PROTOCOL_NAMES = Dict{UInt8, String}(
     0x59 => "OSPF",
     0x84 => "SCTP")
 
+# An identity constructor, so a value that is already a `IpProtocol` may be passed
+# wherever one is built from an integer.
+IpProtocol(v::IpProtocol) = v
+
 ip_protocol_name(p::IpProtocol) = get(IP_PROTOCOL_NAMES, p.value, nothing)
 
 function Base.show(io::IO, p::IpProtocol)
@@ -228,6 +244,10 @@ struct PortNumber
     value::UInt16
     PortNumber(value::Integer) = new(UInt16(value))
 end
+
+# An identity constructor, so a value that is already a `PortNumber` may be passed
+# wherever one is built from an integer.
+PortNumber(v::PortNumber) = v
 
 Base.show(io::IO, p::PortNumber) = print(io, Int(p.value))
 

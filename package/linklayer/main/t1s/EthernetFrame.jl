@@ -1,62 +1,29 @@
 # ============================================================================
-# Ethernet frame chunks + build helper.
+# Building an Ethernet frame, and nothing else.
+#
+# The chunks themselves — `EthernetMacHeader`, `EthernetFcs`, the ethertypes
+# and the frame-size constants — are declared by `InetPacket` in
+# `packet/main/protocol/Ethernet.jl`, because the wire format of Ethernet is
+# not a property of 10BASE-T1S. This file holds what is: how this model wraps a
+# payload into a frame.
 #
 # Faithful to INET's on-wire framing:
 #   EthernetMacHeader  14 B — dst MAC (6) + src MAC (6) + ethertype/length (2)
 #   payload            variable
 #   padding            fill to MIN_ETHERNET_FRAME_BYTES = 64 counting header + FCS
-#   EthernetFcs        4 B — declared mode; zero-filled (§3.1 of the plan)
+#   EthernetFcs        4 B — declared mode; zero-filled
 #
-# The 8-byte EthernetPhyHeader (preamble+SFD) is NOT added here — that's the
-# PHY's job in Phase 2/3. Same split as INET (`EthernetCsmaPhy::encapsulate`).
+# The 8-byte EthernetPhyHeader (preamble + SFD) is NOT added here — that is the
+# PHY's job. Same split as INET (`EthernetCsmaPhy::encapsulate`).
 #
-# MAC addresses split into hi::UInt16 + lo::UInt32 = 48 bits, because @header
-# doesn't (yet) natively express 48-bit fields. See plan §9 Q3.
+# This model carries a MAC address as a `UInt64`, which is what the PLCA and
+# MAC machines compare and what a `SourceConfig` names. `MacAddress` converts
+# from one, so the header gets a typed address and the machines keep their
+# integer.
 # ============================================================================
 
-# Constants matching INET's `linklayer/ethernet/common/Ethernet.h`.
-const MIN_ETHERNET_FRAME_BYTES = 64
-const MAX_ETHERNET_FRAME_BYTES = 1526
-const INTERFRAME_GAP_BITS      = 96
-const JAM_SIGNAL_BYTES         = 4
-const ETHERNET_PHY_HEADER_LEN_BYTES = 8       # preamble(7) + SFD(1)
-const ETHERNET_PHY_ESD_LEN_BYTES    = 1       # 5B code, modelled symbolically
-const ETHERNET_TXRATE_10MB          = 10_000_000
-
-# Common ethertypes we'll actually use — none of the target scenarios do
-# per-ethertype demux, but we set the field faithfully.
-const ETHERTYPE_IPV4 = UInt16(0x0800)
-const ETHERTYPE_ARP  = UInt16(0x0806)
-
-# ---------- headers ----------------------------------------------------------
-
-@header EthernetMacHeader begin
-    dst_mac_hi   :: UInt16
-    dst_mac_lo   :: UInt32
-    src_mac_hi   :: UInt16
-    src_mac_lo   :: UInt32
-    ethertype    :: UInt16
-end
-
-@header EthernetFcs begin
-    fcs :: UInt32
-end
-
-# ---------- MAC address helpers ----------------------------------------------
-#
-# We pack the 48-bit MAC into a UInt64 for convenience (top 16 bits zero).
-# `mac_hi` / `mac_lo` split it for the @header split-field form; `mac_pack`
-# is the inverse. Reads are exact — no signed-int surprises.
-
-mac_pack(hi::UInt16, lo::UInt32) = (UInt64(hi) << 32) | UInt64(lo)
-mac_hi(m::UInt64)::UInt16 = UInt16((m >> 32) & 0xFFFF)
-mac_lo(m::UInt64)::UInt32 = UInt32(m & 0xFFFFFFFF)
-
-# ---------- build_ethernet_frame --------------------------------------------
-
 """
-    build_ethernet_frame(src::UInt64, dst::UInt64,
-                        ethertype::UInt16, payload::Chunk) -> Packet
+    build_ethernet_frame(src, dst, ethertype, payload::Chunk) -> Packet
 
 Wrap `payload` into a Packet whose content is
 `EthernetMacHeader + payload + optional padding + EthernetFcs`, matching
@@ -66,11 +33,9 @@ if it's below.
 
 FCS is zero-filled (declared mode — `fcsMode = "declared"`, INET's default).
 """
-function build_ethernet_frame(src::UInt64, dst::UInt64,
-                              ethertype::UInt16, payload::Chunk)
-    header = EthernetMacHeader(mac_hi(dst), mac_lo(dst),
-                               mac_hi(src), mac_lo(src),
-                               ethertype)
+function build_ethernet_frame(src::Integer, dst::Integer,
+                              ethertype::Union{Integer, EtherType}, payload::Chunk)
+    header = EthernetMacHeader(MacAddress(dst), MacAddress(src), EtherType(ethertype))
     pk = Packet(payload)
     pushfirst!(pk, header)
     # Compute what the frame would be with just header + payload + FCS.

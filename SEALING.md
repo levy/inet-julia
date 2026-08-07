@@ -65,7 +65,14 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `Chunk.jl`
   - ⬜ `Peek.jl`
   - ⬜ `BitIO.jl`
+  - ⬜ `FieldTypes.jl`
+  - ⬜ `HeaderLayout.jl`
   - ⬜ `Header.jl`
+  - *slice `protocol` — the wire formats, one file per protocol*
+    - ⬜ `protocol/Ethernet.jl`
+    - ⬜ `protocol/Ipv4.jl`
+    - ⬜ `protocol/Udp.jl`
+    - ⬜ `protocol/Tcp.jl`
   - ⬜ `PeekFields.jl`
   - ⬜ `QualityOps.jl`
   - ⬜ `Tags.jl`

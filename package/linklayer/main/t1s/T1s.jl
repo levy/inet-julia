@@ -4,7 +4,7 @@
 # Design: plan/done/ten-base-t1s-plca.md.
 #
 # Layered, faithful to INET:
-#   EthernetFrame.jl     Ethernet MAC header + FCS chunks (Phase 1)
+#   EthernetFrame.jl     build_ethernet_frame — the chunks are InetPacket's
 #   Wire.jl              WireEvent, EthernetSignalKind/Esd enums (Phase 2)
 #   Phy.jl               EthernetCsmaPhy 5-state FSM (Phase 2)
 #   Junction.jl          WireJunction — T-junction node (Phase 3)
@@ -31,14 +31,10 @@ using OmnetppSimulator.FsmModule: Fsm, fsm_state, fsm_enter!, fsm_leave!, fsm_go
                FSM_CASCADE_LIMIT
 
 export
-    # Ethernet frame chunks + helpers
-    EthernetMacHeader, EthernetFcs, build_ethernet_frame,
-    mac_pack, mac_hi, mac_lo,
-    ETHERTYPE_IPV4, ETHERTYPE_ARP,
-    MIN_ETHERNET_FRAME_BYTES, MAX_ETHERNET_FRAME_BYTES,
-    INTERFRAME_GAP_BITS, JAM_SIGNAL_BYTES,
-    ETHERNET_PHY_HEADER_LEN_BYTES, ETHERNET_PHY_ESD_LEN_BYTES,
-    ETHERNET_TXRATE_10MB,
+    # How this model wraps a payload into a frame. The chunks themselves, the
+    # ethertypes and the frame-size constants come from `InetPacket`, which
+    # declares the wire format of Ethernet.
+    build_ethernet_frame,
     # Wire
     EthernetSignalKind, SIG_NONE, SIG_BEACON, SIG_COMMIT, SIG_DATA, SIG_JAM,
     EthernetEsdKind, ESD_NONE, ESD_ESD, ESD_BRS, ESD_OK, ESD_ERR, ESD_JAB,

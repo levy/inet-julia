@@ -13,12 +13,11 @@
 # ============================================================================
 
 # --- 1. The headers that will describe a routed packet ---------------------
-# `Ipv4Header` and `UdpHeader` are declared in `demo_headers.jl`, which
-# `InetPacketExample` includes first. They live in a file of their own so a
-# catalog page can embed the declarations whole: a marker names a top-level
-# definition, and a macro call whose first argument is a bare identifier — which
-# is what `@header Ipv4Header begin … end` is — has no name the marker can ask
-# for.
+# `Ipv4Header` and `UdpHeader` are declared by `InetPacket` itself, in
+# `packet/main/protocol/`. A catalog page embeds those files whole: a marker
+# names a top-level definition, and a macro call whose first argument is a bare
+# identifier — which is what `@header Ipv4Header begin … end` is — has no name
+# the marker can ask for.
 #
 # The routing model today stores src/dest/hop_count/byte_length/creation_time
 # as fields on a mutable struct. Under the new API, control info that stays
@@ -46,10 +45,11 @@ control info that used to be fields on the routing model's `Packet` struct.
 function make_packet(src::UInt32, dest::UInt32, payload_bytes::Int, t_ns::Int64)
     # Payload never allocates bytes — the whole point of R1.
     payload = Filler(Bytes(payload_bytes); fill = 0x00)
-    # IPv4 header, built field-wise. Immutable — sharing is safe.
-    ip = Ipv4Header(4, 5, 0, 0, UInt16(payload_bytes + 20), UInt16(0),
-                    UInt8(0), UInt16(0), UInt8(64), UInt8(17), UInt16(0),
-                    src, dest)
+    # IPv4 header. Immutable — sharing is safe. The keyword form states what
+    # this datagram decides; version, ihl and the TTL take their defaults.
+    ip = Ipv4Header(total_length = UInt16(payload_bytes + 20),
+                    protocol = IP_PROTOCOL_UDP,
+                    src_address = src, dst_address = dest)
     # Envelope + push header at the front.
     pk = Packet(payload)
     pushfirst!(pk, ip)
@@ -75,8 +75,8 @@ function forward!(pk::Packet)
     # exists, unchanged; a fresh one with ttl-1 is spliced in.
     new_ip = Ipv4Header(ip.version, ip.ihl, ip.dscp, ip.ecn, ip.total_length,
                         ip.identification, ip.flags, ip.frag_offset,
-                        UInt8(ip.ttl - 1), ip.protocol, ip.checksum,
-                        ip.src_addr, ip.dst_addr)
+                        UInt8(ip.ttl - 1), ip.protocol, ip.header_checksum,
+                        ip.src_address, ip.dst_address)
     popfirst!(pk, chunk_length(Ipv4Header))
     pushfirst!(pk, new_ip)
     # Bump the hop count tag.

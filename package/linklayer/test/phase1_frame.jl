@@ -5,12 +5,15 @@ using Test
 using InetPacket.PacketModule
 using InetLinkLayer.T1sModule
 
-@testset "EthernetMacHeader / EthernetFcs — @header-generated" begin
+# The chunks are `InetPacket`'s, and its own suite checks their codecs. What
+# this file checks is that a frame this model builds carries them correctly.
+
+@testset "EthernetMacHeader / EthernetFcs — the chunks a frame carries" begin
     @test chunk_length(EthernetMacHeader) == Bytes(14)
     @test chunk_length(EthernetFcs) == Bytes(4)
 
-    hdr = EthernetMacHeader(UInt16(0x0102), UInt32(0x03040506),
-                            UInt16(0x0A0B), UInt32(0x0C0D0E0F),
+    hdr = EthernetMacHeader(MacAddress(0x010203040506),
+                            MacAddress(0x0A0B0C0D0E0F),
                             ETHERTYPE_IPV4)
     @test chunk_length(hdr) == Bytes(14)
 
@@ -30,19 +33,13 @@ using InetLinkLayer.T1sModule
     @test from_bytes(EthernetFcs, [0x11, 0x22, 0x33, 0x44]).fcs == 0x11223344
 end
 
-@testset "mac_pack / mac_hi / mac_lo" begin
-    m = mac_pack(UInt16(0xAABB), UInt32(0xCCDDEEFF))
-    @test m == 0xAABBCCDDEEFF
-    @test mac_hi(m) == 0xAABB
-    @test mac_lo(m) == 0xCCDDEEFF
-    # inverse
-    m2 = mac_pack(mac_hi(m), mac_lo(m))
-    @test m2 == m
-    # a full 48-bit MAC
-    m3 = mac_pack(UInt16(0xFFFF), UInt32(0xFFFFFFFF))
-    @test m3 == 0xFFFFFFFFFFFF
-    @test mac_hi(m3) == 0xFFFF
-    @test mac_lo(m3) == 0xFFFFFFFF
+@testset "a model address is a UInt64, and converts both ways" begin
+    # The MAC and PLCA machines compare addresses as integers; the header field
+    # is a `MacAddress`. One conversion, no split into halves.
+    m = MacAddress(0xAABBCCDDEEFF)
+    @test m.value == 0xAABBCCDDEEFF
+    @test MacAddress(m.value) == m
+    @test MacAddress(0xFFFFFFFFFFFF) == MAC_BROADCAST
 end
 
 @testset "build_ethernet_frame — minimum-size padding" begin
@@ -55,10 +52,8 @@ end
     # Structure: header at front, FCS at back.
     # build_ethernet_frame(src, dst, …), so dst is the SECOND arg.
     hdr = peek(pk, EthernetMacHeader)
-    @test hdr.src_mac_hi == 0x0102
-    @test hdr.src_mac_lo == 0x03040506
-    @test hdr.dst_mac_hi == 0x0A0B
-    @test hdr.dst_mac_lo == 0x0C0D0E0F
+    @test hdr.src == MacAddress(0x010203040506)
+    @test hdr.dst == MacAddress(0x0A0B0C0D0E0F)
     @test hdr.ethertype  == ETHERTYPE_IPV4
 
     # FCS is placeholder (zero) in declared mode.

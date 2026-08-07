@@ -759,13 +759,31 @@ Two things the build settled:
 - `Ieee8021qTag` is declared. It is fixed-size, it costs four lines, and a
   frame that carries a VLAN tag is otherwise unrepresentable.
 
-### Phase 4 — move the old declarations — **PENDING**
+### Phase 4 — move the old declarations — **DONE**
 
-- [ ] Do the six steps of section 7.
-- [ ] Regenerate `MacFsm.jl` from the machine.
+- [x] Do the six steps of section 7.
+- [x] Regenerate `MacFsm.jl` from the machine. The regenerated diff is the one
+      intended line, `dst = hdr.dst.value`.
 
 Gate: `test_packet()`, `test_linklayer()` and `test_inet()` pass, and the T1S
-golden hashes are unchanged.
+golden hashes are unchanged. **Met** — 1892, 494 and 164 passes, no failure.
+The `notraffic` and `bestcase` pins reproduce, which is the check that a 48-bit
+address writes the same 48 bits it did as two halves.
+
+Three things the build settled:
+
+- Each value type needs an identity constructor (`EtherType(t::EtherType) = t`).
+  An inner constructor taking an `Integer` replaces the default one, so without
+  it a value could not be passed where one is built.
+- `SourceConfig.ethertype` becomes an `EtherType`. The model kept a `UInt16`
+  and defaulted it to `ETHERTYPE_IPV4`, which is now typed; taking the type is
+  the honest fix, and an integer still converts at the keyword.
+- The model keeps `UInt64` for a MAC address in `MacState` and `SourceConfig`.
+  The machines compare addresses as integers, `MacAddress` converts from one,
+  and widening that to the whole link layer is not this plan's work.
+
+New files are listed unsealed in `SEALING.md` in the commit that lands them,
+as its own rule asks, rather than at the end in phase 12.
 
 ### Phase 5 — the documents and the first stage — **PENDING**
 

@@ -5,15 +5,27 @@ bit-exact wire codec — there is no second description of the layout to keep in
 step, and no code generation step between the two.
 
 ```pred-ref
-<<file("../../../packet/example/demo_headers.jl")>>
+<<file("../../../packet/main/protocol/Ipv4.jl")>>
 ```
 
 The `| 4` and `| 13` are bit widths. Fields without one take their type's
-width, so `ttl :: UInt8` is eight bits and `total_length :: UInt16` is sixteen.
-`version`, `ihl`, `dscp` and `ecn` pack into the first two bytes exactly as
-IPv4 says they do, and the `flags`/`frag_offset` pair splits a byte boundary
-three bits in — which is the sort of thing a hand-written codec gets wrong once
-and then nobody notices.
+width, so `ttl :: UInt8` is eight bits and `src_address :: Ipv4Address` is
+thirty-two. `version`, `ihl`, `dscp` and `ecn` pack into the first two bytes
+exactly as IPv4 says they do, and the `flags`/`frag_offset` pair splits a byte
+boundary three bits in — which is the sort of thing a hand-written codec gets
+wrong once and then nobody notices.
+
+A field type carries more than a width. `Ipv4Address` knows to print as
+`10.0.0.1` and `IpProtocol` knows that 17 means UDP, so the declaration says
+what a field *is* rather than how many bits it happens to take. The `| hex` on
+the checksum says how a reader wants to see it, and the defaults are what let
+the keyword form state only what a datagram decides.
+
+The smallest header there is, for comparison:
+
+```pred-ref
+<<file("../../../packet/main/protocol/Udp.jl")>>
+```
 
 ## The bytes those fields become
 
@@ -26,9 +38,10 @@ header, on the wire, in network order:
 
 Read it against the declaration. `45` is `version = 4` and `ihl = 5` sharing a
 byte. `00 3c` is `total_length = 60`. The **`40` in the ninth byte is the TTL**
-— sixty-four — and the `11` beside it is `protocol = 17`, UDP. The last eight
-bytes are the two addresses, `10.0.0.1` and `10.0.0.2`, which is what
-`167772161` and `167772162` look like when you stop reading them as decimal.
+— sixty-four — and the `11` beside it is `protocol = UDP (17)`. The last eight
+bytes are the two addresses, and because the field is declared an
+`Ipv4Address`, that is how they read back: `10.0.0.1` and `10.0.0.2`, not
+`167772161` and `167772162`.
 
 Decrement the TTL and exactly one byte changes, the ninth, from `40` to `3f`.
 Nothing else in the packet moves.
