@@ -69,22 +69,81 @@ a `from = :front | :back` keyword. Reads by TYPE, not by position:
 ## Declared headers
 
 `@header` produces the struct AND its codec from a single declaration —
-no drift possible between them. Bit widths are first-class:
+no drift possible between them. Bit widths are first-class, a field may have a
+type of its own, a display base and a default:
 
     @header Ipv4Header begin
-        version      :: UInt8  | 4
-        ihl          :: UInt8  | 4
-        dscp         :: UInt8  | 6
-        ecn          :: UInt8  | 2
-        total_length :: UInt16
+        version         :: UInt8       | 4        = IPV4_VERSION
+        ihl             :: UInt8       | 4        = IPV4_MIN_IHL
+        dscp            :: UInt8       | 6        = 0x00
+        ecn             :: UInt8       | 2        = 0x00
+        total_length    :: UInt16
+        header_checksum :: UInt16      | 16 | hex = 0x0000
+        src_address     :: Ipv4Address
         # …
     end
 
 Yields `struct Ipv4Header <: Fields`, `chunk_length(::Ipv4Header) =
 Bytes(20)`, `serialize(io::BitWriter, h)`, `deserialize(::Type{Ipv4Header},
-io::BitReader)`, and a nice `show`. Headers whose codec cannot be described
-declaratively (TCP options, variable-length tails) just define
-`serialize`/`deserialize` directly — dispatch wins.
+io::BitReader)`, `header_layout(Ipv4Header)`, a keyword constructor filling
+every default, and a nice `show`. Headers whose codec cannot be described
+declaratively (variable-length tails) just define `serialize`/`deserialize`
+directly — dispatch wins.
+
+### Field types
+
+A field's type answers four questions, and any type may answer them:
+
+    field_width(::Type{T})::Int              # the width when `| n` is absent
+    field_encode(::Type{T}, value)::UInt64   # the bits that go on the wire
+    field_decode(::Type{T}, bits::UInt64)::T # the value that comes back
+    field_base(::Type{T}, width::Int)        # how a reader wants to see it
+
+`FieldTypes.jl` answers them for the unsigned integers, `Bool` and any `Enum`,
+and declares five types of its own: `MacAddress` (48 bits, prints as
+`0a:00:00:00:00:01`), `Ipv4Address` (32, `10.0.0.1`), `EtherType` (16,
+`IPv4 (0x0800)`), `IpProtocol` (8, `UDP (17)`) and `PortNumber` (16). An
+`Integer` converts into any of them, so a call site may still pass a number.
+
+The default display base depends on the declared width, not the type alone: a
+field that is not a whole number of bytes reads as bits, and a whole number of
+bytes reads as a number. `| hex`, `| dec` and the rest override it per field.
+
+### The layout descriptor
+
+`header_layout(H)` returns the name, the bit offset, the bit width and the
+display base of every field, as a constant built once when the header is
+declared:
+
+    for spec in header_layout(Ipv4Header).fields
+        println(spec.name, " @", spec.offset, " +", spec.width, " ", spec.base)
+    end
+
+`field_bits(h, spec)` reads one field's raw bits and `field_text(h, spec)`
+formats it — with an optional base, which is how a narrow view falls back to a
+shorter form. This is the only reflection a view of a packet needs, and it is
+computed from the same declaration the codec is, so the two cannot disagree.
+`Inet`'s packet diagram is drawn from it.
+
+## The protocol headers
+
+`protocol/` declares the wire formats, one file per protocol. They are
+declarations, not behaviour, which is why they sit in the package that depends
+on nothing.
+
+| header | bytes | file |
+| --- | --- | --- |
+| `EthernetPhyHeader` | 8 | `protocol/Ethernet.jl` |
+| `EthernetMacHeader` | 14 | `protocol/Ethernet.jl` |
+| `Ieee8021qTag` | 4 | `protocol/Ethernet.jl` |
+| `EthernetFcs` | 4 | `protocol/Ethernet.jl` |
+| `Ipv4Header` | 20 | `protocol/Ipv4.jl` |
+| `UdpHeader` | 8 | `protocol/Udp.jl` |
+| `TcpHeader` | 20 | `protocol/Tcp.jl` |
+
+Every one of them is fixed-size: `ihl` is 5 and `data_offset` is 5, so no
+header here carries options. A variable-length tail needs a width that depends
+on a field the reader already read, which the macro does not express.
 
 ## R2 duality + R9 guard
 

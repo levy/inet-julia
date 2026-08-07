@@ -119,5 +119,8 @@ peek(pk, Raw; length = Bytes(4))     # materialise only what you look at
 3. [package/linklayer/doc/ten-base-t1s.md](package/linklayer/doc/ten-base-t1s.md)
    — the four FSMs, the wire model, and the non-obvious design decisions behind
    them.
-4. `plan/done/` — the design documents the code was built from, including the
+4. [package/inet/doc/packet-diagram.md](package/inet/doc/packet-diagram.md) —
+   a packet drawn as the ASCII art figure the RFCs use, and why its first stage
+   is a projection.
+5. `plan/done/` — the design documents the code was built from, including the
    requirement-by-requirement derivation from INET's own sources.

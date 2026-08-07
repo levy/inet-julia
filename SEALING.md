@@ -167,6 +167,8 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `phase5_tags.jl`
   - ⬜ `phase6_buffers.jl`
   - ⬜ `phase7_inspect.jl`
+  - ⬜ `phase8_field_types.jl`
+  - ⬜ `phase9_protocol_headers.jl`
 - **`InetQueuingTest`** (`package/queuing/test/`)
   - ⬜ `InetQueuingTest.jl`
   - ⬜ `runtests.jl`
@@ -202,6 +204,8 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `InetTest.jl`
   - ⬜ `runtests.jl`
   - ⬜ `catalog.jl`
+  - ⬜ `packetdiagram.jl` (with its golden figure,
+    `packetdiagram-figure.txt`)
 - **Repository test harness**
   - ⬜ `test/runtests.jl`
 

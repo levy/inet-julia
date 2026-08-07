@@ -21,7 +21,7 @@ when it earns one.
 | `common/` | `InetCommon` | module-interface lookup (`LookupModule`) | `OmnetppSimulator`, `ProjecturedKernel` |
 | `queuing/` | `InetQueuing` | the packet protocol, the queuing elements, `QueuingModel` | `InetPacket`, `InetCommon` |
 | `linklayer/` | `InetLinkLayer` | 10BASE-T1S / PLCA and `T1sModel` | `InetPacket` |
-| `inet/` | `Inet` | the umbrella: re-exports, `inet_simulation_catalog` | all of the above |
+| `inet/` | `Inet` | the umbrella: re-exports, `inet_simulation_catalog`, the packet diagram | all of the above, `ProjecturedVisual` |
 
 ```
 InetPacket ──┬─────────────► InetQueuing ──┐
@@ -49,10 +49,15 @@ the graph stays acyclic either way.
 - **`linklayer`** — the protocol models. Named after the INET tree it will grow
   into rather than after its single current occupant; a protocol brings its own
   `AbstractModel` wrapper with it (`t1s/T1sModel.jl`).
-- **`inet`** — only what needs every component at once. Today that is
-  `inet_simulation_catalog`, which extends the kernel's catalog with every model
-  this library provides, and the re-exports that keep `using Inet` reaching
-  everything.
+- **`inet`** — only what needs every component at once, or a component and the
+  editor stack together. Today that is `inet_simulation_catalog`, which extends
+  the kernel's catalog with every model this library provides; the re-exports
+  that keep `using Inet` reaching everything; and the **packet diagram**
+  (`packetdiagram/`), which draws a packet as the ASCII art figure the RFCs use
+  and so needs `InetPacket` and `ProjecturedVisual` at once. It is the one
+  reason the umbrella depends on the editor stack, and the reason a headless
+  run of `using Inet` loads it; a split into its own package is the answer if
+  that cost ever bites. See [packet-diagram.md](../package/inet/doc/packet-diagram.md).
 
 New material goes into the *lowest* package where it makes sense. A second
 protocol is a slice inside `linklayer`, not a package of its own; a package is

@@ -10,7 +10,9 @@ The second half needs the first. An ASCII art figure must know the name, the bit
 offset, the bit width and the value of every field. Today `@header` throws that
 information away after it generates the codec. This plan keeps it.
 
-Status: **PENDING**. No part of this plan is implemented.
+Status: **DONE**. Phases 1 to 8 and 12 are implemented; phases 9 to 11 are
+deferred by design and are described where they sit. The repository-wide suite
+gives 2941 passes and no failure.
 
 ## 1. What the plan delivers
 
@@ -898,17 +900,18 @@ Add `ipv4_header_checksum`, `udp_checksum`, `tcp_checksum` and `ethernet_fcs`.
 The figure can then mark a checksum field as correct or wrong, which is the
 first thing anybody looks for in such a figure.
 
-### Phase 12 — documentation and the seal list — **PENDING**
+### Phase 12 — documentation and the seal list — **DONE**
 
-- [ ] Extend [`packet.md`](../../package/packet/doc/packet.md): the field types,
+- [x] Extend [`packet.md`](../../package/packet/doc/packet.md): the field types,
       the layout descriptor, the header inventory.
-- [ ] Add `package/inet/doc/packet-diagram.md` with the specimen and the rules.
-- [ ] Insert every new file into [`SEALING.md`](../../SEALING.md), unsealed, at
+- [x] Add [`packet-diagram.md`](../../package/inet/doc/packet-diagram.md) with
+      the specimen and the rules, and list it in the README's reading order.
+- [x] Insert every new file into [`SEALING.md`](../../SEALING.md), unsealed, at
       its include position.
-- [ ] Update the `inet` row of
+- [x] Update the `inet` row of
       [`architecture.md`](../../documentation/architecture.md): the umbrella now
-      depends on the ProjecturEd stack and owns the packet diagram.
-- [ ] Move this plan to `plan/done/`.
+      depends on `ProjecturedVisual` and owns the packet diagram.
+- [x] Move this plan to `plan/done/`.
 
 ## 13. Tests
 
