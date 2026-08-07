@@ -10,4 +10,7 @@ using Test
     # walkable once the components are assembled — which makes it the
     # umbrella's job too.
     include("demo.jl")
+    # The packet diagram: a packet drawn as the figure the RFCs use. It needs a
+    # packet and the editor stack at once, which only the umbrella has.
+    include("packetdiagram.jl")
 end

@@ -1,0 +1,65 @@
+# ============================================================================
+# The `PacketDiagram` module — a packet as the ASCII art figure the RFCs draw.
+# Design: plan/*/packet-headers-and-diagram.md.
+#
+# The chain starts at a `Packet`, because a packet may sit inside the document a
+# reader is looking at and the renderer reaches such a value by type dispatch:
+#
+#   Packet → PacketToPacketDiagram → PacketDiagram → PacketDiagramToText
+#          → TextBlock → TextToGraphics → GraphicsCanvas
+#
+# `PacketDiagram` is projection OUTPUT, not a domain document — the same role
+# `ChartPlot` plays for `Chart`. The packet stays what it is, and the view state
+# a view alone can have (the row width, which band a reader folded, the
+# selection) lives on the projected document.
+#
+#   DiagramDocument.jl        the projected documents
+#   DiagramGeometry.jl        rows, cells, widths — pure functions
+#   PacketToPacketDiagram.jl  the first stage
+#   PacketDiagramToText.jl    the printer, the chain, the entry
+# ============================================================================
+
+module PacketDiagramModule
+
+using InetPacket.PacketModule
+
+import ProjecturedVisual.CellModule: Cell, ComputedCell, AbstractCell,
+    ReactiveCell, MutableCell
+import ProjecturedVisual.CollectionModule: CellVector, ComputedCellVector
+import ProjecturedVisual.DocumentModule: Document, var"@document"
+import ProjecturedVisual.ReferenceModule: Reference
+import ProjecturedVisual.IoMapModule: IoMap, var"@iomap", SimpleIoMap
+import ProjecturedVisual.ProjectionApiModule: Projection, print_document,
+    map_reference_forward, map_reference_backward
+import ProjecturedVisual.ProjectionModule: var"@projection"
+import ProjecturedVisual.ReferenceModule: EmptyReference
+import ProjecturedVisual.ReferenceBuilderModule: var"@reference"
+import ProjecturedVisual.ReferenceCaseModule: var"@reference_case"
+import ProjecturedVisual.CellStructModule: ImmutableCell
+import ProjecturedVisual.ChainingProjectionModule: ChainingProjection
+import ProjecturedVisual.ColorModule: DStyleColor, color_solarized_blue,
+    color_solarized_gray, color_solarized_green, color_solarized_magenta
+import ProjecturedVisual.FontModule: DStyleFont, font_ubuntu_monospace_regular_20
+import ProjecturedVisual.TextModule: TextDocument, TextBlock, TextString, TextNewline
+import ProjecturedVisual.TextToGraphicsModule: TextToGraphics
+import ProjecturedVisual.TextToStringModule: TextToString
+import ProjecturedVisual.TrueTypeModule: truetype_measure_text
+import ProjecturedVisual.RecursiveProjectionModule: RecursiveProjection
+import ProjecturedVisual.PrinterContextModule: PrinterContext
+
+export
+    # the projected documents
+    PacketDiagram, DiagramBand, DiagramHeaderBand, DiagramOpaqueBand, DiagramField,
+    # building them from a packet, and announcing a change
+    diagram_bands, refresh_packet_diagram!,
+    # the row layout, as plain numbers
+    DiagramCell, diagram_rows, grid_width, cell_width,
+    # the projections and the two entry points
+    PacketToPacketDiagram, PacketDiagramToText,
+    packet_projection, packet_diagram_entry, packet_diagram_string
+
+include("DiagramDocument.jl")
+include("DiagramGeometry.jl")
+include("PacketToPacketDiagram.jl")
+
+end # module PacketDiagramModule

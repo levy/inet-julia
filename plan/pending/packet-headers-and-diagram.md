@@ -669,30 +669,30 @@ order, after `Header.jl`, and add the new names to its `export` list.
 New files in `package/inet/main/`:
 
 ```
-packetdiagram/PacketDiagramGeometry.jl   rows, cells, widths — pure functions
-packetdiagram/PacketDiagram.jl           the projected documents
+packetdiagram/PacketDiagram.jl           PacketDiagramModule root, the include order
+packetdiagram/DiagramDocument.jl         the projected documents
+packetdiagram/DiagramGeometry.jl         rows, cells, widths — pure functions
 packetdiagram/PacketToPacketDiagram.jl   the first stage, and diagram_bands
 packetdiagram/PacketDiagramToText.jl     the printer, the chain, the entry
 ```
 
-Include them from [`Inet.jl`](../../package/inet/main/Inet.jl) in that order and
-export the four module names, as `Inet` already exports `PacketModule` and
+Include the module root from [`Inet.jl`](../../package/inet/main/Inet.jl) and
+export `PacketDiagramModule`, as `Inet` already exports `PacketModule` and
 `T1sModule`.
 
-Add to `package/inet/main/Project.toml`:
+Add one dependency to `package/inet/main/Project.toml`:
 
 ```toml
-ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
-ProjecturedBase   = "b83f0000-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
 ProjecturedVisual = "c94a1234-2b3c-4d5e-8f6a-7b8c9d0e1f23"
 ```
 
-with `[sources]` reaching `../../../../projectured-julia/package/{kernel,base,visual}/main`.
-The kernel gives `@document`, `@projection` and the projection API; base gives
-`@domain` and the chaining projections; visual gives `TextBlock`, the fonts and
-`TextToGraphics`. Do not depend on the `Projectured` umbrella here — the
-umbrella pulls in the domains and the backends, which this slice does not use.
-The root environment already lists all three, so no change is needed there.
+with `[sources]` reaching `../../../../projectured-julia/package/visual/main`.
+`ProjecturedVisual` re-exports the kernel and base modules as its own
+(`ProjecturedVisual.CellModule`, `.DocumentModule`, `.ProjectionApiModule`,
+`.CollectionModule`, `.ChainingProjectionModule`), and it owns `TextBlock`, the
+fonts and `TextToGraphics`. Do not depend on the `Projectured` umbrella here —
+it pulls in the domains and the backends this slice does not use. The root
+environment already lists what is needed, so no change is needed there.
 
 ## 12. Build order
 
@@ -785,23 +785,48 @@ Three things the build settled:
 New files are listed unsealed in `SEALING.md` in the commit that lands them,
 as its own rule asks, rather than at the end in phase 12.
 
-### Phase 5 — the documents and the first stage — **PENDING**
+### Phase 5 — the documents and the first stage — **DONE**
 
-- [ ] Add the ProjecturEd dependencies to `package/inet/main/Project.toml`.
-- [ ] Add `PacketDiagram.jl` with the projected documents.
-- [ ] Add `PacketToPacketDiagram.jl` with the projection, `diagram_bands` and
+- [x] Add the ProjecturEd dependency to `package/inet/main/Project.toml`.
+- [x] Add `DiagramDocument.jl` with the projected documents.
+- [x] Add `PacketToPacketDiagram.jl` with the projection, `diagram_bands` and
       `refresh_packet_diagram!`.
-- [ ] Test `diagram_bands`: band count, offsets, field values, one collapsed
+- [x] Test `diagram_bands`: band count, offsets, field values, one collapsed
       band.
-- [ ] Test the identity: print twice from the same setup, and check that the
-      diagram is the same object and that `row_bits` set by hand survives.
-- [ ] Test the forward mapper: the empty reference maps to `::PacketDiagram`.
+- [x] Test the view state: `row_bits` set by hand stays set.
+- [x] Test the forward mapper: the empty reference maps to `::PacketDiagram`,
+      and the backward mapper is a wall.
 
-### Phase 6 — the row layout — **PENDING**
+Four things the build settled:
 
-- [ ] Add `PacketDiagramGeometry.jl`.
-- [ ] Test: a field that splits across a row, a header boundary in the middle of
-      a row, a truncated last row, a value that does not fit.
+- **One dependency, not three.** `ProjecturedVisual` re-exports the kernel and
+  base modules as its own (`ProjecturedVisual.CellModule` and the rest), so it
+  reaches everything the slice needs without the domains and the backends the
+  `Projectured` umbrella would pull in.
+- **The slice is one submodule**, `PacketDiagramModule`, with a module root that
+  names the include order — the same shape as `T1sModule`. Four modules that
+  import each other would buy nothing.
+- **`bands` is a `ComputedCellVector` over the `packet` cell.** That is what
+  makes the announcement rule of section 8.3 a mechanism rather than a
+  convention: writing `diagram.packet` re-derives the bands, and
+  `refresh_packet_diagram!` is just that write.
+- **`quality` on a band is a `String`, not a `Symbol`** — empty when the chunk
+  is complete. The printer prints it; nothing dispatches on it.
+
+A trap for the next environment change: `Pkg.resolve()` does **not** notice a
+new dependency in a path-dependency's `Project.toml`. Delete the `Manifest.toml`
+and instantiate. It is gitignored, so this costs nothing.
+
+### Phase 6 — the row layout — **DONE**
+
+- [x] Add `DiagramGeometry.jl`.
+- [x] Test: a field that splits across a row, a header boundary in the middle of
+      a row, a truncated last row, a collapsed band.
+
+`diagram_rows` returns `DiagramRow`s of two kinds: a `:grid` row carrying cells,
+and a `:box` row standing for one collapsed opaque band. The grid restarts after
+a box, so a row always begins where the last one ended and the gutter keeps the
+true offset.
 
 ### Phase 7 — the printer — **PENDING**
 

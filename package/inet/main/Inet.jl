@@ -31,6 +31,10 @@ using InetLinkLayer
 using OmnetppSimulator: SimulationType, default_simulation_catalog
 
 include("Catalog.jl")            # inet_simulation_catalog — the kernel's, extended
+# A packet as the ASCII art figure the RFCs draw. It lives here because it needs
+# a packet and the editor stack at once, and no component below has both.
+include("packetdiagram/PacketDiagram.jl")
+using .PacketDiagramModule
 
 export
     # packet & chunk API — a submodule, so `using Inet.PacketModule` to get its names
@@ -53,6 +57,9 @@ export
     QueuingModel, AbstractQueuingModel, QueuingModelMut,
     T1sModel, AbstractT1sModel, T1sModelMut,
     # every model there is, offered to a workbench
-    inet_simulation_catalog
+    inet_simulation_catalog,
+    # a packet as the ASCII art figure the RFCs draw — a submodule, so
+    # `using Inet.PacketDiagramModule` to get its names
+    PacketDiagramModule
 
 end # module Inet
