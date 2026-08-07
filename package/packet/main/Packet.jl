@@ -24,6 +24,12 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        Packet, dup, trim!, data_length, front_length, back_length,
        content_length, data_chunk,
        BitWriter, BitReader, write_bits!, read_bits!, bit_count,
+       field_width, field_encode, field_decode, field_base,
+       MacAddress, mac_octets, MAC_BROADCAST, is_multicast, is_broadcast,
+       Ipv4Address, ipv4_octets, EtherType, ethertype_name,
+       IpProtocol, ip_protocol_name, PortNumber,
+       FieldSpec, HeaderLayout, header_layout, build_header_layout,
+       field_bits, field_text,
        @header, serialize, deserialize, to_bytes, from_bytes, has,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
@@ -39,6 +45,8 @@ include("Quality.jl")
 include("Chunk.jl")
 include("Peek.jl")
 include("BitIO.jl")
+include("FieldTypes.jl")
+include("HeaderLayout.jl")
 include("Header.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")

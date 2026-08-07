@@ -701,22 +701,40 @@ Work in a git worktree, created as a **sibling** of `inet-julia` in
 relative `[sources]` path. Commit at the end of each phase and mark the phase
 done in this file.
 
-### Phase 1 — the field types — **PENDING**
+### Phase 1 — the field types — **DONE**
 
-- [ ] Add `FieldTypes.jl` with the four generic functions and the defaults.
-- [ ] Add the five value types with their `Base.show` methods.
-- [ ] Extend `@header`: field types, the display override, field defaults.
-- [ ] Add `phase8_field_types.jl`.
+- [x] Add `FieldTypes.jl` with the four generic functions and the defaults.
+- [x] Add the five value types with their `Base.show` methods.
+- [x] Extend `@header`: field types, the display override, field defaults.
+- [x] Add `phase8_field_types.jl`.
 
 Gate: `phase3_headers.jl` still passes unchanged. The macro's old two forms must
-keep working.
+keep working. **Met** — `test_packet()` gives 1753 passes and no failure.
 
-### Phase 2 — the layout descriptor — **PENDING**
+Two things the build settled:
 
-- [ ] Add `HeaderLayout.jl`.
-- [ ] Emit `header_layout` from `@header`.
-- [ ] Extend `phase8_field_types.jl`: the offsets are contiguous, the widths sum
+- `field_base` takes the width as a second argument. The default depends on the
+  declared width, not on the type alone, and only the macro knows the width.
+- `Base.convert` is defined from `Integer` to each value type, so
+  `EthernetMacHeader(0x0a0000000002, 0x0a0000000001, 0x0800)` still works. That
+  is what keeps the link-layer call sites of phase 4 readable.
+
+### Phase 2 — the layout descriptor — **DONE**
+
+- [x] Add `HeaderLayout.jl`.
+- [x] Emit `header_layout` from `@header`.
+- [x] Extend `phase8_field_types.jl`: the offsets are contiguous, the widths sum
       to `chunk_length`, and the field order matches the declaration.
+
+Two decisions the build made:
+
+- The macro emits `const _HEADER_LAYOUT_<Name>` beside the struct and returns it
+  from `header_layout`. The descriptor is built once, at declaration time, so a
+  view may call it on every render.
+- `field_text` lives here, not in the projection. The value types already know
+  how to print themselves, and one formatter serves the REPL, the tests and the
+  figure. It takes an optional base, which is how a view shortens a value that
+  does not fit its cell.
 
 ### Phase 3 — the headers — **PENDING**
 
