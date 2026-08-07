@@ -43,7 +43,7 @@ default, so the keyword form states what a datagram actually decides.
     total_length    :: UInt16
     identification  :: UInt16      | 16 | hex = 0x0000
     flags           :: UInt8       | 3        = 0x00
-    frag_offset     :: UInt16      | 13       = 0x0000
+    frag_offset     :: UInt16      | 13 | dec = 0x0000
     ttl             :: UInt8                  = IPV4_DEFAULT_TTL
     protocol        :: IpProtocol
     header_checksum :: UInt16      | 16 | hex = 0x0000

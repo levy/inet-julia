@@ -61,5 +61,6 @@ export
 include("DiagramDocument.jl")
 include("DiagramGeometry.jl")
 include("PacketToPacketDiagram.jl")
+include("PacketDiagramToText.jl")
 
 end # module PacketDiagramModule

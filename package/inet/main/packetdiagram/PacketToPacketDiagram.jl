@@ -143,13 +143,16 @@ _chunk_kind(::Raw)    = :raw
 _chunk_kind(::Slice)  = :slice
 _chunk_kind(::Chunk)  = :chunk
 
-_chunk_name(chunk::Filler) = "Filler  fill=0x" * string(chunk.fill, base = 16, pad = 2)
-_chunk_name(::Raw)         = "Raw"
-_chunk_name(chunk::Slice)  = "Slice of " * _chunk_name(chunk.chunk)
-_chunk_name(::Chunk)       = "Chunk"
+_chunk_name(::Filler)     = "Filler"
+_chunk_name(::Raw)        = "Raw"
+_chunk_name(chunk::Slice) = "Slice of " * _chunk_name(chunk.chunk)
+_chunk_name(::Chunk)      = "Chunk"
 
-_chunk_preview(chunk::Raw) = _hex_preview(chunk.data, 8)
-_chunk_preview(::Chunk)    = ""
+# What a band shows beside its name and its length: for a filler what it is
+# filled with, for raw bytes the first of them.
+_chunk_preview(chunk::Filler) = "fill=0x" * string(chunk.fill, base = 16, pad = 2)
+_chunk_preview(chunk::Raw)    = _hex_preview(chunk.data, 8)
+_chunk_preview(::Chunk)       = ""
 
 function _hex_preview(data::Vector{UInt8}, limit::Int)
     n = min(Base.length(data), limit)

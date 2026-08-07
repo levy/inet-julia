@@ -535,6 +535,7 @@ treat it as the specification of the format and as the golden snapshot of the
 first test.
 
 ```
+        Packet  78B
          0                   1                   2                   3
          0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
          EthernetMacHeader  14 B
@@ -577,7 +578,7 @@ first test.
         +---------------------------------------------------------------+
  0x002a |                    Filler  32 B  fill=0x00                    |
         +---------------------------------------------------------------+
-        EthernetFcs  4 B
+         EthernetFcs  4 B
         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  0x004a |                              fcs                              |
         |                          0x00000000                           |
@@ -828,11 +829,24 @@ and a `:box` row standing for one collapsed opaque band. The grid restarts after
 a box, so a row always begins where the last one ended and the gutter keeps the
 true offset.
 
-### Phase 7 — the printer — **PENDING**
+### Phase 7 — the printer — **DONE**
 
-- [ ] Add `PacketDiagramToText.jl`, `packet_projection`,
+- [x] Add `PacketDiagramToText.jl`, `packet_projection`,
       `packet_diagram_entry` and `packet_diagram_string`.
-- [ ] Pin the specimen of section 9.6 as a golden snapshot.
+- [x] Pin the specimen of section 9.6 as a golden snapshot.
+
+Three things the build settled:
+
+- The specimen lives in `package/inet/test/packetdiagram-figure.txt` and the
+  test reads it verbatim. A triple-quoted Julia string will not do: Julia
+  de-indents one, and the gutter of this figure is exactly the leading
+  whitespace it would strip. Section 9.6 is now that file's content.
+- `frag_offset` takes a `| dec` override. The width rule made it binary, and
+  thirteen zeros in a cell say less than one `0` does. This is the first field
+  where the default was wrong, and it is what the override exists for.
+- A collapsed band's fill moved from its name into its preview, so the box
+  reads `Filler  32 B  fill=0x00` — name, then length, then what it holds, in
+  the order every other band uses.
 
 ### Phase 8 — the demo page — **PENDING**
 

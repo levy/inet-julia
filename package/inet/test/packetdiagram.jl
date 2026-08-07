@@ -37,7 +37,7 @@ end
     @test Base.length(bands) == 5
     @test [b.name for b in bands] ==
           ["EthernetMacHeader", "Ipv4Header", "UdpHeader",
-           "Filler  fill=0x00", "EthernetFcs"]
+           "Filler", "EthernetFcs"]
     @test [b.offset for b in bands] == [0, 112, 272, 336, 592]
     @test [b.width  for b in bands] == [112, 160, 64, 256, 32]
 
@@ -206,4 +206,85 @@ end
 
     # Backward this stage is a wall: no edit crosses it.
     @test map_reference_backward(projection, iomap, EmptyReference()) === nothing
+end
+
+# ---------------------------------------------------------------------------
+# The printer. The figure is alignment, and a substring test cannot see
+# alignment — so the whole string is pinned, character for character.
+# ---------------------------------------------------------------------------
+
+# The figure lives in a file of its own, read verbatim. A triple-quoted string
+# would not do: Julia de-indents one, and the gutter of this figure is exactly
+# the leading whitespace it would strip.
+const DIAGRAM_SPECIMEN = rstrip(read(joinpath(@__DIR__, "packetdiagram-figure.txt"), String), '
+')
+
+@testset "PacketDiagramToText — the figure, character for character" begin
+    @test packet_diagram_string(diagram_test_frame()) == DIAGRAM_SPECIMEN
+end
+
+@testset "PacketDiagramToText — what the figure says" begin
+    figure = packet_diagram_string(diagram_test_frame())
+    lines = split(figure, '\n')
+
+    # Every grid line is the same width, which is what makes it a grid.
+    grid = [l for l in lines if startswith(strip(l), "|") || startswith(strip(l), "+")]
+    @test all(l -> Base.length(l) <= 8 + grid_width(32), grid)
+
+    # A header boundary inside a row is drawn, and only there.
+    @test any(l -> occursin("#version", l), lines)
+    @test count(l -> occursin("#", l), lines) == 4
+
+    # The values are in the base the field declares.
+    @test any(l -> occursin("0a:00:00:00:00:02", l), lines)   # a MAC address
+    @test any(l -> occursin("10.0.0.1", l), lines)            # an IPv4 address
+    @test any(l -> occursin("UDP (17)", l), lines)            # a protocol number
+    @test any(l -> occursin("0x0000", l), lines)              # a checksum, in hex
+    # Four bits, printed as bits, in the cell after the header boundary.
+    @test any(l -> occursin("# 0100  |", l), lines)
+
+    # The byte offset gutter counts in bytes, and the header names float above
+    # the row they start in.
+    @test any(l -> startswith(l, " 0x000c"), lines)
+    @test any(l -> occursin("Ipv4Header  20 B", l), lines)
+    @test any(l -> occursin("UdpHeader  8 B", l), lines)
+
+    # A payload too long to draw bit by bit becomes one box.
+    @test any(l -> occursin("Filler  32 B  fill=0x00", l), lines)
+
+    # ASCII only: no box-drawing glyph, because SDL does not fall back.
+    @test all(c -> isascii(c), figure)
+end
+
+@testset "PacketDiagramToText — the row width is the reader's" begin
+    pk = diagram_test_frame()
+    narrow = packet_diagram_string(pk; row_bits = 16)
+    wide   = packet_diagram_string(pk; row_bits = 32)
+    @test Base.length(split(narrow, '\n')) > Base.length(split(wide, '\n'))
+    # At 16 bits per row an Ethernet address still splits, but a port does not.
+    @test occursin("#           src_port            |", wide)
+
+    # The gutter is optional, and dropping it moves every line left by 8.
+    bare = packet_diagram_string(pk; show_offsets = false)
+    @test !occursin("0x000c", bare)
+    @test any(l -> startswith(l, "|"), split(bare, '\n'))
+end
+
+@testset "PacketDiagramToText — a value that does not fit goes to the legend" begin
+    # `flags` is three bits wide, so its cell holds five characters. A value
+    # that needs more than that is cut, and the legend carries it whole.
+    pk = Packet(Ipv4Header(total_length = UInt16(20), protocol = IP_PROTOCOL_TCP,
+                           src_address = Ipv4Address("255.255.255.255"),
+                           dst_address = Ipv4Address("255.255.255.255")))
+    figure = packet_diagram_string(pk; row_bits = 4)
+    # At four bits per row a cell holds seven characters, which fits neither the
+    # dotted quad, nor the same number in hexadecimal, nor in decimal.
+    @test occursin("Ipv4Header.src_address = 255.255.255.255", figure)
+    @test occursin("*", figure)
+end
+
+@testset "packet_diagram_entry — keyed on the packet itself" begin
+    entry = packet_diagram_entry()
+    @test entry isa Pair
+    @test entry.first === Packet
 end
