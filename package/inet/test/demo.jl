@@ -273,6 +273,31 @@ end
     @test !any(t -> occursin("<<packet", t), texts)
 end
 
+@testset "the diagram page draws the packet as the RFC figure" begin
+    # The page splices a `Packet`, and nothing converts it first: the renderer
+    # reaches it by type dispatch. This is the check that the dispatch entry is
+    # keyed on the packet itself — a figure drawn from a document that had to be
+    # built at the marker would pass every other test in this file.
+    shell = demo_catalog()
+    i = findfirst(e -> !e.section && e.path == "pages/PacketDiagram.md",
+                  collect(shell.entries))
+    @test i !== nothing
+    open_page!(shell, i)
+    out = get_iomap_output(print_document(demo_projection(measure = truetype_measure_text),
+                                          shell))
+    texts = _drawn_strings(out)
+
+    # The grid, a header title above the row it starts in, and a value in the
+    # base its field declares.
+    @test any(t -> occursin("+-+-+-+-+", t), texts)
+    @test any(t -> occursin("Ipv4Header  20 B", t), texts)
+    @test any(t -> occursin("0a:00:00:00:00:02", t), texts)
+    @test any(t -> occursin("UDP (17)", t), texts)
+    # A header boundary inside a row, which only a continuous grid can show.
+    @test any(t -> occursin("#", t), texts)
+    @test !any(t -> occursin("<<packet", t), texts)
+end
+
 @testset "clicking a fold marker folds that chunk" begin
     # A real mouse press through the projection `run_demo` builds. Without the
     # marker glyphs configured, `SyntaxToText` draws none — and a marker that is

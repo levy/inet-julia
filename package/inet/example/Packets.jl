@@ -25,6 +25,9 @@ const PACKET_VIEWS = Dict{String, Function}(
     # payload, with the simulator-internal tags beside them.
     "routed_ipv4" => () -> InetPacketExample.make_packet(
         UInt32(0x0a000001), UInt32(0x0a000002), 40, Int64(1000)),
+    # The same datagram on the wire: four declared headers and one opaque run,
+    # which is what makes it worth drawing as a figure.
+    "ethernet_frame" => () -> InetPacketExample.make_frame(),
 )
 
 """
@@ -34,16 +37,30 @@ The name of every packet a page may embed.
 """
 packet_views() = sort!(collect(keys(PACKET_VIEWS)))
 
-# `<<packet("routed_ipv4")>>`. Interned by the load session like every other
-# marker, so the packet a page shows is one object — and the fold state a reader
-# leaves it in survives them wandering off to another page and back.
-function marker_packet(_ctx, name::AbstractString)
+"""
+    named_packet(name) -> Packet
+
+The packet a page names, built by the same function the page embeds above it.
+"""
+function named_packet(name::AbstractString)
     build = get(PACKET_VIEWS, String(name), nothing)
     build === nothing &&
         error("packet(", repr(String(name)), "): no such packet; available: ",
               join(packet_views(), ", "))
-    packet_syntax(build())
+    return build()
 end
+
+# `<<packet("routed_ipv4")>>` splices the PACKET ITSELF onto the page. Nothing
+# converts it first: the renderer reaches a packet held inside a document by
+# type dispatch, and `packet_diagram_entry` is what that dispatch finds. So the
+# page shows the object the code above it makes, drawn as the figure the RFCs
+# draw.
+marker_packet(_ctx, name::AbstractString) = named_packet(name)
+
+# `<<packet_tree("routed_ipv4")>>` shows the same packet as its chunk tree, with
+# a fold marker on every chunk. Two views of one packet, and a page names the
+# one its prose is about.
+marker_packet_tree(_ctx, name::AbstractString) = packet_syntax(named_packet(name))
 
 """
     packet_syntax(packet) -> SyntaxNode

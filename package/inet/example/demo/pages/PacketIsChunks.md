@@ -31,7 +31,7 @@ what `describe` printed on somebody's terminal. This is the object that call
 returns, and you can open it up:
 
 ```pred-ref
-<<packet("routed_ipv4")>>
+<<packet_tree("routed_ipv4")>>
 ```
 
 Sixty bytes, and not one of them allocated: the header is a struct and the

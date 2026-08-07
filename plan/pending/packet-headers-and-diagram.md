@@ -848,24 +848,25 @@ Three things the build settled:
   reads `Filler  32 B  fill=0x00` — name, then length, then what it holds, in
   the order every other band uses.
 
-### Phase 8 — the demo page — **PENDING**
+### Phase 8 — the demo page — **DONE**
 
-- [ ] Check that the dispatch table of `NaturalToGraphics` accepts `Packet` as a
-      key. A plain struct is not a document type, and this is the first entry
-      that keys one.
-- [ ] Add `packet_diagram_entry` to the `extra` list of `demo_projection`.
-- [ ] Change the `packet("name")` marker in
+- [x] Check that the dispatch table of `NaturalToGraphics` accepts `Packet` as a
+      key. It does — the table is keyed by type, and nothing requires a document
+      type.
+- [x] Add `packet_diagram_entry` to the `extra` list of `demo_projection`.
+- [x] Change the `packet("name")` marker in
       [`Packets.jl`](../../package/inet/example/Packets.jl) to splice the
-      `Packet` itself. Keep `packet_syntax` and its entry: the tree view and the
-      figure are two views of one packet, and a page should be able to name
-      either.
-- [ ] Add `pages/PacketDiagram.md` and link it from `index.md`.
-- [ ] Build the frame of section 9.6 in `InetPacketExample` so the page shows a
-      full stack, not one header.
+      `Packet` itself, and add `packet_tree("name")` for the chunk tree. The two
+      views are two projections of one packet, and a page names the one its
+      prose is about; `PacketIsChunks.md` moved to the tree marker.
+- [x] Add `pages/PacketDiagram.md` and link it from `index.md`.
+- [x] Build the frame of section 9.6 in `InetPacketExample` (`make_frame`) so
+      the page shows a full stack, not one header.
 
-Gate: the page shows the figure with no conversion in the marker function. That
-is the check that the projection reaches a packet held inside a document, which
-is why the first stage is a projection at all.
+Gate: the page shows the figure with no conversion in the marker function.
+**Met** — `test_inet()` gives 281 passes, and a new case in `demo.jl` renders
+the page through the chain `run_demo` builds and finds the grid, a header title
+and a MAC address in what it draws.
 
 ### Phase 9 — selection and edit — **DEFERRED**
 

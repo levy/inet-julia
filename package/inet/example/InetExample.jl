@@ -25,6 +25,7 @@ import InetPacketExample
 import InetQueuingExample
 
 using Inet
+using Inet.PacketDiagramModule: packet_diagram_entry
 using OmnetppSimulator: workbench_refresh!
 using OmnetppPresentation: CatalogShell, CatalogShellToWidget, SimulationEmbed,
     catalog_pages, default_topology_engine, open_page!, register_doctype_module!,
@@ -78,7 +79,7 @@ using ProjecturedDomainExample: run_example
 
 export demo_directory, demo_catalog, demo_projection, run_demo
 export FSM_MACHINES, fsm_machines, FsmMachineToWidget, fsm_machine_entry, fsm_diagram_entry
-export PACKET_VIEWS, packet_views, packet_syntax, packet_entry
+export PACKET_VIEWS, packet_views, packet_syntax, packet_entry, named_packet
 
 let _taken = Set{Symbol}()
     for _src in (InetPacketExample, InetQueuingExample)
@@ -156,7 +157,8 @@ demo_projection(; measure = truetype_measure_text) =
                                                  Pair{Type,Any}[simulation_embed_entry(),
                                                      fsm_machine_entry(measure = measure),
                                                      fsm_diagram_entry(measure = measure),
-                                                     packet_entry(measure = measure)],
+                                                     packet_entry(measure = measure),
+                                                     packet_diagram_entry(measure = measure)],
                                                  _demo_prose_dispatch(measure),
                                                  workbench_document_dispatch(measure = measure)))))
 
@@ -258,6 +260,7 @@ function __init__()
     # precompiled image, the same rule `realize` follows.
     register_marker_function!(:fsm, marker_fsm)
     register_marker_function!(:packet, marker_packet)
+    register_marker_function!(:packet_tree, marker_packet_tree)
 end
 
 end # module InetExample

@@ -60,6 +60,31 @@ function make_packet(src::UInt32, dest::UInt32, payload_bytes::Int, t_ns::Int64)
     return pk
 end
 
+"""
+    make_frame(; payload_bytes = 32) -> Packet
+
+The same datagram, on the wire: an Ethernet MAC header over an IPv4 header over
+a UDP header over a `Filler` payload, with the frame check sequence behind it.
+
+Four declared headers and one opaque run — which is what makes it the packet
+worth drawing. A stack of one header shows nothing about how headers follow one
+another through the bytes.
+"""
+function make_frame(; payload_bytes::Int = 32)
+    pk = Packet(Filler(Bytes(payload_bytes); fill = 0x00))
+    pushfirst!(pk, UdpHeader(src_port = 1000, dst_port = 2000,
+                             length = UInt16(payload_bytes + 8)))
+    pushfirst!(pk, Ipv4Header(total_length = UInt16(payload_bytes + 28),
+                              protocol = IP_PROTOCOL_UDP,
+                              src_address = Ipv4Address("10.0.0.1"),
+                              dst_address = Ipv4Address("10.0.0.2")))
+    pushfirst!(pk, EthernetMacHeader(MacAddress("0a:00:00:00:00:02"),
+                                     MacAddress("0a:00:00:00:00:01"),
+                                     ETHERTYPE_IPV4))
+    push!(pk, EthernetFcs())
+    return pk
+end
+
 # --- 3. Per-hop routing: mutate the envelope, share the content ------------
 """
     forward!(pk) -> Packet

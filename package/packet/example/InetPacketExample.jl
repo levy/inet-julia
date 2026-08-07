@@ -56,7 +56,7 @@ function run_packet_demo(name::Symbol; kwargs...)
 end
 
 export PACKET_DEMOS, packet_demos, run_packet_demo
-export packet_api_demo, make_packet, forward!, broadcast_packet
+export packet_api_demo, make_packet, make_frame, forward!, broadcast_packet
 export reinterpretation_guard, truncated_packet, strict_peek
 export reassemble_out_of_order, straddling_pop
 export Ipv4Header, UdpHeader, RoutingRequest, CreationTimeTag, HopCountTag

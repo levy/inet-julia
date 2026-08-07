@@ -32,6 +32,8 @@ feature anyone built for the tour.
   shared body under a mutable envelope, and what a broadcast actually copies.
 - [Headers declare their own bytes](pages/Headers.md) — one declaration, a
   struct and its bit-exact codec, and a guard against reading the wrong one.
+- [The packet, drawn the way the standard draws it](pages/PacketDiagram.md) —
+  the RFC bit grid, projected from the packet rather than drawn beside it.
 - [Knowing what you know](pages/Quality.md) — three monotone bits, and a `peek`
   that refuses damaged data until you ask for it by name.
 - [Reassembly without ceremony](pages/Reassembly.md) — straddling pops, sparse

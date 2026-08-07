@@ -138,6 +138,12 @@ before fixing (the seal still holds until permission is given).
 - **Package `inet` — `Inet`** (`package/inet/main/`), the umbrella
   - ⬜ `Inet.jl`
   - ⬜ `Catalog.jl`
+  - *slice `packetdiagram` — a packet as the ASCII art figure the RFCs draw*
+    - ⬜ `packetdiagram/PacketDiagram.jl` — `PacketDiagramModule` root
+    - ⬜ `packetdiagram/DiagramDocument.jl`
+    - ⬜ `packetdiagram/DiagramGeometry.jl`
+    - ⬜ `packetdiagram/PacketToPacketDiagram.jl`
+    - ⬜ `packetdiagram/PacketDiagramToText.jl`
 
 ### Wave B — tools and watch environments
 
