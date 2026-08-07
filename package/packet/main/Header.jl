@@ -141,7 +141,9 @@ macro header(name, block)
     # level always defines the name in the module the code expands INTO —
     # so we qualify with the enclosing module (`M` bound above).
     return quote
-        struct $(esc(name)) <: $(M).Fields
+        # `Base.@__doc__` is what lets a docstring sit in front of `@header`.
+        # Without it Julia refuses to document a macro that expands to a block.
+        Base.@__doc__ struct $(esc(name)) <: $(M).Fields
             $(struct_fields...)
         end
         $(M).chunk_length(::$(esc(name))) = $(M).Bits($total_expr)

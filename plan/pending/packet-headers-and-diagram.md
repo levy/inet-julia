@@ -736,15 +736,28 @@ Two decisions the build made:
   figure. It takes an optional base, which is how a view shortens a value that
   does not fit its cell.
 
-### Phase 3 — the headers — **PENDING**
+### Phase 3 — the headers — **DONE**
 
-- [ ] Add the four files under `protocol/`.
-- [ ] Add `phase9_protocol_headers.jl` with the golden byte vectors.
+- [x] Add the four files under `protocol/`.
+- [x] Add `phase9_protocol_headers.jl` with the golden byte vectors.
+- [x] Rename the declarations of `phase3_headers.jl` with a `Test` prefix. That
+      step belonged to phase 4, but the collision it predicted appeared here:
+      the test file declares `Ipv4Header` in the same scope that now imports
+      one.
 
 Gate: the twenty IPv4 bytes on the
 [Headers page](../../package/inet/example/demo/pages/Headers.md) —
 `45 00 00 3c 00 00 00 00 40 11 00 00 0a 00 00 01 0a 00 00 02` — come out of the
-new declaration byte for byte.
+new declaration byte for byte. **Met**, and `test_packet()` gives 1892 passes
+and no failure.
+
+Two things the build settled:
+
+- `@header` now wraps the struct in `Base.@__doc__`. Julia refuses to document a
+  macro that expands to a block, so without it a header could not carry a
+  docstring — and every declared header wants one.
+- `Ieee8021qTag` is declared. It is fixed-size, it costs four lines, and a
+  frame that carries a VLAN tag is otherwise unrepresentable.
 
 ### Phase 4 — move the old declarations — **PENDING**
 

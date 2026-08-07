@@ -30,6 +30,16 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        IpProtocol, ip_protocol_name, PortNumber,
        FieldSpec, HeaderLayout, header_layout, build_header_layout,
        field_bits, field_text,
+       EthernetPhyHeader, EthernetMacHeader, Ieee8021qTag, EthernetFcs,
+       MIN_ETHERNET_FRAME_BYTES, MAX_ETHERNET_FRAME_BYTES, INTERFRAME_GAP_BITS,
+       JAM_SIGNAL_BYTES, ETHERNET_PHY_HEADER_LEN_BYTES, ETHERNET_PHY_ESD_LEN_BYTES,
+       ETHERNET_TXRATE_10MB, ETHERNET_PREAMBLE, ETHERNET_SFD,
+       ETHERTYPE_IPV4, ETHERTYPE_ARP, ETHERTYPE_VLAN, ETHERTYPE_IPV6,
+       Ipv4Header, IPV4_VERSION, IPV4_MIN_IHL, IPV4_HEADER_BYTES,
+       IPV4_DEFAULT_TTL, IPV4_FLAG_RESERVED, IPV4_FLAG_DF, IPV4_FLAG_MF,
+       IP_PROTOCOL_ICMP, IP_PROTOCOL_IGMP, IP_PROTOCOL_TCP, IP_PROTOCOL_UDP,
+       UdpHeader, UDP_HEADER_BYTES,
+       TcpHeader, tcp_flags, TCP_MIN_DATA_OFFSET, TCP_HEADER_BYTES,
        @header, serialize, deserialize, to_bytes, from_bytes, has,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
@@ -48,6 +58,11 @@ include("BitIO.jl")
 include("FieldTypes.jl")
 include("HeaderLayout.jl")
 include("Header.jl")
+# The wire formats, declared with the macro above. One file per protocol.
+include("protocol/Ethernet.jl")
+include("protocol/Ipv4.jl")
+include("protocol/Udp.jl")
+include("protocol/Tcp.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")
