@@ -751,8 +751,7 @@ no more. Everything the tutorial file needed beyond that — gates, channels,
 properties, parameter blocks, connection groups — compiled inside the user's
 run.
 
-So nothing in `OmnetppFormat` had to change, and none of the three options this
-section first listed was needed.
+So the compilation half of the problem needed nothing from `OmnetppFormat`.
 
 **The fix is a bigger corpus, in two halves.** `tool/corpus/` holds every
 `.ned` and `.ini` file of the INET tree, 2001 files and 3.3 MB, copied byte for
@@ -790,6 +789,50 @@ build happened to run.
 
 The bundle grew from 695 MB to 709 MB, and the suite is 107 pass, 0 fail with
 the same C++ numbers.
+
+### Phase 8 — And then the tables, which really were rebuilt every run
+
+With compilation out of the way, the profile of a 0.71 s run could be read, and
+the largest remaining item was the one the first wrong diagnosis had named:
+
+| phase, timed inside the shipped image | time |
+| --- | --- |
+| process start — mmap a 709 MB system image | ~294 ms |
+| `nedparse_file`, first call | 272 ms |
+| `build_ned_network` | 47 ms |
+| `close_sinks!` — write the two files | 30 ms |
+| `iniparse_file`, first call | 26 ms |
+| `read_ini_configuration` | 17 ms |
+| **`run_network!` — the simulation itself, 11 events** | **10 ms** |
+| everything else | 8 ms |
+
+The simulation is 1.4% of the run. Splitting the 272 ms further, warm: 115 ms
+is the NED LALR table, 7 ms the INI table, 27 ms the actual parse of 40 KB.
+
+**So the tables were rebuilt on every run after all** — they just never cost
+five seconds. Both parsers built their `Lark` lazily into a `Ref`, so every
+process that parsed a file constructed the same tables again.
+
+The fix is six lines in `omnetpp-julia`: a `const` at module scope instead of a
+lazy `Ref`, so the tables are built at precompile time and serialize into the
+`.ji`, and from there into the system image. The compiled regexes of the
+terminals are what made this worth testing rather than assuming; they survive.
+
+| | corpus only | corpus + const tables |
+| --- | --- | --- |
+| `ActiveSourcePassiveSink` | 0.69 s | **0.49 s** |
+| `PacketQueue` | 0.68 s | **0.49 s** |
+| `--version`, the floor | 0.29 s | 0.32 s |
+| work above the floor | 417 ms | **174 ms** |
+| parsing the whole INET corpus | 16.7 s | **8.2 s** |
+
+**Where a run stands, from the start of this plan:** 5.09 s → 0.49 s, and
+0.17 s of that is work rather than starting an image.
+
+The other seven parsers of `projectured-julia` were checked and left alone.
+`json`, `markdown`, `julia`, `rst`, `sql`, `yaml` and `xml` are hand-written
+recursive descent with no grammar table and no singleton, so there is nothing
+of this shape in them.
 
 **The lesson generalises past this parser.** A precompile execution file buys
 exactly the code paths it walks. A small input makes a fast build and a slow

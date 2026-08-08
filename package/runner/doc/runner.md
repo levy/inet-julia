@@ -103,12 +103,20 @@ run `bin/inet-julia`.
 `julia --project=package/runner/main`, for a change you want to try without a
 build.
 
-A run costs about **0.7 s**, of which 0.3 s is starting the image at all.
+A run costs about **0.5 s**, of which 0.3 s is starting the image at all. The
+simulation itself is around 10 ms of it; the rest is reading the two files and
+building the network.
 
 That number depends on `tool/binary_precompile.jl`, which parses every NED and
 INI file in `tool/corpus/` and runs two real configurations out of it. A
 Lerche transformer callback compiles the first time a grammar production
 reaches it, so a build that parses little makes a program that compiles inside
 the user's run — 5.1 s of it, before the corpus existed. If you shrink what the
-build parses, time a run before and after. See phase 7 of
-[native-simulation-binary.md](../../../plan/done/native-simulation-binary.md).
+build parses, time a run before and after.
+
+The parse tables are the other half. They are built at precompile time in
+`OmnetppFormat`, as a `const` rather than a lazy singleton, so they are
+deserialized rather than reconstructed — 122 ms a run that would otherwise be
+spent building the same tables again. Phases 7 and 8 of
+[native-simulation-binary.md](../../../plan/done/native-simulation-binary.md)
+carry both measurements.
