@@ -20,7 +20,7 @@ module PriorityQueueElement
 
 using OmnetppSimulator: NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractCompoundModule, Gate, Network,
-    input_gate, output_gate, connect!, add_module!, module_path
+    add_module!, module_path, @simulation_module
 using ..PacketQueueElement: PacketQueueModule, queue_length, queue_bit_length
 using ..PacketClassifierElement: PacketClassifierModule, priority_classifier,
     content_based_classifier
@@ -30,73 +30,76 @@ export PriorityQueueModule, priority_queue, priority_queue_length,
        priority_queue_bit_length, priority_queue_dropped
 
 """
-    PriorityQueueModule
+    PriorityQueueModule(name; priorities, given_classifier = nothing, queue_parameters = (;))
 
 A classifier, one queue per priority and a scheduler, behind a pair of boundary
-gates. Build one with [`priority_queue`](@ref).
+gates — declared as what it holds and how its parts are joined.
+
+By default packets go to the first level that will take them, so a full level
+overflows into the next. `given_classifier` replaces that with one built some
+other way, by [`content_based_classifier`](@ref), say. `queue_parameters` is
+the keywords a level's queue is built with, as a named tuple — either one set
+for every level or one per level.
+
+[`priority_queue`](@ref) builds one and places it in a network in a single
+call, which is how the rest of this package uses it.
 """
-mutable struct PriorityQueueModule <: AbstractCompoundModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Gate
-    classifier::PacketClassifierModule
-    queues::Vector{PacketQueueModule}
-    scheduler::PacketSchedulerModule
+@simulation_module struct PriorityQueueModule <: AbstractCompoundModule
+    @parameters begin
+        priorities::Int                                # no default: how many levels?
+        given_classifier::Any = nothing
+        queue_parameters::Any = (;)
+    end
+    @gates begin
+        in::InputGate
+        out::OutputGate
+    end
+    @submodules begin
+        classifier::PacketClassifierModule =
+            given_classifier === nothing ? priority_classifier(:classifier, priorities) :
+                                           given_classifier
+        queues::Vector{PacketQueueModule} =
+            [PacketQueueModule(:queue; _level_parameters(queue_parameters, priorities, level)...)
+             for level in 1:priorities]
+        scheduler::PacketSchedulerModule = priority_scheduler(:scheduler, priorities)
+    end
+    @connections begin
+        # The boundary gates are wired inward, so a chain reaches the classifier
+        # and the scheduler by walking through the compound rather than around
+        # it.
+        in => classifier.in
+        for level in 1:priorities
+            classifier.out[level] => queues[level].in
+            queues[level].out => scheduler.in[level]
+        end
+        scheduler.out => out
+    end
+end
+
+# One set of keywords for every level, or one per level.
+function _level_parameters(given, priorities::Int, level::Int)
+    given isa AbstractVector || return given
+    length(given) == priorities ||
+        error("PriorityQueueModule: $(length(given)) sets of queue parameters for " *
+              "$priorities levels")
+    given[level]
 end
 
 """
     priority_queue(network, name, priorities; classifier = nothing, queue_parameters = ...)
         -> PriorityQueueModule
 
-Build a priority queue of `priorities` levels in `network` and register it and
-its submodules.
+Build a priority queue of `priorities` levels and place it in `network`.
 
-By default packets go to the first level that will take them, so a full level
-overflows into the next; pass `classifier` — built with
-[`content_based_classifier`](@ref), say — to decide by what is in the packet
-instead. `queue_parameters` is the keywords a level's queue is built with, as a
-named tuple — either one set for every level or one per level.
+The compound builds and wires its own parts, and placing it places them too, so
+this is one call over [`PriorityQueueModule`](@ref) and nothing more.
 """
-function priority_queue(network::Network, name::Symbol, priorities::Int;
-                        classifier::Union{Nothing,PacketClassifierModule} = nothing,
-                        queue_parameters = (;))
-    fork = classifier === nothing ? priority_classifier(:classifier, priorities) : classifier
-    parameters = queue_parameters isa AbstractVector ? queue_parameters :
-                 fill(queue_parameters, priorities)
-    length(parameters) == priorities ||
-        error("priority_queue: $(length(parameters)) sets of queue parameters for " *
-              "$priorities levels")
-
-    compound = PriorityQueueModule(
-        name, 0,
-        input_gate(nothing, :in), output_gate(nothing, :out),
-        fork, PacketQueueModule[], priority_scheduler(:scheduler, priorities))
-    compound.in.owner = compound
-    compound.out.owner = compound
-    add_module!(network, compound)
-
-    add_module!(network, fork; parent = compound)
-    for level in 1:priorities
-        queue = PacketQueueModule(Symbol(:queue, level); parameters[level]...)
-        push!(compound.queues, queue)
-        add_module!(network, queue; parent = compound)
-    end
-    add_module!(network, compound.scheduler; parent = compound)
-
-    # The boundary gates are wired inward, so a chain reaches the classifier and
-    # the scheduler by walking through the compound rather than around it.
-    connect!(compound.in, fork.in)
-    for level in 1:priorities
-        connect!(fork.out[level], compound.queues[level].in)
-        connect!(compound.queues[level].out, compound.scheduler.in[level])
-    end
-    connect!(compound.scheduler.out, compound.out)
-    compound
-end
-
-NetworkModule.submodules(m::PriorityQueueModule) =
-    Any[m.classifier, m.queues..., m.scheduler]
+priority_queue(network::Network, name::Symbol, priorities::Int;
+               classifier::Union{Nothing,PacketClassifierModule} = nothing,
+               queue_parameters = (;)) =
+    add_module!(network, PriorityQueueModule(name; priorities = priorities,
+                                             given_classifier = classifier,
+                                             queue_parameters = queue_parameters))
 
 """
     priority_queue_length(m) -> Int

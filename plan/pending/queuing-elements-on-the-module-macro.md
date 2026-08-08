@@ -349,11 +349,41 @@ repository's capture seam expects. `test_simulator()` needs `julia -t 4`; with
 one thread `engine_startable(ParallelEngineSpec())` fails and it looks like a
 regression.
 
-### Phase 6 — the compound
+### Phase 6 — the compound — **done**
 
-`PriorityQueue`, onto `@submodules` and `@connections` of §11. This is the first
-use of the composition half of the macro, and the first check that a `for` block
-inside `@connections` generates the wiring a hand-written constructor does.
+`PriorityQueue`, onto `@submodules` and `@connections`. Landed as `omnetpp-julia`
+`663ec4f` and the commit beside this line.
+
+**Built against the contract that exists, not against §11's runtime.** §11 is
+written for a constructor taking `(rules::ParameterRules, reference::Reference)`
+and for `@set` and `@use` over inner parameters. §6 of this plan rules that
+runtime out of scope, so the composition half made the same choice the field
+half made: `@submodules` and `@connections`, and a submodule's values as
+ordinary keyword expressions over the compound's parameters. That carries the
+same information in the shape this contract can hold. `@set` and `@use` arrive
+with the parameter rules, and this is what they will replace.
+
+**A compound names its parts.** A submodule is named after the field it sits
+at, and an element of a vector after the field and its index, because those are
+the reference steps §11 defines. A builder that supplied a name no longer has
+the say, so `priority_classifier(:classifier, …)` at the `classifier` field is
+still `classifier`, and the level queues moved from `queue1` to `queues[1]`.
+Five assertions in `TutorialTest.jl` name those paths and were updated. No
+tutorial page does.
+
+**Placing a compound places what it holds.** `add_module!` walks `submodules`,
+so one call registers the compound and everything below it in declaration
+order. A compound must therefore not register its own parts as well:
+`TestCompound` in the simulator's own suite did, and errored at once.
+
+**A submodule is not reset by the compound.** It is a module of the network in
+its own right, so `reset_network!` reaches it; resetting it here would do it
+twice and would throw away a submodule the wiring still points at.
+
+`priority_queue(network, name, priorities; …)` survives as one call over the
+constructor, so its four call sites did not move. Its `classifier` keyword maps
+to the `given_classifier` parameter — the submodule field is `classifier`, and
+a field and a parameter cannot share a name.
 
 ### Phase 7 — what stops being hand-written
 

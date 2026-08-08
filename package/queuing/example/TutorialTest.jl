@@ -366,7 +366,7 @@ function test_tutorial()
                 OmnetppSimulator.simulation_model(
                     OmnetppSimulator.workbench_execution(embed.workbench)))
             @test "PriorityQueue.queue.classifier" in labels
-            @test "PriorityQueue.queue.queue1" in labels
+            @test "PriorityQueue.queue.queues[1]" in labels
             @test "PriorityQueue.queue.scheduler" in labels
             @test !isempty(edges)
             # And it served packets like any other queue — with the second
@@ -374,8 +374,8 @@ function test_tutorial()
             # and only true because the levels refuse rather than drop.
             scalars = Dict(workbench_result(embed.workbench).scalars)
             @test scalars[Symbol("PriorityQueue.sink.packets:count")] > 0
-            @test scalars[Symbol("PriorityQueue.queue.queue1.packets:count")] > 0
-            @test scalars[Symbol("PriorityQueue.queue.queue2.packets:count")] > 0
+            @test scalars[Symbol("PriorityQueue.queue.queues[1].packets:count")] > 0
+            @test scalars[Symbol("PriorityQueue.queue.queues[2].packets:count")] > 0
         end
 
         @testset "a share policy gives the share it was asked for" begin
@@ -460,8 +460,8 @@ function test_tutorial()
                        scalars[Symbol("Complex.source2.packets:count")]
             @test produced > 0
             # … through a compound queue whose levels are both used …
-            @test scalars[Symbol("Complex.queue.queue1.packets:count")] > 0
-            @test scalars[Symbol("Complex.queue.queue2.packets:count")] > 0
+            @test scalars[Symbol("Complex.queue.queues[1].packets:count")] > 0
+            @test scalars[Symbol("Complex.queue.queues[2].packets:count")] > 0
             # … a server that took what the scheduler handed it …
             @test scalars[Symbol("Complex.server.packets:count")] <=
                   scalars[Symbol("Complex.queue.scheduler.packets:count")]
