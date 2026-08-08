@@ -103,7 +103,12 @@ run `bin/inet-julia`.
 `julia --project=package/runner/main`, for a change you want to try without a
 build.
 
-**A run costs about five seconds of fixed overhead**, almost all of it the NED
-and INI parsers building their LALR tables. They build lazily into a `Ref`, so
-the tables never reach the system image. See the end of §6 of
+A run costs about **0.7 s**, of which 0.3 s is starting the image at all.
+
+That number depends on `tool/binary_precompile.jl`, which parses every NED and
+INI file in `tool/corpus/` and runs two real configurations out of it. A
+Lerche transformer callback compiles the first time a grammar production
+reaches it, so a build that parses little makes a program that compiles inside
+the user's run — 5.1 s of it, before the corpus existed. If you shrink what the
+build parses, time a run before and after. See phase 7 of
 [native-simulation-binary.md](../../../plan/done/native-simulation-binary.md).

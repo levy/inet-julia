@@ -714,35 +714,87 @@ rate of an 11-event or a 25-event configuration says nothing. Measure it on a
 configuration that runs long enough to swamp the overhead, once the overhead is
 gone.
 
-### The parser costs five seconds per run
+### Phase 7 — The five seconds a run cost, and where they went
 
-Measured on the built binary, in the tutorial directory:
+A run of the built binary cost 5.3 s for an eleven-event simulation. **The
+first diagnosis written here was wrong**, and it is worth recording what it
+was, because the wrong answer was the plausible one.
 
-| what | time |
+**Wrong: the LALR tables are rebuilt on every run.** Both parsers do build
+lazily into a `Ref`, and the tables really do not reach the system image. But
+that costs almost nothing. Timed in a warm session, where a second `Lark` over
+the same grammar is table construction and nothing else:
+
+| | |
 | --- | --- |
-| `inet-julia --version` — no parse | 0.29 s |
-| a run that reads one NED and one INI file | 5.30 s |
-| the same run again | 5.41 s |
+| the NED table | 0.12 s |
+| the INI table | 0.01 s |
+| parsing the 40 KB tutorial NED, warm | 0.022 s |
 
-The simulation is eleven events. **Essentially all of it is the LALR table
-build**, and it is paid on every invocation: both parsers build their tables
-lazily into a `Ref` on first use, so the tables never reach the system image
-however much the precompile file parses.
+A seventh of a second, not five.
 
-Phase 4's risk list called this out and asked for a decision if it cost more
-than a second. It costs five. A runner a script invokes a hundred times pays
-eight minutes for nothing.
+**Right: it is compilation, and it tracks grammar coverage.** Three runs of one
+binary, one grammar:
 
-The decision is not taken here, because it belongs to `OmnetppFormat` and it is
-not obviously cheap. The options, in the order they should be tried:
+| input | time |
+| --- | --- |
+| `--version`, no parse at all | 0.29 s |
+| an 11-line NED file | 0.30 s |
+| 660 lines, using only the productions that 11-line file uses | 0.32 s |
+| the tutorial's ~1000-line NED file | 5.09 s |
 
-1. Build the two `Lark` objects into a `const` at precompile time, so they land
-   in the `.ji` and in the image. Whether a `Lark` serializes is the open
-   question — that is presumably why they are lazy today.
-2. Serialize the parse tables alone, not the parser object, and rebuild the
-   thin wrapper around them at load.
-3. Accept it, and give the runner a mode that runs many configurations in one
-   process, so the cost is paid once.
+Sixty times the bytes cost nothing. **Different productions cost five
+seconds.** Each Lerche transformer callback compiles the first time a
+production reaches it, and `tool/binary_precompile.jl` parsed a minimal NED
+file, so `create_app` compiled the handful of productions that file uses and
+no more. Everything the tutorial file needed beyond that — gates, channels,
+properties, parameter blocks, connection groups — compiled inside the user's
+run.
+
+So nothing in `OmnetppFormat` had to change, and none of the three options this
+section first listed was needed.
+
+**The fix is a bigger corpus, in two halves.** `tool/corpus/` holds every
+`.ned` and `.ini` file of the INET tree, 2001 files and 3.3 MB, copied byte for
+byte from `inet-cpp` at commit `b52bc21a34`, and the precompile script parses
+all of them. That adds about 17 seconds to a build that already takes minutes:
+1671 of 1672 NED files parse, and the one that does not is a malformed
+documentation snippet the parser has never accepted.
+
+Parsing was not enough on its own, and the measurement said exactly why:
+
+| input to the built binary, corpus parsed | time |
+| --- | --- |
+| tutorial NED + tutorial INI | 1.48 s |
+| tutorial NED + a four-line INI | **0.30 s** |
+
+The NED side was cured and the whole remainder was the INI side — not parsing
+it, which the corpus covers, but **reading a configuration out of it**. The
+tutorial's file has 49 sections and an `extends` chain; the four-line file the
+precompile ran has one section and one rule, so the section walk, the reference
+patterns and the glob matching were never compiled. The second half of the fix
+runs two real configurations out of the corpus tutorial, end to end.
+
+Where it ended up:
+
+| | before | after |
+| --- | --- | --- |
+| `ActiveSourcePassiveSink` | 5.09 s | **0.69 s** |
+| `PacketQueue` | 5.30 s | **0.68 s** |
+| a configuration the build never ran | — | **0.58 s** |
+| `--version`, the floor | 0.29 s | 0.29 s |
+
+A run costs about 0.4 s above the floor, down from 4.8 s. The third row is the
+one that matters: the gain is not a trick played on the two configurations the
+build happened to run.
+
+The bundle grew from 695 MB to 709 MB, and the suite is 107 pass, 0 fail with
+the same C++ numbers.
+
+**The lesson generalises past this parser.** A precompile execution file buys
+exactly the code paths it walks. A small input makes a fast build and a slow
+program, and the cost lands on the user rather than on the builder, where it is
+invisible until someone times it.
 
 **Done when both configurations run through the built binary, on a machine with
 no Julia, and their statistics agree with the C++ reference.**
