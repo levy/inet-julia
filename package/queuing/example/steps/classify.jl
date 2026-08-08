@@ -9,7 +9,7 @@
 using InetQueuing: ActivePacketSourceModule,
     PassivePacketSinkModule, PacketQueueModule,
     PacketServerModule,
-    PacketFilterModule, PacketFilterParameters,
+    PacketFilterModule,
     content_based_classifier, priority_classifier, priority_scheduler,
     weighted_round_robin_classifier, weighted_round_robin_scheduler, markov_classifier,
     PacketTemplate, packet_data, packet_predicate, check_packet_connections
@@ -245,8 +245,8 @@ function _build_filter_network(m)
     network = Network(:Filter)
     source = _step_source(network, m; data = Volatile(intuniform(1, m.classes)))
     keep = m.keep
-    filter = add_module!(network, PacketFilterModule(:filter,
-        PacketFilterParameters(predicate = packet -> packet_data(packet) == keep)))
+    filter = add_module!(network, PacketFilterModule(:filter;
+        predicate = packet -> packet_data(packet) == keep))
     sink = _step_sink(network, :sink)
     connect!(source.out, filter.in)
     connect!(filter.out, sink.in)
@@ -443,8 +443,7 @@ function _build_named_policy_network(m)
     # The name and its argument come from the step file; the predicate is built
     # here, and an unregistered name fails loudly rather than passing nothing on.
     predicate = packet_predicate(m.policy, m.argument)
-    filter = add_module!(network, PacketFilterModule(:filter,
-        PacketFilterParameters(predicate = predicate)))
+    filter = add_module!(network, PacketFilterModule(:filter; predicate = predicate))
     sink = _step_sink(network, :sink)
     connect!(source.out, filter.in)
     connect!(filter.out, sink.in)

@@ -150,9 +150,9 @@ function _build_backpressure_network(m)
     # a share of the traffic rather than a property of any one packet.
     rng = MersenneTwister(m.seed + 7)
     pass_rate = m.pass_rate
-    filter = add_module!(network, PacketFilterModule(:filter,
-        PacketFilterParameters(predicate = _ -> rand(rng) < pass_rate,
-                               backpressure = m.backpressure)))
+    filter = add_module!(network, PacketFilterModule(:filter;
+        predicate = _ -> rand(rng) < pass_rate,
+        backpressure = m.backpressure))
     sink = _step_sink(network, :sink)
     connect!(source.out, queue.in)
     connect!(queue.out, server.in)

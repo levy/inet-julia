@@ -65,10 +65,10 @@ end
         run_network!(chain.network; until = 2.0)
 
         @test classifier_outputs(chain.fork) == 2
-        @test chain.fork.statistics.num_packets == chain.source.num_packets
+        @test chain.fork.num_packets == chain.source.num_packets
         # Both outputs were used, and each got only what belongs to it.
-        @test all(count -> count > 0, chain.fork.statistics.per_output)
-        @test sum(chain.fork.statistics.per_output) == chain.fork.statistics.num_packets
+        @test all(count -> count > 0, chain.fork.per_output)
+        @test sum(chain.fork.per_output) == chain.fork.num_packets
         held = vcat([[queue_packet(queue, i) for i in 1:queue_length(queue)]
                      for queue in chain.queues]...)
         @test all(is_short, [queue_packet(chain.queues[1], i)
@@ -100,8 +100,8 @@ end
 
         @test queue_length(first) == 2                  # filled, then passed over
         @test queue_length(second) > 0
-        @test fork.statistics.per_output[1] == 3        # two held, one in the server
-        @test fork.statistics.per_output[2] == queue_length(second)
+        @test fork.per_output[1] == 3        # two held, one in the server
+        @test fork.per_output[2] == queue_length(second)
     end
 
     @testset "a weighted round robin gives each output its share" begin
@@ -109,16 +109,16 @@ end
         # consults nothing, which is exactly what distinguishes it from the
         # priority one.
         classifier = weighted_round_robin_classifier(:classifier, [3, 1])
-        picks = [classifier.parameters.classifier(classifier, nothing) for _ in 1:12]
+        picks = [classifier.classifier(classifier, nothing) for _ in 1:12]
         @test picks == [1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2]
 
         # Equal weights are plain round robin.
         plain = weighted_round_robin_classifier(:plain, [1, 1, 1])
-        @test [plain.parameters.classifier(plain, nothing) for _ in 1:6] == [1, 2, 3, 1, 2, 3]
+        @test [plain.classifier(plain, nothing) for _ in 1:6] == [1, 2, 3, 1, 2, 3]
 
         # A zero weight means an output that never gets a turn.
         skewed = weighted_round_robin_classifier(:skewed, [2, 0, 1])
-        @test [skewed.parameters.classifier(skewed, nothing) for _ in 1:6] ==
+        @test [skewed.classifier(skewed, nothing) for _ in 1:6] ==
               [1, 1, 3, 1, 1, 3]
 
         @test_throws ErrorException weighted_round_robin_classifier(:bad, [1, -1])
@@ -158,7 +158,7 @@ end
         # sends runs one way before switching. Over many packets the shares
         # approach the chain's stationary distribution — (2/3, 1/3) here.
         classifier = markov_classifier(:classifier, [[0.9, 0.1], [0.2, 0.8]]; seed = 3)
-        picks = [classifier.parameters.classifier(classifier, nothing) for _ in 1:2000]
+        picks = [classifier.classifier(classifier, nothing) for _ in 1:2000]
         @test all(pick -> pick in (1, 2), picks)
         @test 0.6 <= count(==(1), picks) / length(picks) <= 0.73
         # It really does switch, and it really does run.
@@ -167,7 +167,7 @@ end
 
         # The first packet leaves by the INITIAL state, not the one after it.
         starts_second = markov_classifier(:second, [[0.9, 0.1], [0.2, 0.8]]; initial = 2)
-        @test starts_second.parameters.classifier(starts_second, nothing) == 2
+        @test starts_second.classifier(starts_second, nothing) == 2
 
         @test_throws ErrorException markov_classifier(:ragged, [[1.0], [0.5, 0.5]])
         @test_throws ErrorException markov_classifier(:nostate, [[1.0]]; initial = 2)
@@ -241,12 +241,12 @@ end
         # The classifier prefers the first queue while it will take packets, and
         # a priority queue never has anything waiting behind an empty one: the
         # scheduler empties the first before touching the second.
-        @test chain.join.statistics.num_packets == chain.server.num_packets +
+        @test chain.join.num_packets == chain.server.num_packets +
               (chain.server.packet === nothing ? 0 : 1)
         @test scheduler_inputs(chain.join) == 2
-        @test chain.join.statistics.per_input[1] > 0
-        served = sum(chain.join.statistics.per_input)
-        @test served == chain.join.statistics.num_packets
+        @test chain.join.per_input[1] > 0
+        served = sum(chain.join.per_input)
+        @test served == chain.join.num_packets
     end
 
     @testset "the scheduler follows its inputs as they fill" begin
@@ -265,17 +265,17 @@ end
             production_interval = 0.1,
             packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
             seed = 2))
-        keep_short = add_module!(network, PacketFilterModule(:filter,
-            PacketFilterParameters(predicate = packet -> bits(data_length(packet)) < 400)))
+        keep_short = add_module!(network, PacketFilterModule(:filter;
+            predicate = packet -> bits(data_length(packet)) < 400))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, keep_short.in)
         connect!(keep_short.out, sink.in)
         run_network!(network; until = 2.0)
 
-        @test keep_short.statistics.num_passed + keep_short.statistics.num_dropped ==
+        @test keep_short.num_passed + keep_short.num_dropped ==
               source.num_packets
-        @test keep_short.statistics.num_dropped > 0
-        @test sink.num_packets == keep_short.statistics.num_passed
+        @test keep_short.num_dropped > 0
+        @test sink.num_packets == keep_short.num_passed
         # Only short packets made it through.
         @test sink.total_length < 400 * sink.num_packets
     end
@@ -291,8 +291,9 @@ end
             queue = add_module!(network, PacketQueueModule(:queue))
             server = add_module!(network, PacketServerModule(:server;
                 processing_time = 0.01))
-            filter = add_module!(network, PacketFilterModule(:filter,
-                PacketFilterParameters(predicate = _ -> false, backpressure = backpressure)))
+            filter = add_module!(network, PacketFilterModule(:filter;
+                predicate = _ -> false,
+                backpressure = backpressure))
             sink = add_module!(network, PassivePacketSinkModule(:sink))
             connect!(source.out, queue.in)
             connect!(queue.out, server.in)
@@ -309,13 +310,13 @@ end
         @test refusing.source.num_packets == 11
         @test queue_length(refusing.queue) == 11
         @test refusing.server.num_packets == 0
-        @test refusing.filter.statistics.num_dropped == 0
+        @test refusing.filter.num_dropped == 0
 
         # Without it the filter accepts everything and drops what does not
         # match, so the same chain runs dry instead.
         dropping = filtered_chain(false)
         @test queue_length(dropping.queue) == 0
-        @test dropping.filter.statistics.num_dropped == dropping.server.num_packets
+        @test dropping.filter.num_dropped == dropping.server.num_packets
         @test dropping.sink.num_packets == 0
     end
 
@@ -323,8 +324,7 @@ end
         network = Network(:Through)
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
-        pass = add_module!(network, PacketFilterModule(:filter,
-            PacketFilterParameters(predicate = _ -> true)))
+        pass = add_module!(network, PacketFilterModule(:filter; predicate = _ -> true))
         slow = add_module!(network, PassivePacketSinkModule(:sink;
             consumption_interval = 0.25))
         connect!(source.out, pass.in)
@@ -335,7 +335,7 @@ end
         # up producing at — the refusal and the recovery both travel through.
         @test slow.num_packets == 5
         @test source.num_packets == 5
-        @test pass.statistics.num_dropped == 0
+        @test pass.num_dropped == 0
     end
 
     @testset "what a forked chain records" begin
@@ -344,14 +344,14 @@ end
         run_network!(chain.network; until = 2.0, recorder = recorder)
 
         @test statistic_scalar(recorder, "Priority.classifier", "packets:count") ==
-              chain.fork.statistics.num_packets
+              chain.fork.num_packets
         # Each branch is counted separately, so where packets went is visible
         # without reading the queues.
         @test statistic_scalar(recorder, "Priority.classifier", "packets[1]:count") +
               statistic_scalar(recorder, "Priority.classifier", "packets[2]:count") ==
-              chain.fork.statistics.num_packets
+              chain.fork.num_packets
         @test statistic_scalar(recorder, "Priority.scheduler", "packets:count") ==
-              chain.join.statistics.num_packets
+              chain.join.num_packets
         @test !isempty(statistic_samples(recorder, "Priority.queue1", "queueLength"))
     end
 end

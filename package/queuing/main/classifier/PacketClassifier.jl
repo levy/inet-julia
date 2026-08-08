@@ -20,8 +20,8 @@ nowhere to put.
 module PacketClassifierElement
 
 using OmnetppSimulator: NetworkModule, MersenneTwister
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateOutput, Network,
-    input_gate, gate_vector, module_id
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+    @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
     resolve_interface, is_resolved
@@ -31,63 +31,52 @@ using ..PacketProtocolModule: PacketProtocolModule, PassivePacketSink, ActivePac
 using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic!,
     record_statistic!
 
-export PacketClassifierParameters, PacketClassifierStatistics, PacketClassifierModule,
+export PacketClassifierModule,
        priority_classifier, content_based_classifier, weighted_round_robin_classifier,
        markov_classifier, classifier_outputs
 
 """
-    PacketClassifierParameters(; classifier)
+    PacketClassifierModule(name; outputs, classifier)
+
+The module, declared by the kind of each of its fields.
 
 `classifier` is `(m, packet) -> Int`: which output the packet leaves by, counting
 from one, or `0` for "none of them". It is given the module so a choice can
-depend on what the outputs will currently accept.
+depend on what the outputs will currently accept. `outputs` is how many outputs
+there are, and it sizes the gate vector and the per-output count.
 """
-struct PacketClassifierParameters
-    classifier::Any
+@simulation_module struct PacketClassifierModule
+    @parameters begin
+        outputs::Int                                   # no default: a fan-out of what?
+        classifier::Any
+    end
+    @gates begin
+        in::InputGate
+        out::Vector{OutputGate} = outputs
+    end
+    @variables begin
+        producer::ModuleRef = NO_MODULE_REF
+        consumers::Vector{ModuleRef} = ModuleRef[]
+    end
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_packets::Int = 0
+        per_output::Vector{Int} = zeros(Int, outputs)
+    end
 end
 
-PacketClassifierParameters(; classifier) = PacketClassifierParameters(classifier)
-
-mutable struct PacketClassifierStatistics
-    recording::ModuleStatistics
-    num_packets::Int
-    per_output::Vector{Int}
-end
-
-PacketClassifierStatistics(outputs::Int) =
-    PacketClassifierStatistics(ModuleStatistics(), 0, zeros(Int, outputs))
-
-reset_statistics!(statistics::PacketClassifierStatistics) =
-    (statistics.num_packets = 0; fill!(statistics.per_output, 0); statistics)
-
-const STATISTIC_NAMES = (:packetLengths,)
-
-mutable struct PacketClassifierModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Vector{Gate}
-    parameters::PacketClassifierParameters
-    statistics::PacketClassifierStatistics
-    producer::ModuleRef
-    consumers::Vector{ModuleRef}
-end
-
-function PacketClassifierModule(name::Symbol, outputs::Int,
-                                parameters::PacketClassifierParameters)
-    m = PacketClassifierModule(
-        name, 0,
-        # Every output has to lead somewhere that accepts a push: a classifier
-        # that cannot place a packet on one of its outputs is miswired.
-        input_gate(nothing, :in;
-                   annotations = Any[ForwardClaim(PassivePacketSink, :out)]),
-        Gate[], parameters, PacketClassifierStatistics(outputs),
-        NO_MODULE_REF, ModuleRef[])
-    m.in.owner = m
-    m.out = gate_vector(m, :out, GateOutput, outputs;
-                        annotations = () -> Any[InterfaceClaim(ActivePacketSource)])
+# The claims a lookup reads off the gates, set before any lookup walks the
+# wiring. Every output has to lead somewhere that accepts a push: a classifier
+# that cannot place a packet on one of its outputs is miswired.
+function NetworkModule.decorate_module!(m::PacketClassifierModule)
+    push!(m.in.annotations, ForwardClaim(PassivePacketSink, :out))
+    for gate in m.out
+        push!(gate.annotations, InterfaceClaim(ActivePacketSource))
+    end
     m
 end
+
+const STATISTIC_NAMES = (:packetLengths,)
 
 """
     classifier_outputs(m) -> Int
@@ -103,13 +92,13 @@ A classifier that sends each packet to the first output that will take it, so
 the outputs are tried in order of priority and a full one is passed over.
 """
 priority_classifier(name::Symbol, outputs::Int) =
-    PacketClassifierModule(name, outputs, PacketClassifierParameters(
+    PacketClassifierModule(name; outputs = outputs,
         classifier = function (m, packet)
             for index in 1:length(m.consumers)
                 can_push_packet(m.consumers[index], packet) && return index
             end
             0
-        end))
+        end)
 
 """
     content_based_classifier(name, predicates; default_output = 0) -> PacketClassifierModule
@@ -121,13 +110,13 @@ output.
 """
 function content_based_classifier(name::Symbol, predicates::AbstractVector;
                                   default_output::Int = 0)
-    PacketClassifierModule(name, length(predicates), PacketClassifierParameters(
+    PacketClassifierModule(name; outputs = length(predicates),
         classifier = function (_, packet)
             for index in 1:length(predicates)
                 predicates[index](packet) && return index
             end
             default_output
-        end))
+        end)
 end
 
 """
@@ -152,7 +141,7 @@ function weighted_round_robin_classifier(name::Symbol, weights::AbstractVector{<
     # left. Held in the closure, so the state travels with the classifier.
     output = Ref(0)
     remaining = Ref(0)
-    PacketClassifierModule(name, length(weights), PacketClassifierParameters(
+    PacketClassifierModule(name; outputs = length(weights),
         classifier = function (_, _packet)
             while remaining[] <= 0
                 output[] = output[] % length(weights) + 1
@@ -160,7 +149,7 @@ function weighted_round_robin_classifier(name::Symbol, weights::AbstractVector{<
             end
             remaining[] -= 1
             output[]
-        end))
+        end)
 end
 
 """
@@ -184,14 +173,14 @@ function markov_classifier(name::Symbol, transitions::AbstractVector;
         error("markov_classifier: initial state $initial is not one of the $states states")
     state = Ref(initial)
     rng = MersenneTwister(seed)
-    PacketClassifierModule(name, states, PacketClassifierParameters(
+    PacketClassifierModule(name; outputs = states,
         classifier = function (_, _packet)
             current = state[]
             # Move first or last? Last: the packet leaves by the state the
             # classifier was IN, so the initial state is the first one used.
             state[] = _markov_step(transitions[current], rng)
             current
-        end))
+        end)
 end
 
 # One draw from a row of probabilities, by cumulative sum. A row that does not
@@ -213,18 +202,14 @@ function NetworkModule.initialize_module!(::Network, m::PacketClassifierModule)
 end
 
 NetworkModule.register_module_statistics!(m::PacketClassifierModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
 NetworkModule.module_icon(::PacketClassifierModule) = "block/classifier"
 
-NetworkModule.reset_module!(m::PacketClassifierModule) =
-    (reset_statistics!(m.statistics); m)
-
 function NetworkModule.finalize_module!(m::PacketClassifierModule, ::Any)
-    recording = m.statistics.recording
-    record_statistic!(recording, "packets:count", m.statistics.num_packets)
-    for index in 1:length(m.statistics.per_output)
-        record_statistic!(recording, "packets[$index]:count", m.statistics.per_output[index])
+    record_statistic!(m.recording, "packets:count", m.num_packets)
+    for index in 1:length(m.per_output)
+        record_statistic!(m.recording, "packets[$index]:count", m.per_output[index])
     end
     nothing
 end
@@ -235,20 +220,19 @@ PacketProtocolModule.can_push_some_packet(m::PacketClassifierModule, ::Gate) =
 # Asking the same function that will place the packet, so a classifier never
 # accepts one it would then have nowhere to put.
 function PacketProtocolModule.can_push_packet(m::PacketClassifierModule, ::Gate, packet::Packet)
-    index = m.parameters.classifier(m, packet)
+    index = m.classifier(m, packet)
     index == 0 && return false
     can_push_packet(m.consumers[index], packet)
 end
 
 function PacketProtocolModule.push_packet!(ctx, m::PacketClassifierModule, ::Gate, packet::Packet)
-    index = m.parameters.classifier(m, packet)
+    index = m.classifier(m, packet)
     (1 <= index <= length(m.consumers)) ||
         error("push_packet!: $(m.name) has no output for this packet (chose $index of " *
               "$(length(m.consumers))) — the producer pushed without asking whether it could")
-    statistics = m.statistics
-    statistics.num_packets += 1
-    statistics.per_output[index] += 1
-    emit_statistic!(statistics.recording, ctx, :packetLengths, bits(data_length(packet)))
+    m.num_packets += 1
+    m.per_output[index] += 1
+    emit_statistic!(m.recording, ctx, :packetLengths, bits(data_length(packet)))
     push_or_schedule!(ctx, m.consumers[index], packet)
     nothing
 end

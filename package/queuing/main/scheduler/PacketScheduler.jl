@@ -18,8 +18,8 @@ follows its inputs as they fill and empty.
 module PacketSchedulerElement
 
 using OmnetppSimulator: NetworkModule, MersenneTwister
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateInput, Network,
-    output_gate, gate_vector, module_id
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+    @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
     resolve_interface, is_resolved
@@ -29,60 +29,51 @@ using ..PacketProtocolModule: PacketProtocolModule, PassivePacketSource, ActiveP
 using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic!,
     record_statistic!
 
-export PacketSchedulerParameters, PacketSchedulerStatistics, PacketSchedulerModule,
+export PacketSchedulerModule,
        priority_scheduler, weighted_round_robin_scheduler, markov_scheduler,
        scheduler_inputs
 
 """
-    PacketSchedulerParameters(; scheduler)
+    PacketSchedulerModule(name; inputs, scheduler)
+
+The module, declared by the kind of each of its fields.
 
 `scheduler` is `(m) -> Int`: which input the next packet comes from, counting
-from one, or `0` when none of them has anything.
+from one, or `0` when none of them has anything. `inputs` is how many inputs
+there are, and it sizes the gate vector and the per-input count.
 """
-struct PacketSchedulerParameters
-    scheduler::Any
+@simulation_module struct PacketSchedulerModule
+    @parameters begin
+        inputs::Int                                    # no default: a join of what?
+        scheduler::Any
+    end
+    @gates begin
+        in::Vector{InputGate} = inputs
+        out::OutputGate
+    end
+    @variables begin
+        providers::Vector{ModuleRef} = ModuleRef[]
+        collector::ModuleRef = NO_MODULE_REF
+    end
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_packets::Int = 0
+        per_input::Vector{Int} = zeros(Int, inputs)
+    end
 end
 
-PacketSchedulerParameters(; scheduler) = PacketSchedulerParameters(scheduler)
-
-mutable struct PacketSchedulerStatistics
-    recording::ModuleStatistics
-    num_packets::Int
-    per_input::Vector{Int}
-end
-
-PacketSchedulerStatistics(inputs::Int) =
-    PacketSchedulerStatistics(ModuleStatistics(), 0, zeros(Int, inputs))
-
-reset_statistics!(statistics::PacketSchedulerStatistics) =
-    (statistics.num_packets = 0; fill!(statistics.per_input, 0); statistics)
-
-const STATISTIC_NAMES = (:packetLengths,)
-
-mutable struct PacketSchedulerModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Vector{Gate}
-    out::Gate
-    parameters::PacketSchedulerParameters
-    statistics::PacketSchedulerStatistics
-    providers::Vector{ModuleRef}
-    collector::ModuleRef
-end
-
-function PacketSchedulerModule(name::Symbol, inputs::Int,
-                               parameters::PacketSchedulerParameters)
-    m = PacketSchedulerModule(
-        name, 0, Gate[],
-        output_gate(nothing, :out; annotations = Any[InterfaceClaim(PassivePacketSource)]),
-        parameters, PacketSchedulerStatistics(inputs), ModuleRef[], NO_MODULE_REF)
-    m.out.owner = m
-    # A scheduler pulls from each input, but only if something pulls from it in
-    # turn — it stores nothing, so it is a collector only by proxy.
-    m.in = gate_vector(m, :in, GateInput, inputs;
-                       annotations = () -> Any[ForwardClaim(ActivePacketSink, :out)])
+# The claims a lookup reads off the gates, set before any lookup walks the
+# wiring. A scheduler pulls from each input, but only if something pulls from it
+# in turn — it stores nothing, so it is a collector only by proxy.
+function NetworkModule.decorate_module!(m::PacketSchedulerModule)
+    for gate in m.in
+        push!(gate.annotations, ForwardClaim(ActivePacketSink, :out))
+    end
+    push!(m.out.annotations, InterfaceClaim(PassivePacketSource))
     m
 end
+
+const STATISTIC_NAMES = (:packetLengths,)
 
 """
     scheduler_inputs(m) -> Int
@@ -99,13 +90,13 @@ inputs are served completely before later ones get a turn. A classifier feeding
 a queue per priority, drained by one of these, is a priority queue.
 """
 priority_scheduler(name::Symbol, inputs::Int) =
-    PacketSchedulerModule(name, inputs, PacketSchedulerParameters(
+    PacketSchedulerModule(name; inputs = inputs,
         scheduler = function (m)
             for index in 1:length(m.providers)
                 can_pull_some_packet(m.providers[index]) && return index
             end
             0
-        end))
+        end)
 
 """
     weighted_round_robin_scheduler(name, weights) -> PacketSchedulerModule
@@ -126,7 +117,7 @@ function weighted_round_robin_scheduler(name::Symbol, weights::AbstractVector{<:
         error("weighted_round_robin_scheduler: at least one weight must be positive")
     input = Ref(0)
     remaining = Ref(0)
-    PacketSchedulerModule(name, length(weights), PacketSchedulerParameters(
+    PacketSchedulerModule(name; inputs = length(weights),
         scheduler = function (m)
             providers = m.providers
             # The input whose turn it is, when it has something.
@@ -146,7 +137,7 @@ function weighted_round_robin_scheduler(name::Symbol, weights::AbstractVector{<:
             end
             remaining[] = 0
             0
-        end))
+        end)
 end
 
 """
@@ -171,7 +162,7 @@ function markov_scheduler(name::Symbol, transitions::AbstractVector;
         error("markov_scheduler: initial state $initial is not one of the $states states")
     state = Ref(initial)
     rng = MersenneTwister(seed)
-    PacketSchedulerModule(name, states, PacketSchedulerParameters(
+    PacketSchedulerModule(name; inputs = states,
         scheduler = function (m)
             providers = m.providers
             for _ in 1:states
@@ -180,7 +171,7 @@ function markov_scheduler(name::Symbol, transitions::AbstractVector;
                 can_pull_some_packet(providers[current]) && return current
             end
             0
-        end))
+        end)
 end
 
 # One draw from a row of probabilities, by cumulative sum; a row that does not
@@ -202,39 +193,35 @@ function NetworkModule.initialize_module!(::Network, m::PacketSchedulerModule)
 end
 
 NetworkModule.register_module_statistics!(m::PacketSchedulerModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
 NetworkModule.module_icon(::PacketSchedulerModule) = "block/join"
 
-NetworkModule.reset_module!(m::PacketSchedulerModule) = (reset_statistics!(m.statistics); m)
-
 function NetworkModule.finalize_module!(m::PacketSchedulerModule, ::Any)
-    recording = m.statistics.recording
-    record_statistic!(recording, "packets:count", m.statistics.num_packets)
-    for index in 1:length(m.statistics.per_input)
-        record_statistic!(recording, "packets[$index]:count", m.statistics.per_input[index])
+    record_statistic!(m.recording, "packets:count", m.num_packets)
+    for index in 1:length(m.per_input)
+        record_statistic!(m.recording, "packets[$index]:count", m.per_input[index])
     end
     nothing
 end
 
 PacketProtocolModule.can_pull_some_packet(m::PacketSchedulerModule, ::Gate) =
-    m.parameters.scheduler(m) != 0
+    m.scheduler(m) != 0
 
 function PacketProtocolModule.can_pull_packet(m::PacketSchedulerModule, ::Gate)
-    index = m.parameters.scheduler(m)
+    index = m.scheduler(m)
     index == 0 ? nothing : can_pull_packet(m.providers[index])
 end
 
 function PacketProtocolModule.pull_packet!(ctx, m::PacketSchedulerModule, ::Gate)
-    index = m.parameters.scheduler(m)
+    index = m.scheduler(m)
     index == 0 &&
         error("pull_packet!: none of $(m.name)'s inputs has a packet — the collector " *
               "pulled without asking whether it could")
     packet = pull_packet!(ctx, m.providers[index])
-    statistics = m.statistics
-    statistics.num_packets += 1
-    statistics.per_input[index] += 1
-    emit_statistic!(statistics.recording, ctx, :packetLengths, bits(data_length(packet)))
+    m.num_packets += 1
+    m.per_input[index] += 1
+    emit_statistic!(m.recording, ctx, :packetLengths, bits(data_length(packet)))
     packet
 end
 

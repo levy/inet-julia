@@ -31,8 +31,8 @@ using OmnetppSimulator.VolatileModule
             PacketLabelerParameters(label = 7)))
         # A filter for the label is how the test reads it back: only packets
         # carrying 7 reach the sink, and every one of them does.
-        wants_seven = add_module!(network, PacketFilterModule(:filter,
-            PacketFilterParameters(predicate = data_predicate(==, 7))))
+        wants_seven = add_module!(network, PacketFilterModule(:filter;
+            predicate = data_predicate(==, 7)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, labeler.in)
         connect!(labeler.out, wants_seven.in)
@@ -41,7 +41,7 @@ using OmnetppSimulator.VolatileModule
 
         @test labeler.statistics.num_packets == 11
         @test sink.num_packets == 11
-        @test wants_seven.statistics.num_dropped == 0
+        @test wants_seven.num_dropped == 0
     end
 
     @testset "a cloner sends every output its own copy" begin
@@ -96,10 +96,10 @@ using OmnetppSimulator.VolatileModule
         # Each branch keeps only its OWN label. Shared tag sets would mean the
         # second labeler overwrote the first's work, and one filter would drop
         # everything.
-        first_filter = add_module!(network, PacketFilterModule(:first_filter,
-            PacketFilterParameters(predicate = data_predicate(==, 1))))
-        second_filter = add_module!(network, PacketFilterModule(:second_filter,
-            PacketFilterParameters(predicate = data_predicate(==, 2))))
+        first_filter = add_module!(network, PacketFilterModule(:first_filter;
+            predicate = data_predicate(==, 1)))
+        second_filter = add_module!(network, PacketFilterModule(:second_filter;
+            predicate = data_predicate(==, 2)))
         first_sink = add_module!(network, PassivePacketSinkModule(:sink1))
         second_sink = add_module!(network, PassivePacketSinkModule(:sink2))
         connect!(source.out, cloner.in)
@@ -113,8 +113,8 @@ using OmnetppSimulator.VolatileModule
 
         @test first_sink.num_packets == 3
         @test second_sink.num_packets == 3
-        @test first_filter.statistics.num_dropped == 0
-        @test second_filter.statistics.num_dropped == 0
+        @test first_filter.num_dropped == 0
+        @test second_filter.num_dropped == 0
     end
 
     @testset "a multiplexer merges push chains" begin

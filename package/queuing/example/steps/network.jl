@@ -78,8 +78,8 @@ function _build_complex_network(m)
     # keeps running.
     rng = MersenneTwister(m.seed + 99)
     pass_rate = m.pass_rate
-    filter = add_module!(network, PacketFilterModule(:filter,
-        PacketFilterParameters(predicate = _ -> rand(rng) < pass_rate)))
+    filter = add_module!(network, PacketFilterModule(:filter;
+        predicate = _ -> rand(rng) < pass_rate))
     sink = _step_sink(network, :sink)
     connect!(join.out, queue.in)
     connect!(queue.out, server.in)

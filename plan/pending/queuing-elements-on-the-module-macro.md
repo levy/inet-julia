@@ -214,7 +214,7 @@ Four waves, each ending green, in the order the elements were built:
 | --- | --- |
 | 2 | `PassivePacketSource`, `PassivePacketSink`, `ActivePacketSink` — **done** |
 | 3 | `PacketQueue`, `PacketServer`, `InstantServer` — **done** |
-| 4 | `PacketClassifier`, `PacketScheduler`, `PacketFilter` |
+| 4 | `PacketClassifier`, `PacketScheduler`, `PacketFilter` — **done** |
 | 5 | the six `common` elements |
 
 Each wave is the same three steps:
@@ -278,6 +278,25 @@ in one cut.
 *What stays unknowable.* `only(m for m in network.modules if module_name(m) ===
 :queue)` picks a module out of a list by name. No inference reaches that, and
 the two sites in `nedini.jl` were rewritten by hand.
+
+**Wave 4 findings.**
+
+*A gate vector's size becomes a parameter.* The classifier and the scheduler
+took their fan-out as a positional argument — `PacketClassifierModule(name,
+outputs, …)`. The macro sizes a gate vector from an expression over the
+parameters, so `outputs` and `inputs` are parameters now, and
+`@gates out::Vector{OutputGate} = outputs` reads one. `per_output` is sized the
+same way, and a reset re-evaluates `zeros(Int, outputs)` where the old code
+filled the array in place. The effect is the same.
+
+*The transformer refuses an extra positional, and it is right to.* Nothing says
+which keyword `PacketClassifierModule(name, 2, …)` meant by its `2`. The seven
+helper builders inside the two element files were rewritten by hand; no call
+site outside them constructs either element directly.
+
+*Neither element needed a stream.* `markov_classifier` keeps its own
+`MersenneTwister` in a closure, which is a stream the module does not own. §16
+will have something to say about that; nothing needs it yet.
 
 ### Phase 6 — the compound
 
