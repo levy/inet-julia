@@ -3,3 +3,6 @@ results/
 
 # Julia resolved dependency lockfiles (each environment resolves its own).
 Manifest.toml
+
+# The executable bundle that tool/build_binary.jl produces.
+build/

@@ -1,6 +1,16 @@
 # A native binary that runs a simulation from a NED file and an INI file
 
-**Status:** design, not started (2026-08-08).
+**Status:** phases 2, 3 and 4 done (2026-08-08), in the worktree
+`/home/projectured/workspace/inet-julia-binary` on branch `binary`. Phase 0 was
+done by the companion plan. Phase 1 is split: the stale dependency is fixed,
+the package move waits. Phases 5 and 6 wait on `first-run-from-ned-ini.md`.
+§6 carries the state of each phase.
+
+**The binary exists.** `tool/build_binary.jl` produces a 735 MB directory that
+runs a simulation in 0.38 s on a machine with no Julia, against 4.53 s for the
+same run through the checkout. Its scalars are identical to the ones the
+checkout writes.
+
 **Goal:** ship one executable that runs an INET simulation from an unmodified
 NED file and an unmodified INI file, with no user interface, no Julia
 installation, and no part of the editor inside it.
@@ -255,28 +265,50 @@ be a sibling of its checkout, or the relative `[sources]` break. Run
 `Pkg.instantiate()` in a fresh worktree, because `Manifest.toml` is gitignored.
 Commit at the end of each phase, and mark the phase done here.
 
-### Phase 0 — Capture the oracle
+### Phase 0 — Capture the oracle — **done elsewhere**
 
-No Julia. Do this first, or there is nothing to compare against.
+The companion plan captured it first. `inet-julia` commit `fe8253f` on branch
+`ned-run` holds `ActiveSourcePassiveSink-#0` and `PacketQueue-#0`, both `.sca`
+and `.vec`, under `package/queuing/test/inet-reference/queueing/`, with a
+`PROVENANCE.md` that records the `inet-cpp` commit `b52bc21a`, OMNeT++ 6.4.0
+release, the exact command and the `LD_LIBRARY_PATH` the prebuilt binaries
+need.
 
-1. Source the `setenv` of the OMNeT++ installation, then of `inet-cpp`.
-2. Run `cd inet-cpp/tutorials/queueing && ../../bin/inet -u Cmdenv -c ActiveSourcePassiveSink -r 0`.
-3. Copy the output into `package/runner/test/reference/`, with the exact
-   command, the `inet-cpp` commit and the build mode beside it.
-4. Record the stdout, the exit code and the `.sca` header. Phase 3 matches the
-   header, and phase 6 matches the numbers.
+**Point at those files. Do not make a second copy.** Phase 6 reads them from
+there.
 
-Warning: do not name the destination folder `results`. `.gitignore` holds
+The header they carry is the target of phase 3:
+
+```
+version 3
+run ActiveSourcePassiveSink-0-20260808-11:35:28-178086
+attr configname ActiveSourcePassiveSink
+attr datetime 20260808-11:35:28
+…
+scalar ProducerConsumerTutorialStep.producer packets:count 11
+```
+
+Warning: do not name a destination folder `results`. `.gitignore` holds
 `results/`, which matches that name at any depth, and git would drop the
 reference files without a word.
 
-If the companion plan's phase 0 already captured these files, point at them
-instead of making a second copy.
+### Phase 1 — Split the readers out of the editor stack — **step 6 done, the rest waits**
 
-### Phase 1 — Split the readers out of the editor stack
+This phase lands in `omnetpp-julia`.
 
-This phase lands in `omnetpp-julia`. It is independent of everything else here,
-and it unblocks the companion plan as well. Do it first.
+**Step 6 is done.** `OmnetppSimulator` no longer declares `Revise`
+(`omnetpp-julia` branch `binary`, "A development tool is not a dependency of
+the engine"). The guard of phase 2 found it on its first run, and the build of
+phase 4 proved it was not academic: `Revise` precompiled into the shipped image.
+
+**Steps 1 to 5, 7 and 8 wait.** `package/description` already exists on
+`omnetpp-julia` branch `ned-run`, created by the companion plan's own phase 1
+with `OmnetppDescription` depending on `OmnetppLegacy` — the edge §2.4 says
+must run the other way. To create the same package from `main` in a second
+worktree would collide with that branch at every file.
+
+**Do the move on top of `ned-run`, after it lands.** Nothing in phases 2 to 4
+needs it: the runner does not depend on `OmnetppDescription` until phase 5.
 
 1. Create `package/description/{main,test}`, each with a `Project.toml`.
    `OmnetppDescription` depends on `ProjecturedKernel`, `ProjecturedBase`,
@@ -300,7 +332,18 @@ nedparse_file(…)'` parses a NED file in an environment that has no
 `ProjecturedVisual` in it at all. Run the existing legacy suite unchanged, to
 prove the re-export is complete.
 
-### Phase 2 — The package, the command line, and the guard
+### Phase 2 — The package, the command line, and the guard — **done**
+
+Two facts came out of it.
+
+The entry file sits at the package root and not under `src/`, because that is
+what every package here does (`entryfile = "InetRunner.jl"`). The paths in the
+steps below say `main/src/`, and the code is at `main/`.
+
+**The guard earned itself on its first run.** It found `Revise` in the closure,
+declared by exactly one project file in the whole graph. Phase 4 then showed
+that this was not academic: `Revise` precompiled into the shipped image. The
+assertion stays red until `omnetpp-julia` branch `binary` lands.
 
 1. Create `package/runner/{main,test}`, each with a `Project.toml`.
    `InetRunner` depends on `InetQueuing` and `OmnetppSimulator`.
@@ -326,7 +369,10 @@ Check: `bin/inet-julia -c Queuing -r 0` runs, writes a `.sca` file and exits 0.
 An unknown option exits 1 and names the option. `-u Qtenv` exits 1. `-r 1`
 exits 1 and reports the count of runs. The guard passes.
 
-### Phase 3 — The result files
+Result: every check holds. The suite is 58 pass, 1 fail — the `Revise`
+assertion.
+
+### Phase 3 — The result files — **done**
 
 1. Give `run_options` the result directory, and create it when it is absent.
 2. Name the `.sca` and the `.vec` file per §4.6.
@@ -339,10 +385,33 @@ Check: the header of a Julia `.sca` and the header of the phase 0 `.sca` differ
 only in the values that must differ — the datetime, the process id and the
 numbers.
 
-### Phase 4 — The binary
+Result: the header holds. The suite is 83 pass, 1 fail. Two facts came out of
+it.
 
-This is the phase that has never been done in this stack. Keep it separate for
-that reason.
+**The scalar module column is empty, and that is a defect the plan missed.**
+§4.6 named the file names, the run name and the attributes, and said nothing
+about the columns of a `scalar` line. A recorder keeps scalars in one flat
+namespace, so `InetQueuing.record_statistic!` writes the module into the name:
+`Queuing.queue.packets:count`. OMNeT++ writes
+`scalar Queuing.queue packets:count`. `OmnetppTextSink` put the whole name in
+the second column and left the first empty.
+
+The fix is a `split_module_path` keyword on the sink, committed on
+`omnetpp-julia` branch `binary` ("A dotted scalar name fills both columns of a
+scalar line"). It splits at the last dot, because a module path holds dots and
+a statistic name holds a colon. It is off by default, so no existing file
+changes. `Runner.jl` says where the one line goes when that branch lands.
+
+**Six attributes, not seventeen.** A C++ file carries eleven more, and every
+one of them describes a parameter study: `experiment`, `measurement`,
+`replication`, `repetition`, `seedset`, `iterationvars` and its three
+spellings, `datetimef`, `resultdir`. This runner runs one run of one
+configuration, so each would be a constant. They arrive with the parameter
+study, which §10 puts out of scope.
+
+### Phase 4 — The binary — **done**
+
+This is the phase that had never been done in this stack.
 
 1. Add `PackageCompiler` to `tool/Project.toml`.
 2. Write `tool/build_binary.jl`. It runs `Pkg.instantiate()` on
@@ -350,13 +419,14 @@ that reason.
    `executables = ["inet-julia" => "julia_main"]` and
    `include_lazy_artifacts = true`. The output goes to `build/inet-julia/`.
    Add `build/` to `.gitignore` in the same commit.
-3. Write `tool/binary_precompile.jl`, the precompile execution file. It parses
-   one small NED string, parses one small INI string and runs one short
-   simulation to a `.sca` file in a temporary directory. Without it the first
-   run of the binary compiles everything again.
+3. Write `tool/binary_precompile.jl`, the precompile execution file. It runs
+   one short simulation to a `.sca` file in a temporary directory, and takes
+   the help path, the version path and the two error paths. Without it the
+   first run of the binary compiles everything again. It parses no NED and no
+   INI string yet — the runner does not read one until phase 5, which adds it.
 4. Measure three numbers and record them here: the size of the bundle, the wall
-   time of `inet-julia -h`, and the event rate of one run against the same run
-   under `julia --project`.
+   time of `inet-julia --version`, and the wall time of one run against the
+   same run under `julia --project`.
 5. Run the bundle with `env -i`, with only the bundle's `bin` on the path, and
    with no Julia installed. That is the test of relocatability, and nothing
    else is.
@@ -366,10 +436,44 @@ that reason.
 Check: every check of phase 2 and phase 3 passes again, through the built
 binary instead of through `julia --project`.
 
-### Phase 5 — The NED file and the INI file
+Result, measured on this machine, Julia 1.12.6, Linux:
+
+| number | value |
+| --- | --- |
+| the bundle | 735 MB |
+| `inet-julia --version` | 0.34 s |
+| one run, built binary | 0.38 s |
+| the same run, `julia --project` | 4.53 s |
+
+The bundle runs under `env -i` with `HOME=/nonexistent` and no system Julia on
+the path, and it runs the same from a copied directory. Its scalars are
+identical, line for line, to the ones the checkout writes.
+
+**The event rate was not measured, and the plan asked for it.** A rate needs a
+run long enough to swamp the start, and `QueuingModel` fixes its own time limit
+at 100 s — 983 events. The command line cannot override a parameter, by §10.
+The wall time of the whole run is the number in the table instead, and it is
+the one a user feels. Measure the rate in phase 6, where a configuration sets
+its own limit.
+
+**Ship what `-t` a user needs.** The bundle takes its thread count from
+`JULIA_NUM_THREADS`, and nothing sets it. The sequential engine does not care.
+The parallel engine would.
+
+### Phase 5 — The NED file and the INI file — **blocked**
 
 This phase needs the companion plan. Do not start it before that plan's phase 5
-is done.
+is done. Its phases 1 to 3 are done on `omnetpp-julia` branch `ned-run`:
+`OmnetppDescription` exists with the identifier mapping, the type registry and
+the expression evaluator. Phases 4 and 5 — the INI configuration reader and
+`build_network` — are not.
+
+Phase 1 of this plan must land before this one, or adding
+`OmnetppDescription` to `InetRunner` puts the whole editor in the executable.
+
+0. Add `split_module_path = true` to the sink in `Runner.jl`, and the module
+   column of every scalar line becomes the one OMNeT++ writes. One line; the
+   sink option is already committed.
 
 1. Add `OmnetppDescription` to `InetRunner`'s dependencies. Run the guard of
    phase 2 step 3 again — after phase 1 it must still pass.
@@ -386,7 +490,7 @@ Check: `inet-julia -f omnetpp.ini -c ActiveSourcePassiveSink -r 0`, run inside
 `inet-cpp/tutorials/queueing`, builds the right network. Assert every submodule
 name, every submodule type, every connection and every resolved parameter.
 
-### Phase 6 — Compare against the C++ result
+### Phase 6 — Compare against the C++ result — **blocked**
 
 1. Run `ActiveSourcePassiveSink` and `PacketQueue` with the built binary,
    against the unmodified files of `inet-cpp/tutorials/queueing`.
@@ -408,17 +512,20 @@ In `omnetpp-julia`:
   root.
 - `package/description/test/` — its suite.
 
-In `inet-julia`:
+In `inet-julia` (the entry file sits at the package root, not under `src/`,
+which is what every package here does):
 
-- `package/runner/main/src/InetRunner.jl` — the module and `julia_main`.
-- `package/runner/main/src/CommandLine.jl` — the parse, the help, the version.
-- `package/runner/main/src/Runner.jl` — the seam and the lifecycle.
-- `package/runner/main/src/ResultFiles.jl` — the names, the run name, the
+- `package/runner/main/InetRunner.jl` — the module and `julia_main`.
+- `package/runner/main/CommandLine.jl` — the parse, the help, the version.
+- `package/runner/main/Runner.jl` — the seam and the lifecycle.
+- `package/runner/main/ResultFiles.jl` — the names, the run name, the
   attributes.
-- `package/runner/test/` — the command-line tests, the closure guard, the stub
-  of §5, the comparison of phase 6, and `reference/` from phase 0.
+- `package/runner/test/` — `closure.jl`, `command_line.jl`, `run.jl`,
+  `result_files.jl`, and later the stub of §5 and the comparison of phase 6.
+  Phase 0's reference files stay where the companion plan put them, under
+  `package/queuing/test/inet-reference/queueing/`.
 - `package/runner/doc/runner.md` — the option table, the exit codes, and the
-  rule of §2.1 with the reason for it.
+  rule of §2.1 with the reason for it. Written when phase 5 fixes the options.
 - `bin/inet-julia` — the developer wrapper.
 - `tool/build_binary.jl`, `tool/binary_precompile.jl` — the build.
 - `build/` — gitignored output.
@@ -442,6 +549,14 @@ tenth.
 - **The closure guard is the only thing that holds the rule.** A dependency
   added for one convenience puts the editor back. Write the guard in phase 2,
   before the package has anything in it, so it never has to be recovered.
+  Measured: it found a real one on its first run.
+- **A change to the runner's closure lands in another repository.** Both of the
+  two found so far do — the stale `Revise` and the scalar module column. Each
+  is committed on `omnetpp-julia` branch `binary`, and neither is visible from
+  here until that branch lands, because `[sources]` reach the main checkout by
+  relative path. Do not repoint a `[sources]` entry at a worktree to see it
+  sooner. A dangling `omnetpp-julia-<name>` path survives the merge and the
+  root environment hides it.
 - **A file read at run time breaks in the bundle.** The NED grammar and the INI
   grammar are `raw"""` constants in the source, so they travel inside the
   image. Search the closure for every other run-time read of a file beside a
