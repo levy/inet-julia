@@ -1,0 +1,463 @@
+version 3
+run ActiveSourcePassiveSink-0-20260808-11:35:28-178086
+attr configname ActiveSourcePassiveSink
+attr datetime 20260808-11:35:28
+attr datetimef 20260808-113528
+attr experiment ActiveSourcePassiveSink
+attr inifile omnetpp.ini
+attr iterationvars ""
+attr iterationvarsd ""
+attr iterationvarsf ""
+attr measurement ""
+attr network ProducerConsumerTutorialStep
+attr processid 178086
+attr repetition 0
+attr replication #0
+attr resultdir results
+attr runnumber 0
+attr seedset 0
+config image-path /home/projectured/workspace/inet-cpp/images
+config network ProducerConsumerTutorialStep
+config sim-time-limit 10s
+config *.producer.packetLength 1B
+config *.producer.productionInterval 1s
+
+par ProducerConsumerTutorialStep.producer typename "\"inet.queueing.source.ActivePacketSource\""
+par ProducerConsumerTutorialStep.producer displayStringTextFormat "\"created %p pk (%l)\""
+attr mutable ""
+par ProducerConsumerTutorialStep.producer packetNameFormat "\"%a-%c\""
+par ProducerConsumerTutorialStep.producer packetRepresentation "\"byteCount\""
+attr units bitCount,bits,byteCount,bytes,applicationPacket
+par ProducerConsumerTutorialStep.producer packetProtocol "\"unknown\""
+par ProducerConsumerTutorialStep.producer packetLength 8b
+attr unit b
+par ProducerConsumerTutorialStep.producer packetData -1
+par ProducerConsumerTutorialStep.producer attachCreationTimeTag true
+par ProducerConsumerTutorialStep.producer attachIdentityTag true
+par ProducerConsumerTutorialStep.producer attachDirectionTag true
+par ProducerConsumerTutorialStep.producer clockModule "\"\""
+par ProducerConsumerTutorialStep.producer initialProductionOffset -1s
+attr mutable ""
+attr unit s
+par ProducerConsumerTutorialStep.producer productionInterval 1s
+attr unit s
+par ProducerConsumerTutorialStep.producer scheduleForAbsoluteTime true
+scalar ProducerConsumerTutorialStep.producer packets:count 11
+attr recordingmode count
+attr source packetPushed
+attr title "packets, count"
+attr unit pk
+scalar ProducerConsumerTutorialStep.producer packetLengths:sum 88
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetPushed)
+attr title "packet lengths, sum"
+attr unit b
+statistic ProducerConsumerTutorialStep.producer packetLengths:histogram
+field count 11
+field mean 8
+field stddev 0
+field min 8
+field max 8
+field sum 88
+field sqrsum 704
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLength(packetPushed)
+attr title "packet lengths"
+attr unit b
+bin	-inf	0
+bin	7	0
+bin	8	11
+bin	9	0
+par ProducerConsumerTutorialStep.consumer typename "\"inet.queueing.sink.PassivePacketSink\""
+par ProducerConsumerTutorialStep.consumer displayStringTextFormat "\"received %p pk (%l)\""
+attr mutable ""
+par ProducerConsumerTutorialStep.consumer clockModule "\"\""
+par ProducerConsumerTutorialStep.consumer initialConsumptionOffset 0s
+attr unit s
+par ProducerConsumerTutorialStep.consumer consumptionInterval 0s
+attr unit s
+par ProducerConsumerTutorialStep.consumer scheduleForAbsoluteTime true
+scalar ProducerConsumerTutorialStep.consumer packets:count 11
+attr recordingmode count
+attr source packetPushed
+attr title "packets, count"
+attr unit pk
+scalar ProducerConsumerTutorialStep.consumer packetLengths:sum 88
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetPushed)
+attr title "packet lengths, sum"
+attr unit b
+statistic ProducerConsumerTutorialStep.consumer packetLengths:histogram
+field count 11
+field mean 8
+field stddev 0
+field min 8
+field max 8
+field sum 88
+field sqrsum 704
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLength(packetPushed)
+attr title "packet lengths"
+attr unit b
+bin	-inf	0
+bin	7	0
+bin	8	11
+bin	9	0
+statistic ProducerConsumerTutorialStep.consumer meanBitLifeTimePerPacket:histogram
+field count 11
+field mean 0
+field stddev 0
+field min 0
+field max 0
+field sum 0
+field sqrsum 0
+attr interpolationmode none
+attr recordingmode histogram
+attr source weightedMeanPerGroup(groupRegionsPerPacket(lifeTimePerRegion(packetPushed)))
+attr title "mean bit life time per packet"
+attr unit s
+bin	-inf	0
+bin	-0.5	0
+bin	-0.48	0
+bin	-0.46	0
+bin	-0.44	0
+bin	-0.42	0
+bin	-0.4	0
+bin	-0.38	0
+bin	-0.36	0
+bin	-0.33999999999999997	0
+bin	-0.32	0
+bin	-0.3	0
+bin	-0.28	0
+bin	-0.26	0
+bin	-0.24	0
+bin	-0.21999999999999997	0
+bin	-0.2	0
+bin	-0.18	0
+bin	-0.15999999999999998	0
+bin	-0.14	0
+bin	-0.12	0
+bin	-0.09999999999999998	0
+bin	-0.08000000000000002	0
+bin	-0.06	0
+bin	-0.03999999999999998	0
+bin	-0.020000000000000018	0
+bin	0	11
+bin	0.020000000000000018	0
+bin	0.040000000000000036	0
+bin	0.06000000000000005	0
+bin	0.07999999999999996	0
+bin	0.09999999999999998	0
+bin	0.12	0
+bin	0.14	0
+bin	0.16000000000000003	0
+bin	0.18000000000000005	0
+bin	0.20000000000000007	0
+bin	0.21999999999999997	0
+bin	0.24	0
+bin	0.26	0
+bin	0.28	0
+bin	0.30000000000000004	0
+bin	0.32000000000000006	0
+bin	0.33999999999999997	0
+bin	0.36	0
+bin	0.38	0
+bin	0.4	0
+bin	0.42000000000000004	0
+bin	0.44000000000000006	0
+bin	0.45999999999999996	0
+bin	0.48	0
+bin	0.5	0
+statistic ProducerConsumerTutorialStep.consumer packetLifeTime:histogram
+field count 11
+field mean 0
+field stddev 0
+field min 0
+field max 0
+field sum 0
+field sqrsum 0
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLifeTime(packetPushed)
+attr title "packet life time"
+attr unit s
+bin	-inf	0
+bin	-0.5	0
+bin	-0.48	0
+bin	-0.46	0
+bin	-0.44	0
+bin	-0.42	0
+bin	-0.4	0
+bin	-0.38	0
+bin	-0.36	0
+bin	-0.33999999999999997	0
+bin	-0.32	0
+bin	-0.3	0
+bin	-0.28	0
+bin	-0.26	0
+bin	-0.24	0
+bin	-0.21999999999999997	0
+bin	-0.2	0
+bin	-0.18	0
+bin	-0.15999999999999998	0
+bin	-0.14	0
+bin	-0.12	0
+bin	-0.09999999999999998	0
+bin	-0.08000000000000002	0
+bin	-0.06	0
+bin	-0.03999999999999998	0
+bin	-0.020000000000000018	0
+bin	0	11
+bin	0.020000000000000018	0
+bin	0.040000000000000036	0
+bin	0.06000000000000005	0
+bin	0.07999999999999996	0
+bin	0.09999999999999998	0
+bin	0.12	0
+bin	0.14	0
+bin	0.16000000000000003	0
+bin	0.18000000000000005	0
+bin	0.20000000000000007	0
+bin	0.21999999999999997	0
+bin	0.24	0
+bin	0.26	0
+bin	0.28	0
+bin	0.30000000000000004	0
+bin	0.32000000000000006	0
+bin	0.33999999999999997	0
+bin	0.36	0
+bin	0.38	0
+bin	0.4	0
+bin	0.42000000000000004	0
+bin	0.44000000000000006	0
+bin	0.45999999999999996	0
+bin	0.48	0
+bin	0.5	0
+statistic ProducerConsumerTutorialStep.consumer packetJitter:histogram
+field count 11
+field mean 0
+field stddev 0
+field min 0
+field max 0
+field sum 0
+field sqrsum 0
+attr interpolationmode none
+attr recordingmode histogram
+attr source jitter(weightedMeanPerGroup(groupRegionsPerPacket(lifeTimePerRegion(packetPushed))))
+attr title "packet jitter"
+attr unit s
+bin	-inf	0
+bin	-0.5	0
+bin	-0.48	0
+bin	-0.46	0
+bin	-0.44	0
+bin	-0.42	0
+bin	-0.4	0
+bin	-0.38	0
+bin	-0.36	0
+bin	-0.33999999999999997	0
+bin	-0.32	0
+bin	-0.3	0
+bin	-0.28	0
+bin	-0.26	0
+bin	-0.24	0
+bin	-0.21999999999999997	0
+bin	-0.2	0
+bin	-0.18	0
+bin	-0.15999999999999998	0
+bin	-0.14	0
+bin	-0.12	0
+bin	-0.09999999999999998	0
+bin	-0.08000000000000002	0
+bin	-0.06	0
+bin	-0.03999999999999998	0
+bin	-0.020000000000000018	0
+bin	0	11
+bin	0.020000000000000018	0
+bin	0.040000000000000036	0
+bin	0.06000000000000005	0
+bin	0.07999999999999996	0
+bin	0.09999999999999998	0
+bin	0.12	0
+bin	0.14	0
+bin	0.16000000000000003	0
+bin	0.18000000000000005	0
+bin	0.20000000000000007	0
+bin	0.21999999999999997	0
+bin	0.24	0
+bin	0.26	0
+bin	0.28	0
+bin	0.30000000000000004	0
+bin	0.32000000000000006	0
+bin	0.33999999999999997	0
+bin	0.36	0
+bin	0.38	0
+bin	0.4	0
+bin	0.42000000000000004	0
+bin	0.44000000000000006	0
+bin	0.45999999999999996	0
+bin	0.48	0
+bin	0.5	0
+statistic ProducerConsumerTutorialStep.consumer packetDelayDifferenceToMean:histogram
+field count 11
+field mean 0
+field stddev 0
+field min 0
+field max 0
+field sum 0
+field sqrsum 0
+attr interpolationmode none
+attr recordingmode histogram
+attr source differenceToMean(weightedMeanPerGroup(groupRegionsPerPacket(lifeTimePerRegion(packetPushed))))
+attr title "packet delay difference to mean"
+attr unit s
+bin	-inf	0
+bin	-0.5	0
+bin	-0.48	0
+bin	-0.46	0
+bin	-0.44	0
+bin	-0.42	0
+bin	-0.4	0
+bin	-0.38	0
+bin	-0.36	0
+bin	-0.33999999999999997	0
+bin	-0.32	0
+bin	-0.3	0
+bin	-0.28	0
+bin	-0.26	0
+bin	-0.24	0
+bin	-0.21999999999999997	0
+bin	-0.2	0
+bin	-0.18	0
+bin	-0.15999999999999998	0
+bin	-0.14	0
+bin	-0.12	0
+bin	-0.09999999999999998	0
+bin	-0.08000000000000002	0
+bin	-0.06	0
+bin	-0.03999999999999998	0
+bin	-0.020000000000000018	0
+bin	0	11
+bin	0.020000000000000018	0
+bin	0.040000000000000036	0
+bin	0.06000000000000005	0
+bin	0.07999999999999996	0
+bin	0.09999999999999998	0
+bin	0.12	0
+bin	0.14	0
+bin	0.16000000000000003	0
+bin	0.18000000000000005	0
+bin	0.20000000000000007	0
+bin	0.21999999999999997	0
+bin	0.24	0
+bin	0.26	0
+bin	0.28	0
+bin	0.30000000000000004	0
+bin	0.32000000000000006	0
+bin	0.33999999999999997	0
+bin	0.36	0
+bin	0.38	0
+bin	0.4	0
+bin	0.42000000000000004	0
+bin	0.44000000000000006	0
+bin	0.45999999999999996	0
+bin	0.48	0
+bin	0.5	0
+statistic ProducerConsumerTutorialStep.consumer packetDelayVariation:histogram
+field count 11
+field mean 0
+field stddev 0
+field min 0
+field max 0
+field sum 0
+field sqrsum 0
+attr recordingmode histogram
+attr source stddev(weightedMeanPerGroup(groupRegionsPerPacket(lifeTimePerRegion(packetPushed))))
+attr title "packet delay variation"
+attr unit s
+bin	-inf	0
+bin	-0.5	0
+bin	-0.48	0
+bin	-0.46	0
+bin	-0.44	0
+bin	-0.42	0
+bin	-0.4	0
+bin	-0.38	0
+bin	-0.36	0
+bin	-0.33999999999999997	0
+bin	-0.32	0
+bin	-0.3	0
+bin	-0.28	0
+bin	-0.26	0
+bin	-0.24	0
+bin	-0.21999999999999997	0
+bin	-0.2	0
+bin	-0.18	0
+bin	-0.15999999999999998	0
+bin	-0.14	0
+bin	-0.12	0
+bin	-0.09999999999999998	0
+bin	-0.08000000000000002	0
+bin	-0.06	0
+bin	-0.03999999999999998	0
+bin	-0.020000000000000018	0
+bin	0	11
+bin	0.020000000000000018	0
+bin	0.040000000000000036	0
+bin	0.06000000000000005	0
+bin	0.07999999999999996	0
+bin	0.09999999999999998	0
+bin	0.12	0
+bin	0.14	0
+bin	0.16000000000000003	0
+bin	0.18000000000000005	0
+bin	0.20000000000000007	0
+bin	0.21999999999999997	0
+bin	0.24	0
+bin	0.26	0
+bin	0.28	0
+bin	0.30000000000000004	0
+bin	0.32000000000000006	0
+bin	0.33999999999999997	0
+bin	0.36	0
+bin	0.38	0
+bin	0.4	0
+bin	0.42000000000000004	0
+bin	0.44000000000000006	0
+bin	0.45999999999999996	0
+bin	0.48	0
+bin	0.5	0
+scalar ProducerConsumerTutorialStep.consumer droppedPackets:count 11
+attr recordingmode count
+attr source packetDropped
+attr title "dropped packets, count"
+attr unit pk
+scalar ProducerConsumerTutorialStep.consumer droppedPacketLengths:sum 88
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetDropped)
+attr title "dropped packet lengths, sum"
+attr unit b
+statistic ProducerConsumerTutorialStep.consumer droppedPacketLengths:histogram
+field count 11
+field mean 8
+field stddev 0
+field min 8
+field max 8
+field sum 88
+field sqrsum 704
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLength(packetDropped)
+attr title "dropped packet lengths"
+attr unit b
+bin	-inf	0
+bin	7	0
+bin	8	11
+bin	9	0
+par ProducerConsumerTutorialStep typename "\"inet.tutorials.queueing.ProducerConsumerTutorialStep\""
+

@@ -1,0 +1,733 @@
+version 3
+run PacketQueue-0-20260808-11:35:28-178106
+attr configname PacketQueue
+attr datetime 20260808-11:35:28
+attr datetimef 20260808-113528
+attr experiment PacketQueue
+attr inifile omnetpp.ini
+attr iterationvars ""
+attr iterationvarsd ""
+attr iterationvarsf ""
+attr measurement ""
+attr network PacketQueueTutorialStep
+attr processid 178106
+attr repetition 0
+attr replication #0
+attr resultdir results
+attr runnumber 0
+attr seedset 0
+config image-path /home/projectured/workspace/inet-cpp/images
+config network PacketQueueTutorialStep
+config sim-time-limit 10s
+config *.producer.packetLength 1B
+config *.producer.productionInterval "uniform(0s, 1s)"
+config *.collector.collectionInterval "uniform(0s, 2s)"
+
+par PacketQueueTutorialStep.producer typename "\"inet.queueing.source.ActivePacketSource\""
+par PacketQueueTutorialStep.producer displayStringTextFormat "\"created %p pk (%l)\""
+attr mutable ""
+par PacketQueueTutorialStep.producer packetNameFormat "\"%a-%c\""
+par PacketQueueTutorialStep.producer packetRepresentation "\"byteCount\""
+attr units bitCount,bits,byteCount,bytes,applicationPacket
+par PacketQueueTutorialStep.producer packetProtocol "\"unknown\""
+par PacketQueueTutorialStep.producer packetLength 8b
+attr unit b
+par PacketQueueTutorialStep.producer packetData -1
+par PacketQueueTutorialStep.producer attachCreationTimeTag true
+par PacketQueueTutorialStep.producer attachIdentityTag true
+par PacketQueueTutorialStep.producer attachDirectionTag true
+par PacketQueueTutorialStep.producer clockModule "\"\""
+par PacketQueueTutorialStep.producer initialProductionOffset -1s
+attr mutable ""
+attr unit s
+par PacketQueueTutorialStep.producer productionInterval "uniform(0s, 1s)"
+attr unit s
+par PacketQueueTutorialStep.producer scheduleForAbsoluteTime true
+scalar PacketQueueTutorialStep.producer packets:count 18
+attr recordingmode count
+attr source packetPushed
+attr title "packets, count"
+attr unit pk
+scalar PacketQueueTutorialStep.producer packetLengths:sum 144
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetPushed)
+attr title "packet lengths, sum"
+attr unit b
+statistic PacketQueueTutorialStep.producer packetLengths:histogram
+field count 18
+field mean 8
+field stddev 0
+field min 8
+field max 8
+field sum 144
+field sqrsum 1152
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLength(packetPushed)
+attr title "packet lengths"
+attr unit b
+bin	-inf	0
+bin	7	0
+bin	8	18
+bin	9	0
+par PacketQueueTutorialStep.queue typename "\"inet.queueing.queue.PacketQueue\""
+par PacketQueueTutorialStep.queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
+attr mutable ""
+par PacketQueueTutorialStep.queue packetCapacity -1
+par PacketQueueTutorialStep.queue dataCapacity -1b
+attr unit b
+par PacketQueueTutorialStep.queue dropperClass "\"\""
+par PacketQueueTutorialStep.queue comparatorClass "\"\""
+par PacketQueueTutorialStep.queue bufferModule "\"\""
+scalar PacketQueueTutorialStep.queue queueLength:last 9
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode last
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, last"
+attr unit pk
+scalar PacketQueueTutorialStep.queue queueLength:max 9
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode max
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, max"
+attr unit pk
+scalar PacketQueueTutorialStep.queue queueLength:timeavg 4.2252964666833
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode timeavg
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, timeavg"
+attr unit pk
+scalar PacketQueueTutorialStep.queue queueBitLength:last 72
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode last
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length, last"
+attr unit b
+scalar PacketQueueTutorialStep.queue queueBitLength:max 72
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode max
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length, max"
+attr unit b
+scalar PacketQueueTutorialStep.queue queueBitLength:timeavg 33.8023717334664
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode timeavg
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length, timeavg"
+attr unit b
+statistic PacketQueueTutorialStep.queue queueingTime:histogram
+field count 9
+field mean 2.3187727679815553
+field stddev 1.4236636253946668
+field min 0
+field max 4.634938111763
+field sum 20.868954911834
+field sqrsum 64.60490929197069
+attr interpolationmode none
+attr recordingmode histogram
+attr source queueingTime(packetPulled)
+attr title "queueing times"
+attr unit s
+bin	-inf	0
+bin	0	1
+bin	0.1	0
+bin	0.2	0
+bin	0.30000000000000004	0
+bin	0.4	0
+bin	0.5	0
+bin	0.6000000000000001	1
+bin	0.7000000000000001	0
+bin	0.8	0
+bin	0.9	0
+bin	1	0
+bin	1.1	0
+bin	1.2000000000000002	0
+bin	1.3	0
+bin	1.4000000000000001	0
+bin	1.5	0
+bin	1.6	1
+bin	1.7000000000000002	0
+bin	1.8	0
+bin	1.9000000000000001	0
+bin	2	0
+bin	2.1	0
+bin	2.2	0
+bin	2.3000000000000003	1
+bin	2.4000000000000004	0
+bin	2.5	0
+bin	2.6	2
+bin	2.7	1
+bin	2.8000000000000003	0
+bin	2.9000000000000004	0
+bin	3	0
+bin	3.1	0
+bin	3.2	0
+bin	3.3000000000000003	0
+bin	3.4000000000000004	0
+bin	3.5	0
+bin	3.6	1
+bin	3.7	0
+bin	3.8000000000000003	0
+bin	3.9000000000000004	0
+bin	4	0
+bin	4.1000000000000005	0
+bin	4.2	0
+bin	4.3	0
+bin	4.4	0
+bin	4.5	0
+bin	4.6000000000000005	1
+bin	4.7	0
+bin	4.800000000000001	0
+bin	4.9	0
+bin	5	0
+bin	5.1000000000000005	0
+bin	5.2	0
+bin	5.300000000000001	0
+bin	5.4	0
+bin	5.5	0
+bin	5.6000000000000005	0
+bin	5.7	0
+bin	5.800000000000001	0
+scalar PacketQueueTutorialStep.queue outgoingPackets:count 9
+attr recordingmode count
+attr source packetPulled
+attr title "outgoing packets, count"
+attr unit pk
+scalar PacketQueueTutorialStep.queue outgoingPacketLengths:sum 72
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetPulled)
+attr title "outgoing packet lengths, sum"
+attr unit b
+statistic PacketQueueTutorialStep.queue outgoingPacketLengths:histogram
+field count 9
+field mean 8
+field stddev 0
+field min 8
+field max 8
+field sum 72
+field sqrsum 576
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLength(packetPulled)
+attr title "outgoing packet lengths"
+attr unit b
+bin	-inf	0
+bin	7	0
+bin	8	9
+bin	9	0
+statistic PacketQueueTutorialStep.queue flowQueueingTime:histogram
+field count 0
+field mean nan
+field stddev nan
+field min nan
+field max nan
+field sum 0
+field sqrsum 0
+attr interpolationmode none
+attr recordingmode histogram
+attr source queueingTime(demuxFlow(packetPulled))
+attr title "flow queueing times"
+attr unit s
+bin	-inf	0
+bin	0	0
+bin	1	0
+scalar PacketQueueTutorialStep.queue incomingPackets:count 18
+attr recordingmode count
+attr source packetPushStarted
+attr title "incoming packets, count"
+attr unit pk
+scalar PacketQueueTutorialStep.queue incomingPacketLengths:sum 144
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetPushStarted)
+attr title "incoming packet lengths, sum"
+attr unit b
+statistic PacketQueueTutorialStep.queue incomingPacketLengths:histogram
+field count 18
+field mean 8
+field stddev 0
+field min 8
+field max 8
+field sum 144
+field sqrsum 1152
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLength(packetPushStarted)
+attr title "incoming packet lengths"
+attr unit b
+bin	-inf	0
+bin	7	0
+bin	8	18
+bin	9	0
+scalar PacketQueueTutorialStep.queue droppedPacketsQueueOverflow:count 0
+attr interpolationmode none
+attr recordingmode count
+attr source packetDropReasonIsQueueOverflow(packetDropped)
+attr title "dropped packets: queue overflow, count"
+attr unit pk
+scalar PacketQueueTutorialStep.queue droppedPacketLengthsQueueOverflow:sum 0
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetDropReasonIsQueueOverflow(packetDropped))
+attr title "dropped packet lengths: queue overflow, sum"
+attr unit b
+par PacketQueueTutorialStep.collector typename "\"inet.queueing.sink.ActivePacketSink\""
+par PacketQueueTutorialStep.collector displayStringTextFormat "\"received %p pk (%l)\""
+attr mutable ""
+par PacketQueueTutorialStep.collector clockModule "\"\""
+par PacketQueueTutorialStep.collector initialCollectionOffset -1s
+attr unit s
+par PacketQueueTutorialStep.collector collectionInterval "uniform(0s, 2s)"
+attr unit s
+par PacketQueueTutorialStep.collector scheduleForAbsoluteTime true
+scalar PacketQueueTutorialStep.collector packets:count 9
+attr recordingmode count
+attr source packetPulled
+attr title "packets, count"
+attr unit pk
+scalar PacketQueueTutorialStep.collector packetLengths:sum 72
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetPulled)
+attr title "packet lengths, sum"
+attr unit b
+statistic PacketQueueTutorialStep.collector packetLengths:histogram
+field count 9
+field mean 8
+field stddev 0
+field min 8
+field max 8
+field sum 72
+field sqrsum 576
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLength(packetPulled)
+attr title "packet lengths"
+attr unit b
+bin	-inf	0
+bin	7	0
+bin	8	9
+bin	9	0
+statistic PacketQueueTutorialStep.collector meanBitLifeTimePerPacket:histogram
+field count 9
+field mean 2.3187727679815553
+field stddev 1.4236636253946668
+field min 0
+field max 4.634938111763
+field sum 20.868954911834
+field sqrsum 64.60490929197069
+attr interpolationmode none
+attr recordingmode histogram
+attr source weightedMeanPerGroup(groupRegionsPerPacket(lifeTimePerRegion(packetPulled)))
+attr title "mean bit life time per packet"
+attr unit s
+bin	-inf	0
+bin	0	1
+bin	0.1	0
+bin	0.2	0
+bin	0.30000000000000004	0
+bin	0.4	0
+bin	0.5	0
+bin	0.6000000000000001	1
+bin	0.7000000000000001	0
+bin	0.8	0
+bin	0.9	0
+bin	1	0
+bin	1.1	0
+bin	1.2000000000000002	0
+bin	1.3	0
+bin	1.4000000000000001	0
+bin	1.5	0
+bin	1.6	1
+bin	1.7000000000000002	0
+bin	1.8	0
+bin	1.9000000000000001	0
+bin	2	0
+bin	2.1	0
+bin	2.2	0
+bin	2.3000000000000003	1
+bin	2.4000000000000004	0
+bin	2.5	0
+bin	2.6	2
+bin	2.7	1
+bin	2.8000000000000003	0
+bin	2.9000000000000004	0
+bin	3	0
+bin	3.1	0
+bin	3.2	0
+bin	3.3000000000000003	0
+bin	3.4000000000000004	0
+bin	3.5	0
+bin	3.6	1
+bin	3.7	0
+bin	3.8000000000000003	0
+bin	3.9000000000000004	0
+bin	4	0
+bin	4.1000000000000005	0
+bin	4.2	0
+bin	4.3	0
+bin	4.4	0
+bin	4.5	0
+bin	4.6000000000000005	1
+bin	4.7	0
+bin	4.800000000000001	0
+bin	4.9	0
+bin	5	0
+bin	5.1000000000000005	0
+bin	5.2	0
+bin	5.300000000000001	0
+bin	5.4	0
+bin	5.5	0
+bin	5.6000000000000005	0
+bin	5.7	0
+bin	5.800000000000001	0
+statistic PacketQueueTutorialStep.collector packetLifeTime:histogram
+field count 9
+field mean 2.3187727679815553
+field stddev 1.4236636253946668
+field min 0
+field max 4.634938111763
+field sum 20.868954911834
+field sqrsum 64.60490929197069
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLifeTime(packetPulled)
+attr title "packet life time"
+attr unit s
+bin	-inf	0
+bin	0	1
+bin	0.1	0
+bin	0.2	0
+bin	0.30000000000000004	0
+bin	0.4	0
+bin	0.5	0
+bin	0.6000000000000001	1
+bin	0.7000000000000001	0
+bin	0.8	0
+bin	0.9	0
+bin	1	0
+bin	1.1	0
+bin	1.2000000000000002	0
+bin	1.3	0
+bin	1.4000000000000001	0
+bin	1.5	0
+bin	1.6	1
+bin	1.7000000000000002	0
+bin	1.8	0
+bin	1.9000000000000001	0
+bin	2	0
+bin	2.1	0
+bin	2.2	0
+bin	2.3000000000000003	1
+bin	2.4000000000000004	0
+bin	2.5	0
+bin	2.6	2
+bin	2.7	1
+bin	2.8000000000000003	0
+bin	2.9000000000000004	0
+bin	3	0
+bin	3.1	0
+bin	3.2	0
+bin	3.3000000000000003	0
+bin	3.4000000000000004	0
+bin	3.5	0
+bin	3.6	1
+bin	3.7	0
+bin	3.8000000000000003	0
+bin	3.9000000000000004	0
+bin	4	0
+bin	4.1000000000000005	0
+bin	4.2	0
+bin	4.3	0
+bin	4.4	0
+bin	4.5	0
+bin	4.6000000000000005	1
+bin	4.7	0
+bin	4.800000000000001	0
+bin	4.9	0
+bin	5	0
+bin	5.1000000000000005	0
+bin	5.2	0
+bin	5.300000000000001	0
+bin	5.4	0
+bin	5.5	0
+bin	5.6000000000000005	0
+bin	5.7	0
+bin	5.800000000000001	0
+statistic PacketQueueTutorialStep.collector packetJitter:histogram
+field count 9
+field mean 0.5149931235292222
+field stddev 0.6043385954210215
+field min -0.3102288453369999
+field max 1.303761831718
+field sum 4.634938111763
+field sqrsum 5.308762358865088
+attr interpolationmode none
+attr recordingmode histogram
+attr source jitter(weightedMeanPerGroup(groupRegionsPerPacket(lifeTimePerRegion(packetPulled))))
+attr title "packet jitter"
+attr unit s
+bin	-inf	0
+bin	-0.75	0
+bin	-0.7	0
+bin	-0.65	0
+bin	-0.6	0
+bin	-0.55	0
+bin	-0.5	0
+bin	-0.44999999999999996	0
+bin	-0.39999999999999997	0
+bin	-0.35	1
+bin	-0.3	0
+bin	-0.25	0
+bin	-0.19999999999999996	0
+bin	-0.1499999999999999	0
+bin	-0.09999999999999998	1
+bin	-0.04999999999999993	0
+bin	0	1
+bin	0.050000000000000044	1
+bin	0.10000000000000009	0
+bin	0.15000000000000002	0
+bin	0.20000000000000007	0
+bin	0.25	0
+bin	0.30000000000000004	0
+bin	0.3500000000000001	0
+bin	0.40000000000000013	0
+bin	0.4500000000000002	0
+bin	0.5	0
+bin	0.55	0
+bin	0.6000000000000001	1
+bin	0.6500000000000001	0
+bin	0.7000000000000002	0
+bin	0.75	0
+bin	0.8	0
+bin	0.8500000000000001	0
+bin	0.9000000000000001	0
+bin	0.9500000000000002	2
+bin	1	0
+bin	1.05	1
+bin	1.1	0
+bin	1.1500000000000001	0
+bin	1.2000000000000002	0
+bin	1.25	0
+bin	1.3000000000000003	1
+bin	1.35	0
+bin	1.4	0
+bin	1.4500000000000002	0
+bin	1.5	0
+bin	1.5500000000000003	0
+bin	1.6	0
+bin	1.6500000000000004	0
+bin	1.7000000000000002	0
+bin	1.75	0
+statistic PacketQueueTutorialStep.collector packetDelayDifferenceToMean:histogram
+field count 9
+field mean -1.0225458071387106
+field stddev 0.7097402864309861
+field min -2.3161653437814445
+field max 0
+field sum -9.202912264248395
+field sqrsum 13.44024954273772
+attr interpolationmode none
+attr recordingmode histogram
+attr source differenceToMean(weightedMeanPerGroup(groupRegionsPerPacket(lifeTimePerRegion(packetPulled))))
+attr title "packet delay difference to mean"
+attr unit s
+bin	-inf	0
+bin	-2.9000000000000004	0
+bin	-2.8500000000000005	0
+bin	-2.8000000000000003	0
+bin	-2.7500000000000004	0
+bin	-2.7	0
+bin	-2.6500000000000004	0
+bin	-2.6000000000000005	0
+bin	-2.5500000000000003	0
+bin	-2.5000000000000004	0
+bin	-2.45	0
+bin	-2.4000000000000004	0
+bin	-2.3500000000000005	1
+bin	-2.3000000000000003	0
+bin	-2.2500000000000004	0
+bin	-2.2	0
+bin	-2.1500000000000004	0
+bin	-2.1000000000000005	0
+bin	-2.0500000000000003	0
+bin	-2.0000000000000004	0
+bin	-1.9500000000000002	0
+bin	-1.9000000000000004	0
+bin	-1.8500000000000003	0
+bin	-1.8000000000000003	0
+bin	-1.7500000000000002	0
+bin	-1.7000000000000002	0
+bin	-1.6500000000000004	1
+bin	-1.6000000000000003	0
+bin	-1.5500000000000003	0
+bin	-1.5000000000000002	1
+bin	-1.4500000000000002	0
+bin	-1.4000000000000004	0
+bin	-1.3500000000000003	0
+bin	-1.3000000000000003	0
+bin	-1.2500000000000002	0
+bin	-1.2000000000000002	0
+bin	-1.1500000000000004	1
+bin	-1.1000000000000003	0
+bin	-1.0500000000000003	0
+bin	-1.0000000000000002	1
+bin	-0.9500000000000002	0
+bin	-0.9000000000000004	1
+bin	-0.8500000000000001	0
+bin	-0.8000000000000003	0
+bin	-0.7500000000000004	0
+bin	-0.7000000000000002	0
+bin	-0.6500000000000004	0
+bin	-0.6000000000000001	1
+bin	-0.5500000000000003	0
+bin	-0.5	0
+bin	-0.4500000000000002	0
+bin	-0.40000000000000036	0
+bin	-0.3500000000000001	1
+bin	-0.30000000000000027	0
+bin	-0.25	0
+bin	-0.20000000000000018	0
+bin	-0.15000000000000036	0
+bin	-0.10000000000000009	0
+bin	-0.050000000000000266	0
+bin	0	1
+bin	0.04999999999999982	0
+bin	0.09999999999999964	0
+bin	0.1499999999999999	0
+bin	0.19999999999999973	0
+bin	0.25	0
+bin	0.2999999999999998	0
+bin	0.34999999999999964	0
+bin	0.3999999999999999	0
+bin	0.44999999999999973	0
+bin	0.5	0
+bin	0.5499999999999998	0
+bin	0.5999999999999996	0
+statistic PacketQueueTutorialStep.collector packetDelayVariation:histogram
+field count 9
+field mean 1.465579175120472
+field stddev 0.9248699702406927
+field min 0
+field max 2.9834359957190713
+field sum 13.19021257608425
+field sqrsum 26.17437656174539
+attr recordingmode histogram
+attr source stddev(weightedMeanPerGroup(groupRegionsPerPacket(lifeTimePerRegion(packetPulled))))
+attr title "packet delay variation"
+attr unit s
+bin	-inf	0
+bin	0	1
+bin	0.05	0
+bin	0.1	0
+bin	0.15000000000000002	0
+bin	0.2	0
+bin	0.25	0
+bin	0.30000000000000004	1
+bin	0.35000000000000003	0
+bin	0.4	0
+bin	0.45	0
+bin	0.5	0
+bin	0.55	0
+bin	0.6000000000000001	0
+bin	0.65	0
+bin	0.7000000000000001	0
+bin	0.75	0
+bin	0.8	1
+bin	0.8500000000000001	0
+bin	0.9	0
+bin	0.9500000000000001	0
+bin	1	0
+bin	1.05	0
+bin	1.1	0
+bin	1.1500000000000001	0
+bin	1.2000000000000002	0
+bin	1.25	0
+bin	1.3	0
+bin	1.35	0
+bin	1.4000000000000001	0
+bin	1.4500000000000002	0
+bin	1.5	0
+bin	1.55	0
+bin	1.6	1
+bin	1.6500000000000001	0
+bin	1.7000000000000002	1
+bin	1.75	0
+bin	1.8	0
+bin	1.85	1
+bin	1.9000000000000001	1
+bin	1.9500000000000002	1
+bin	2	0
+bin	2.0500000000000003	0
+bin	2.1	0
+bin	2.15	0
+bin	2.2	0
+bin	2.25	0
+bin	2.3000000000000003	0
+bin	2.35	0
+bin	2.4000000000000004	0
+bin	2.45	0
+bin	2.5	0
+bin	2.5500000000000003	0
+bin	2.6	0
+bin	2.6500000000000004	0
+bin	2.7	0
+bin	2.75	0
+bin	2.8000000000000003	0
+bin	2.85	0
+bin	2.9000000000000004	0
+bin	2.95	1
+bin	3	0
+bin	3.0500000000000003	0
+bin	3.1	0
+bin	3.1500000000000004	0
+bin	3.2	0
+bin	3.25	0
+bin	3.3000000000000003	0
+bin	3.35	0
+bin	3.4000000000000004	0
+bin	3.45	0
+bin	3.5	0
+bin	3.5500000000000003	0
+bin	3.6	0
+bin	3.6500000000000004	0
+bin	3.7	0
+bin	3.75	0
+scalar PacketQueueTutorialStep.collector droppedPackets:count 9
+attr recordingmode count
+attr source packetDropped
+attr title "dropped packets, count"
+attr unit pk
+scalar PacketQueueTutorialStep.collector droppedPacketLengths:sum 72
+attr interpolationmode none
+attr recordingmode sum
+attr source packetLength(packetDropped)
+attr title "dropped packet lengths, sum"
+attr unit b
+statistic PacketQueueTutorialStep.collector droppedPacketLengths:histogram
+field count 9
+field mean 8
+field stddev 0
+field min 8
+field max 8
+field sum 72
+field sqrsum 576
+attr interpolationmode none
+attr recordingmode histogram
+attr source packetLength(packetDropped)
+attr title "dropped packet lengths"
+attr unit b
+bin	-inf	0
+bin	7	0
+bin	8	9
+bin	9	0
+par PacketQueueTutorialStep typename "\"inet.tutorials.queueing.PacketQueueTutorialStep\""
+
