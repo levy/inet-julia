@@ -212,7 +212,7 @@ Four waves, each ending green, in the order the elements were built:
 
 | wave | elements |
 | --- | --- |
-| 2 | `PassivePacketSource`, `PassivePacketSink`, `ActivePacketSink` |
+| 2 | `PassivePacketSource`, `PassivePacketSink`, `ActivePacketSink` — **done** |
 | 3 | `PacketQueue`, `PacketServer`, `InstantServer` |
 | 4 | `PacketClassifier`, `PacketScheduler`, `PacketFilter` |
 | 5 | the six `common` elements |
@@ -225,7 +225,34 @@ Each wave is the same three steps:
 2. Run `julia tool/port_to_module_macro.jl`, read the report, then `--apply`.
    Nothing may be refused; a refusal is either a site to fix by hand or a rule
    the tool is missing.
-3. `test_queuing()` back to 275 passed, 2 errored, and no assertion changed.
+3. `test_queuing()` back to the baseline, and no assertion changed.
+
+**What the transformer cannot see.** A method body that aliases a container —
+`states = m.states`, `parameters, states = m.parameters, m.states` — reads the
+field off the local afterwards, and the tool only rewrites a
+`receiver.container.field` chain. Rewrite those bodies by hand in step 1, as
+part of writing the declaration. Every element of wave 2 had one.
+
+**Wave 2 findings.**
+
+*The generated reset writes the recording handle back.* A hand-written
+`reset_statistics!` left `recording` alone; the generated one writes every
+statistic back to what it was declared as, and the handle is declared a
+statistic. This is safe, because `run_network!` calls `initialize_network!` and
+`register_network_statistics!` on every run, so a reset is always followed by a
+fresh registration. It is safe by an ordering rather than by construction, so
+`phase1_sources_sinks.jl` now pins it: record, reset, record again.
+
+*The NED hooks collapse as an element ports.* §7.3 said to do this at the end.
+Wave 2 forced it, because the two sinks lost the `Parameters` struct that
+`ned_parameters_type` pointed at. `ned_parameter_fields` and `build_ned_module`
+in `omnetpp-julia` now fall back to `collect_module_parameters` and to
+`T(name; values...)`, so a kind written with `@simulation_module` needs no hook
+at all. Both sink hooks are gone; `PacketQueue` and `ActivePacketSource` keep
+theirs, the first for a unit conversion and the second for `PacketTemplate`.
+
+*The baseline moved to 278 passed, 2 errored*, from the three assertions the
+reset guard adds. The two errors are still `record_tap!`.
 
 ### Phase 6 — the compound
 
@@ -241,13 +268,11 @@ inside `@connections` generates the wiring a hand-written constructor does.
 2. `QueuingModel`, the demo builders under `example/steps/` and the catalog all
    construct elements directly. The transformer moves these with each wave, so
    what is left here is only what it refused.
-3. **Collapse the NED reader's hooks.** `NedIni.jl` carries
-   `ned_parameters_type` and `build_ned_module` only because a Julia element's
-   parameters were somewhere the reader could not see. With
-   `collect_module_parameters` they are. Drop both hooks for every element whose
-   shape now fits, and keep `build_ned_module` only where a NED parameter maps
-   to something other than a field — `ActivePacketSource`'s `PacketTemplate` is
-   the case to check.
+3. **Collapse the NED reader's hooks.** Done as the elements port, from wave 2
+   on: the builder falls back to `collect_module_parameters`, so a hook is
+   needed only where a NED parameter maps to something other than a field.
+   `ActivePacketSource`'s `PacketTemplate` is one such case. What is left here
+   is to check that no hook survives whose element no longer needs it.
 4. Remove §4.1 from `queueing-tutorial-from-ned-ini.md`.
 
 Check: `test_queuing()`, and the NED and INI configurations of

@@ -153,7 +153,7 @@ end
         @test queue_length(second) == 0
         # (The counters record COMPLETED work, so the packet the server is
         # holding when the run ends is in neither of them.)
-        @test sink.statistics.num_packets == 10
+        @test sink.num_packets == 10
     end
 
     @testset "a Markov classifier walks its states" begin
@@ -257,7 +257,7 @@ end
         # has to pass that news along from whichever queue filled.
         chain = priority_chain(production_interval = 1.0, processing_time = 0.1)
         run_network!(chain.network; until = 5.0)
-        @test chain.sink.statistics.num_packets == 5
+        @test chain.sink.num_packets == 5
         # Nothing waits: each packet is served long before the next arrives.
         @test all(queue -> queue_length(queue) == 0, chain.queues)
     end
@@ -278,9 +278,9 @@ end
         @test keep_short.statistics.num_passed + keep_short.statistics.num_dropped ==
               source.num_packets
         @test keep_short.statistics.num_dropped > 0
-        @test sink.statistics.num_packets == keep_short.statistics.num_passed
+        @test sink.num_packets == keep_short.statistics.num_passed
         # Only short packets made it through.
-        @test sink.statistics.total_length < 400 * sink.statistics.num_packets
+        @test sink.total_length < 400 * sink.num_packets
     end
 
     @testset "a filter with back pressure refuses instead of dropping" begin
@@ -319,7 +319,7 @@ end
         dropping = filtered_chain(false)
         @test queue_length(dropping.queue) == 0
         @test dropping.filter.statistics.num_dropped == dropping.server.statistics.num_packets
-        @test dropping.sink.statistics.num_packets == 0
+        @test dropping.sink.num_packets == 0
     end
 
     @testset "a filter passes flow control through" begin
@@ -328,15 +328,15 @@ end
             production_interval = 0.1))
         pass = add_module!(network, PacketFilterModule(:filter,
             PacketFilterParameters(predicate = _ -> true)))
-        slow = add_module!(network, PassivePacketSinkModule(:sink,
-            PassivePacketSinkParameters(consumption_interval = 0.25)))
+        slow = add_module!(network, PassivePacketSinkModule(:sink;
+            consumption_interval = 0.25))
         connect!(source.out, pass.in)
         connect!(pass.out, slow.in)
         run_network!(network; until = 1.0)
 
         # The filter holds nothing, so the sink's rate is what the source ends
         # up producing at — the refusal and the recovery both travel through.
-        @test slow.statistics.num_packets == 5
+        @test slow.num_packets == 5
         @test source.num_packets == 5
         @test pass.statistics.num_dropped == 0
     end

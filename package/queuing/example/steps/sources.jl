@@ -8,8 +8,8 @@
 # ────────────────────────────────────────────────────────────────────────────
 
 using InetQueuing: ActivePacketSourceModule,
-    PassivePacketSourceModule, PassivePacketSourceParameters,
-    ActivePacketSinkModule, ActivePacketSinkParameters,
+    PassivePacketSourceModule,
+    ActivePacketSinkModule,
     PassivePacketSinkModule, PacketTemplate, check_packet_connections
 using OmnetppSimulator: AbstractModel, AbstractEngine, AbstractResolvedParameters,
     Parameter, ParameterSpace, StructuralDOF, StochasticDOF, SimTimeLimit,
@@ -149,14 +149,14 @@ end
 
 function _build_pull_network(m)
     network = Network(:PullSourceSink)
-    source = add_module!(network, PassivePacketSourceModule(:source,
-        PassivePacketSourceParameters(
-            packet = PacketTemplate(length = Bytes(m.packet_bytes)));
+    source = add_module!(network, PassivePacketSourceModule(:source;
+        packet = PacketTemplate(length = Bytes(m.packet_bytes)),
         seed = m.seed))
     interval = m.random_intervals ? Volatile(exponential(m.collection_interval)) :
                                     m.collection_interval
-    sink = add_module!(network, ActivePacketSinkModule(:sink,
-        ActivePacketSinkParameters(collection_interval = interval); seed = m.seed + 1))
+    sink = add_module!(network, ActivePacketSinkModule(:sink;
+        collection_interval = interval,
+        seed = m.seed + 1))
     connect!(source.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)

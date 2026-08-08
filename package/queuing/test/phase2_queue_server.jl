@@ -40,11 +40,11 @@ end
         # Service is faster than production, so nothing queues up for long and
         # everything produced gets through except what is still in the server.
         @test chain.source.num_packets == 11
-        @test chain.sink.statistics.num_packets == 10
+        @test chain.sink.num_packets == 10
         @test queue_length(chain.queue) == 0
         # Each packet waited for nothing and spent the service time in the
         # server, so its life is exactly one service time.
-        @test chain.sink.statistics.total_life_time == 10 * to_simtime(0.04)
+        @test chain.sink.total_life_time == 10 * to_simtime(0.04)
     end
 
     @testset "a server slower than the source builds a queue" begin
@@ -53,9 +53,9 @@ end
 
         # The server takes them at its own rate and the rest wait: what was
         # produced is either served, in the server, or in the queue.
-        @test chain.sink.statistics.num_packets == 4
+        @test chain.sink.num_packets == 4
         @test queue_length(chain.queue) ==
-              chain.source.num_packets - chain.sink.statistics.num_packets - 1
+              chain.source.num_packets - chain.sink.num_packets - 1
         # Waiting time grows, so the average is well above zero.
         @test chain.queue.statistics.total_queueing_time > to_simtime(0.5)
     end
@@ -71,10 +71,10 @@ end
         @test chain.queue.statistics.num_dropped == 0
         @test queue_length(chain.queue) <= 2
         @test chain.source.num_packets ==
-              chain.sink.statistics.num_packets + queue_length(chain.queue) + 1
+              chain.sink.num_packets + queue_length(chain.queue) + 1
         # Once full the producer stops, and it is the queue emptying that starts
         # it again — without that it would stall for the rest of the run.
-        @test chain.sink.statistics.num_packets >= 7
+        @test chain.sink.num_packets >= 7
     end
 
     @testset "a queue with a dropper loses packets instead" begin
@@ -87,7 +87,7 @@ end
         @test chain.source.num_packets == 21
         @test chain.queue.statistics.num_dropped > 0
         @test chain.source.num_packets ==
-              chain.sink.statistics.num_packets + queue_length(chain.queue) +
+              chain.sink.num_packets + queue_length(chain.queue) +
               chain.queue.statistics.num_dropped + 1
     end
 
@@ -151,7 +151,7 @@ end
         # However fast packets arrive, exactly one is in service and the rest
         # are in the queue.
         @test chain.server.states.packet !== nothing
-        @test chain.sink.statistics.num_packets == 5
+        @test chain.sink.num_packets == 5
         # Every served packet took the same fixed time.
         @test chain.server.statistics.total_service_time ==
               chain.server.statistics.num_packets * to_simtime(0.1)
@@ -191,9 +191,9 @@ end
 
         # Nothing waits: every packet crosses the whole chain in the event that
         # produced it, so the queue is never left holding anything.
-        @test sink.statistics.num_packets == 11
+        @test sink.num_packets == 11
         @test queue_length(queue) == 0
-        @test sink.statistics.total_life_time == SimTime(0)
+        @test sink.total_life_time == SimTime(0)
         @test queue.statistics.total_queueing_time == SimTime(0)
     end
 

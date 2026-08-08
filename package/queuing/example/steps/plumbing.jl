@@ -9,8 +9,8 @@
 
 using InetQueuing: PacketDelayerModule, PacketDelayerParameters,
     PacketMultiplexerModule, PacketDemultiplexerModule,
-    PassivePacketSourceModule, PassivePacketSourceParameters,
-    ActivePacketSinkModule, ActivePacketSinkParameters
+    PassivePacketSourceModule,
+    ActivePacketSinkModule
 
 export DelayerModel, MultiplexerModel, DemultiplexerModel
 
@@ -202,16 +202,16 @@ end
 function _build_demultiplexer_network(m)
     network = Network(:Demultiplexer)
     # A demultiplexer sits on the PULL side: one provider, several collectors.
-    source = add_module!(network, PassivePacketSourceModule(:source,
-        PassivePacketSourceParameters(packet = PacketTemplate(length = Bytes(100)));
+    source = add_module!(network, PassivePacketSourceModule(:source;
+        packet = PacketTemplate(length = Bytes(100)),
         seed = m.seed))
     fork = add_module!(network, PacketDemultiplexerModule(:demultiplexer, m.sinks))
     connect!(source.out, fork.in)
     # Each sink collects on its own clock, so which one gets a given packet is
     # decided by who asks first.
     for index in 1:m.sinks
-        sink = add_module!(network, ActivePacketSinkModule(Symbol(:sink, index),
-            ActivePacketSinkParameters(collection_interval = m.collection_interval);
+        sink = add_module!(network, ActivePacketSinkModule(Symbol(:sink, index);
+            collection_interval = m.collection_interval,
             seed = m.seed + index))
         connect!(fork.out[index], sink.in)
     end

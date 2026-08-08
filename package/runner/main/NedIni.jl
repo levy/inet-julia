@@ -19,10 +19,8 @@ using OmnetppDescription
 using OmnetppUnits: AbstractDuration, AbstractInformation, seconds, ustrip, uconvert, bit
 using InetPacket.PacketModule: BitLength, Bits, Bytes
 using InetQueuing.ActivePacketSourceElement: ActivePacketSourceModule
-using InetQueuing.PassivePacketSinkElement: PassivePacketSinkModule,
-                                            PassivePacketSinkParameters
-using InetQueuing.ActivePacketSinkElement: ActivePacketSinkModule,
-                                           ActivePacketSinkParameters
+using InetQueuing.PassivePacketSinkElement: PassivePacketSinkModule
+using InetQueuing.ActivePacketSinkElement: ActivePacketSinkModule
 using InetQueuing.PacketQueueElement: PacketQueueModule, PacketQueueParameters
 using InetQueuing.PacketSourceModule: PacketTemplate
 
@@ -44,12 +42,8 @@ _length(v) = v isa AbstractInformation ? Bits(round(Int, ustrip(uconvert(bit, v)
 
 _length_or(values, key, default) = haskey(values, key) ? _length(values[key]) : default
 
-# ── The elements whose shape already fits ───────────────────────────────
-
-OmnetppDescription.ned_parameters_type(::Type{PassivePacketSinkModule}) =
-    PassivePacketSinkParameters
-OmnetppDescription.ned_parameters_type(::Type{ActivePacketSinkModule}) =
-    ActivePacketSinkParameters
+# The sinks need no hook at all: a kind declared with `@simulation_module`
+# answers for its own parameters, and the builder asks it.
 
 # ── PacketQueue: one conversion, otherwise a fit ────────────────────────
 

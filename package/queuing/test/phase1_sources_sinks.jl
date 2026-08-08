@@ -25,28 +25,28 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         # The first packet is produced as the run starts and one every interval
         # after that, up to and including the last instant of the run.
         @test source.num_packets == 11
-        @test sink.statistics.num_packets == 11
-        @test sink.statistics.total_length == 11 * 800
+        @test sink.num_packets == 11
+        @test sink.total_length == 11 * 800
 
         # Over an ideal connection the packet crosses inside the producer's own
         # event, so nothing was scheduled to deliver it and no time passed.
-        @test sink.statistics.total_life_time == SimTime(0)
+        @test sink.total_life_time == SimTime(0)
     end
 
     @testset "a sink that consumes slowly holds the source back" begin
         network = Network(:BackPressure)
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
-        sink = add_module!(network, PassivePacketSinkModule(:sink,
-            PassivePacketSinkParameters(consumption_interval = 0.25)))
+        sink = add_module!(network, PassivePacketSinkModule(:sink;
+            consumption_interval = 0.25))
         connect!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
         # The sink refuses for a quarter of a second after each packet, so the
         # pair settles at the sink's rate rather than the source's: production
         # is delayed, not queued up behind the refusal.
-        @test sink.statistics.num_packets == 5
-        @test source.num_packets == sink.statistics.num_packets
+        @test sink.num_packets == 5
+        @test source.num_packets == sink.num_packets
     end
 
     @testset "a source writes data on its packets" begin
@@ -61,7 +61,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in)
         run_network!(network; until = 0.5)
-        @test sink.statistics.num_packets == 6
+        @test sink.num_packets == 6
 
         varied = Network(:VariedData)
         varied_source = add_module!(varied, ActivePacketSourceModule(:source;
@@ -72,7 +72,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         collector = add_module!(varied, PassivePacketSinkModule(:sink))
         connect!(varied_source.out, collector.in)
         run_network!(varied, until = 2.0)
-        @test collector.statistics.num_packets == 21
+        @test collector.num_packets == 21
 
         # A packet with no data says so rather than guessing a default.
         plain = create_packet(PacketTemplate(length = Bytes(100)), MersenneTwister(1),
@@ -85,38 +85,38 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
     @testset "a sink pulls from a source" begin
         network = Network(:Pull)
-        source = add_module!(network, PassivePacketSourceModule(:source,
-            PassivePacketSourceParameters(packet = PacketTemplate(length = Bytes(50)))))
-        sink = add_module!(network, ActivePacketSinkModule(:sink,
-            ActivePacketSinkParameters(collection_interval = 0.2)))
+        source = add_module!(network, PassivePacketSourceModule(:source;
+            packet = PacketTemplate(length = Bytes(50))))
+        sink = add_module!(network, ActivePacketSinkModule(:sink;
+            collection_interval = 0.2))
         connect!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
-        @test sink.statistics.num_packets == 6
-        @test source.statistics.num_packets == 6
-        @test sink.statistics.total_length == 6 * 400
+        @test sink.num_packets == 6
+        @test source.num_packets == 6
+        @test sink.total_length == 6 * 400
     end
 
     @testset "a source that provides slowly holds the sink back" begin
         network = Network(:SlowProvider)
-        source = add_module!(network, PassivePacketSourceModule(:source,
-            PassivePacketSourceParameters(providing_interval = 0.25)))
-        sink = add_module!(network, ActivePacketSinkModule(:sink,
-            ActivePacketSinkParameters(collection_interval = 0.1)))
+        source = add_module!(network, PassivePacketSourceModule(:source;
+            providing_interval = 0.25))
+        sink = add_module!(network, ActivePacketSinkModule(:sink;
+            collection_interval = 0.1))
         connect!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
         # The sink asks every tenth of a second and is told no until the source
         # has something again, so the pair runs at the source's rate.
-        @test sink.statistics.num_packets == 5
-        @test source.statistics.num_packets == 5
+        @test sink.num_packets == 5
+        @test source.num_packets == 5
     end
 
     @testset "looking at the next packet does not take it" begin
         network = Network(:Peek)
         source = add_module!(network, PassivePacketSourceModule(:source))
-        sink = add_module!(network, ActivePacketSinkModule(:sink,
-            ActivePacketSinkParameters(collection_interval = 0.5)))
+        sink = add_module!(network, ActivePacketSinkModule(:sink;
+            collection_interval = 0.5))
         connect!(source.out, sink.in)
         initialize_network!(network)
 
@@ -125,13 +125,13 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         offered = can_pull_packet(sink.provider)
         @test offered !== nothing
         @test can_pull_packet(sink.provider) === offered
-        @test source.statistics.num_packets == 0        # looking is not taking
+        @test source.num_packets == 0        # looking is not taking
         engine = SequentialSimulator(network_module_count(network))
         schedule_root!(engine, to_simtime(0.0), module_id(sink), function (ctx)
             @test pull_packet!(ctx, sink.provider) === offered
         end)
         run!(engine)
-        @test source.statistics.num_packets == 1
+        @test source.num_packets == 1
     end
 
     @testset "a delayed connection makes delivery an event" begin
@@ -145,8 +145,8 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         # Every packet spends the propagation delay in flight, so each arrives
         # one delay after it was made and the last one is still on the wire.
         @test source.num_packets == 11
-        @test sink.statistics.num_packets == 10
-        @test sink.statistics.total_life_time == 10 * to_simtime(0.05)
+        @test sink.num_packets == 10
+        @test sink.total_life_time == 10 * to_simtime(0.05)
     end
 
     @testset "packet length can be drawn per packet" begin
@@ -159,10 +159,10 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         connect!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
-        @test sink.statistics.num_packets == 11
+        @test sink.num_packets == 11
         # Lengths vary, and every one is inside the range asked for.
-        @test sink.statistics.total_length != 11 * 80
-        @test 11 * 80 <= sink.statistics.total_length <= 11 * 800
+        @test sink.total_length != 11 * 80
+        @test 11 * 80 <= sink.total_length <= 11 * 800
     end
 
     @testset "production interval can be drawn per packet" begin
@@ -176,7 +176,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
         # Around a hundred packets in ten seconds at a mean interval of 0.1s,
         # and the same seed gives the same run.
-        @test 60 <= sink.statistics.num_packets <= 140
+        @test 60 <= sink.num_packets <= 140
 
         again = Network(:RandomInterval)
         source2 = add_module!(again, ActivePacketSourceModule(:source;
@@ -185,7 +185,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         sink2 = add_module!(again, PassivePacketSinkModule(:sink))
         connect!(source2.out, sink2.in)
         run_network!(again; until = 10.0)
-        @test sink2.statistics.num_packets == sink.statistics.num_packets
+        @test sink2.num_packets == sink.num_packets
     end
 
     @testset "a run is reproducible" begin
@@ -248,7 +248,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         sink2 = add_module!(plain, PassivePacketSinkModule(:sink))
         connect!(source2.out, sink2.in; delay = to_simtime(0.01))
         run_network!(plain; until = 1.0)
-        @test sink2.statistics.num_packets == 4
+        @test sink2.num_packets == 4
     end
 
     @testset "a network can be run again" begin
@@ -260,13 +260,36 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         connect!(source.out, sink.in)
 
         first_run = run_network!(network; until = 2.0)
-        produced = sink.statistics.num_packets
+        produced = sink.num_packets
         reset_network!(network)
-        @test sink.statistics.num_packets == 0
+        @test sink.num_packets == 0
         second_run = run_network!(network; until = 2.0)
         # Reset puts the generators back where they started, so the second run
         # is the first one over again.
-        @test sink.statistics.num_packets == produced
+        @test sink.num_packets == produced
         @test network_hash(second_run) == network_hash(first_run)
+    end
+
+    @testset "a run after a reset still records" begin
+        # A generated reset writes every statistic back to what it was
+        # declared as, and the recording handle is one of them. That is only
+        # safe because a run registers the statistics again — which is what
+        # this pins.
+        network = Network(:Rerecorded)
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.25,
+            packet = PacketTemplate(length = Bytes(125))))
+        sink = add_module!(network, PassivePacketSinkModule(:sink))
+        connect!(source.out, sink.in)
+
+        first_recorder = Recorder()
+        run_network!(network; until = 1.0, recorder = first_recorder)
+        @test statistic_scalar(first_recorder, "Rerecorded.sink", "packets:count") == 5
+
+        reset_network!(network)
+        second_recorder = Recorder()
+        run_network!(network; until = 1.0, recorder = second_recorder)
+        @test statistic_scalar(second_recorder, "Rerecorded.sink", "packets:count") == 5
+        @test length(statistic_samples(second_recorder, "Rerecorded.sink", "packetLengths")) == 5
     end
 end

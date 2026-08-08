@@ -40,7 +40,7 @@ using OmnetppSimulator.VolatileModule
         run_network!(network; until = 1.0)
 
         @test labeler.statistics.num_packets == 11
-        @test sink.statistics.num_packets == 11
+        @test sink.num_packets == 11
         @test wants_seven.statistics.num_dropped == 0
     end
 
@@ -61,7 +61,7 @@ using OmnetppSimulator.VolatileModule
         @test cloner.statistics.num_packets == 11
         # Two copies per packet: the last output gets the original.
         @test cloner.statistics.num_copies == 22
-        @test all(sink -> sink.statistics.num_packets == 11, sinks)
+        @test all(sink -> sink.num_packets == 11, sinks)
     end
 
     @testset "a duplicator thickens one stream in place" begin
@@ -78,7 +78,7 @@ using OmnetppSimulator.VolatileModule
         # Eleven packets, every second one sent twice: five duplicates.
         @test duplicator.statistics.num_packets == 11
         @test duplicator.statistics.num_duplicates == 5
-        @test sink.statistics.num_packets == 16
+        @test sink.num_packets == 16
     end
 
     @testset "copies carry their own tags" begin
@@ -111,8 +111,8 @@ using OmnetppSimulator.VolatileModule
         connect!(second_filter.out, second_sink.in)
         run_network!(network; until = 1.0)
 
-        @test first_sink.statistics.num_packets == 3
-        @test second_sink.statistics.num_packets == 3
+        @test first_sink.num_packets == 3
+        @test second_sink.num_packets == 3
         @test first_filter.statistics.num_dropped == 0
         @test second_filter.statistics.num_dropped == 0
     end
@@ -133,7 +133,7 @@ using OmnetppSimulator.VolatileModule
         produced = sum(source -> source.num_packets, sources)
         @test produced == 11 + 6
         @test merge.num_packets == produced
-        @test sink.statistics.num_packets == produced
+        @test sink.num_packets == produced
     end
 
     @testset "a multiplexer passes back pressure to every producer" begin
@@ -142,8 +142,8 @@ using OmnetppSimulator.VolatileModule
             production_interval = 0.1))
                    for index in 1:2]
         merge = add_module!(network, PacketMultiplexerModule(:merge, 2))
-        slow = add_module!(network, PassivePacketSinkModule(:sink,
-            PassivePacketSinkParameters(consumption_interval = 0.25)))
+        slow = add_module!(network, PassivePacketSinkModule(:sink;
+            consumption_interval = 0.25))
         connect!(sources[1].out, merge.in[1])
         connect!(sources[2].out, merge.in[2])
         connect!(merge.out, slow.in)
@@ -153,7 +153,7 @@ using OmnetppSimulator.VolatileModule
         # producers in order, so the first one takes it every time and the
         # second is refused again — sharing a sink is not fair queuing, and
         # anything that needs fairness puts a scheduler in the way.
-        @test slow.statistics.num_packets == 9
+        @test slow.num_packets == 9
         @test sum(source -> source.num_packets, sources) == 9
         @test sources[1].num_packets == 9
         @test sources[2].num_packets == 0
@@ -165,8 +165,8 @@ using OmnetppSimulator.VolatileModule
             production_interval = 0.1))
         queue = add_module!(network, PacketQueueModule(:queue))
         split = add_module!(network, PacketDemultiplexerModule(:split, 2))
-        sinks = [add_module!(network, ActivePacketSinkModule(Symbol(:sink, index),
-                     ActivePacketSinkParameters(collection_interval = 0.2 * index)))
+        sinks = [add_module!(network, ActivePacketSinkModule(Symbol(:sink, index);
+            collection_interval = 0.2 * index))
                  for index in 1:2]
         connect!(source.out, queue.in)
         connect!(queue.out, split.in)
@@ -174,9 +174,9 @@ using OmnetppSimulator.VolatileModule
         connect!(split.out[2], sinks[2].in)
         run_network!(network; until = 2.0)
 
-        collected = sum(sink -> sink.statistics.num_packets, sinks)
+        collected = sum(sink -> sink.num_packets, sinks)
         @test collected == split.num_packets
-        @test all(sink -> sink.statistics.num_packets > 0, sinks)
+        @test all(sink -> sink.num_packets > 0, sinks)
         # Nothing is duplicated or lost: what arrived was produced, and what
         # was not collected is still in the queue.
         @test source.num_packets == collected + queue_length(queue)
@@ -196,9 +196,9 @@ using OmnetppSimulator.VolatileModule
         # Several packets are in flight at once — the delayer holds them, it
         # does not serve them one at a time.
         @test source.num_packets == 11
-        @test sink.statistics.num_packets == 8
+        @test sink.num_packets == 8
         @test packets_in_flight(delayer) == 3
-        @test sink.statistics.total_life_time == 8 * to_simtime(0.25)
+        @test sink.total_life_time == 8 * to_simtime(0.25)
     end
 
     @testset "a drawn delay reorders packets" begin
@@ -214,10 +214,10 @@ using OmnetppSimulator.VolatileModule
         connect!(delayer.out, sink.in)
         run_network!(network; until = 5.0)
 
-        @test sink.statistics.num_packets > 40
+        @test sink.num_packets > 40
         # Lives differ because delays do, which is what makes this a path with
         # jitter rather than a fixed one.
-        @test sink.statistics.total_life_time != sink.statistics.num_packets * to_simtime(0.275)
+        @test sink.total_life_time != sink.num_packets * to_simtime(0.275)
     end
 
     @testset "a priority queue behaves like one queue" begin
@@ -242,11 +242,11 @@ using OmnetppSimulator.VolatileModule
         # Nothing outside knew it was a compound: the source found the
         # classifier through the boundary, the server found the scheduler.
         @test source.num_packets > 0
-        @test sink.statistics.num_packets > 0
+        @test sink.num_packets > 0
         @test priority_queue_length(queue) ==
               queue_length(queue.queues[1]) + queue_length(queue.queues[2])
         @test source.num_packets ==
-              sink.statistics.num_packets + priority_queue_length(queue) +
+              sink.num_packets + priority_queue_length(queue) +
               priority_queue_dropped(queue) + 1
 
         # The urgent level is served first, so it stays short while the other
