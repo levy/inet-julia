@@ -143,6 +143,7 @@ struct World
     elements::Dict{Symbol,Element}
     retired::Dict{Symbol,Symbol}       # ActivePacketSourceParameters => the element
     structs::Set{Symbol}               # every struct that is still defined
+    struct_fields::Dict{Symbol,Dict{Symbol,Any}}   # struct => field => declared type
     returns::Dict{Symbol,Any}          # function name => what it returns
 end
 
@@ -171,7 +172,25 @@ function declared_field(n)
     nothing
 end
 
-function read_sections!(fields::Dict{Symbol,Symbol}, body)
+# The declared type of a field, as far as the inference cares: the name of a
+# type, or a vector of one. Everything else is nothing.
+function declared_type(n)
+    k = kd(n)
+    (k == JS.K"=" || k == JS.K"::") && length(kids(n)) >= 2 &&
+        return k == JS.K"::" ? _type_name(kids(n)[2]) : declared_type(kids(n)[1])
+    nothing
+end
+
+function _type_name(n)
+    kd(n) == JS.K"Identifier" && return n.val
+    kd(n) == JS.K"curly" && length(kids(n)) == 2 && simple_name(kids(n)[1]) === :Vector &&
+        return let inner = _type_name(kids(n)[2])
+            inner === nothing ? nothing : VecOf(inner)
+        end
+    nothing
+end
+
+function read_sections!(fields::Dict{Symbol,Symbol}, types::Dict{Symbol,Any}, body)
     for item in kids(body)
         kd(item) == JS.K"macrocall" || continue
         parts = kids(item)
@@ -181,14 +200,16 @@ function read_sections!(fields::Dict{Symbol,Symbol}, body)
             # A plural section holds a block; a singular one holds the field.
             for decl in (kd(arg) == JS.K"block" ? kids(arg) : (arg,))
                 name = declared_field(decl)
-                name === nothing || (fields[name] = kind)
+                name === nothing && continue
+                fields[name] = kind
+                types[name] = declared_type(decl)
             end
         end
     end
 end
 
 # Every module kind the file defines, and every struct name it uses up.
-function collect_elements!(elements, structs, file, tree)
+function collect_elements!(elements, structs, struct_fields, file, tree)
     function visit(n)
         if kd(n) == JS.K"macrocall" && !isempty(kids(n)) &&
            kids(n)[1].val === Symbol("@simulation_module")
@@ -196,15 +217,24 @@ function collect_elements!(elements, structs, file, tree)
             if decl !== nothing
                 s = kids(n)[decl]
                 name = simple_name(kids(s)[1])
-                fields = Dict{Symbol,Symbol}()
-                length(kids(s)) >= 2 && read_sections!(fields, kids(s)[2])
-                name === nothing ||
-                    (elements[name] = Element(name, file, true, fields); push!(structs, name))
+                fields, types = Dict{Symbol,Symbol}(), Dict{Symbol,Any}()
+                length(kids(s)) >= 2 && read_sections!(fields, types, kids(s)[2])
+                if name !== nothing
+                    elements[name] = Element(name, file, true, fields)
+                    push!(structs, name)
+                    struct_fields[name] = types
+                end
             end
         elseif kd(n) == JS.K"struct"
             head = kids(n)[1]
             name = simple_name(kd(head) == JS.K"<:" ? kids(head)[1] : head)
             name === nothing || push!(structs, name)
+            if name !== nothing && length(kids(n)) >= 2
+                struct_fields[name] = Dict{Symbol,Any}(
+                    f => declared_type(item)
+                    for item in kids(kids(n)[2])
+                    for f in (declared_field(item),) if f !== nothing)
+            end
             if kd(head) == JS.K"<:" && simple_name(kids(head)[2]) === :AbstractModule &&
                name !== nothing && !haskey(elements, name)
                 elements[name] = Element(name, file, false, Dict{Symbol,Symbol}())
@@ -287,6 +317,18 @@ end
 
 # ── inference ────────────────────────────────────────────────────────────────
 
+# A struct the tree defines. A compound under `AbstractCompoundModule` is not a
+# module kind this tool ports, but knowing a receiver is one still says what its
+# fields hold, so the binding is worth making.
+_a_known_struct(w::World, name) = haskey(w.elements, name) || haskey(w.struct_fields, name)
+
+# A declared type matters only when it names a module kind. Anything else the
+# inference has no use for.
+_if_a_module(world::World, t) =
+    t isa Symbol ? (haskey(world.elements, t) ? t : nothing) :
+    t isa VecOf ? (let inner = _if_a_module(world, t.of); inner === nothing ? nothing : VecOf(inner) end) :
+    nothing
+
 function infer(sc::FileScan, n)
     k = kd(n)
     if k == JS.K"Identifier"
@@ -295,7 +337,15 @@ function infer(sc::FileScan, n)
         length(kids(n)) == 2 || return nothing
         base = infer(sc, kids(n)[1])
         field = simple_name(kids(n)[2])
-        base isa Record && field !== nothing && return get(base.fields, field, nothing)
+        field === nothing && return nothing
+        base isa Record && return get(base.fields, field, nothing)
+        # A field of a struct whose declaration says what it holds. This is how
+        # `m.queues` on a compound answers with a vector of queues.
+        if base isa Symbol
+            declared = get(sc.world.struct_fields, base, nothing)
+            declared === nothing && return nothing
+            return _if_a_module(sc.world, get(declared, field, nothing))
+        end
         return nothing
     elseif k == JS.K"ref"
         base = infer(sc, kids(n)[1])
@@ -354,7 +404,7 @@ end
 function infer_call(sc::FileScan, n)
     callee = simple_name(kids(n)[1])
     callee === nothing && return nothing
-    haskey(sc.world.elements, callee) && return callee
+    _a_known_struct(sc.world, callee) && return callee
     # `add_module!(network, m)` and `add_submodule!(parent, m)` answer for `m`.
     if callee in (:add_module!, :add_submodule!) && length(kids(n)) >= 3
         return infer(sc, kids(n)[3])
@@ -474,8 +524,8 @@ function bind_signature!(sc::FileScan, sig)
     function take(arg)
         if kd(arg) == JS.K"::" && length(kids(arg)) == 2
             name, ty = simple_name(kids(arg)[1]), simple_name(kids(arg)[2])
-            name === nothing || ty === nothing ||
-                (haskey(sc.world.elements, ty) && bind!(sc, name, ty))
+            name === nothing || ty === nothing || !_a_known_struct(sc.world, ty) ||
+                bind!(sc, name, ty)
         elseif kd(arg) == JS.K"="
             take(kids(arg)[1])
         end
@@ -657,6 +707,15 @@ function render_construction(sc::FileScan, n, name_arg, kwargs, inside)
            join(parts, ",\n" * " "^body), ")")
 end
 
+"Consecutive runs of a sorted index list: [1, 2, 4] becomes [[1, 2], [4]]."
+function _runs_of_neighbours(indices)
+    runs = Vector{Int}[]
+    for i in indices
+        isempty(runs) || last(last(runs)) + 1 != i ? push!(runs, [i]) : push!(last(runs), i)
+    end
+    runs
+end
+
 # A retired name in a `using`, an `import` or an `export` goes, and takes one
 # separator with it.
 function visit_name_list!(sc::FileScan, n)
@@ -680,12 +739,17 @@ function visit_name_list!(sc::FileScan, n)
                              line_of(sc.src, first(r)), "drop `$(strip(sc.src[r]))`"))
         return
     end
-    for i in gone
+    # Neighbours go in one cut. Two cuts that each take their own separator
+    # would overlap on the comma between them.
+    for group in _runs_of_neighbours(gone)
+        first_i, last_i = first(group), last(group)
         # Take the separator on the side that has one, so no comma is orphaned.
-        cut = i > 1 ? ((last(span(items[i - 1])) + 1):last(span(items[i]))) :
-                      (first(span(items[i])):(first(span(items[i + 1])) - 1))
-        push!(sc.edits, Edit(cut, "", :import, line_of(sc.src, first(span(items[i]))),
-                             "drop `$(named(items[i]))` from the list"))
+        cut = first_i > 1 ?
+              ((last(span(items[first_i - 1])) + 1):last(span(items[last_i]))) :
+              (first(span(items[first_i])):(first(span(items[last_i + 1])) - 1))
+        push!(sc.edits, Edit(cut, "", :import, line_of(sc.src, first(span(items[first_i]))),
+                             "drop " * join(("`$(named(items[i]))`" for i in group), ", ") *
+                             " from the list"))
     end
     nothing
 end
@@ -740,15 +804,17 @@ end
 function scan_world(root, files)
     elements = Dict{Symbol,Element}()
     structs = Set{Symbol}()
+    struct_fields = Dict{Symbol,Dict{Symbol,Any}}()
     sources = Dict{String,Any}()
     for file in files
         src = read(joinpath(root, file), String)
         tree = parse_file(file, src)
         tree === nothing && continue
         sources[file] = (src, tree)
-        collect_elements!(elements, structs, file, tree)
+        collect_elements!(elements, structs, struct_fields, file, tree)
     end
-    world = World(elements, collect_retired(elements, structs), structs, Dict{Symbol,Any}())
+    world = World(elements, collect_retired(elements, structs), structs, struct_fields,
+                  Dict{Symbol,Any}())
     # What a function returns may rest on what another one returns, so the
     # harvest runs twice and settles.
     for _ in 1:2, file in sort(collect(keys(sources)))

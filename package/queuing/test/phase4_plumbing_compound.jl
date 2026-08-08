@@ -230,8 +230,7 @@ using OmnetppSimulator.VolatileModule
         urgent_first = content_based_classifier(:classifier,
             [packet -> bits(data_length(packet)) < 400, _ -> true])
         queue = priority_queue(network, :queue, 2; classifier = urgent_first)
-        server = add_module!(network, PacketServerModule(:server,
-            PacketServerParameters(processing_time = 0.25)))
+        server = add_module!(network, PacketServerModule(:server; processing_time = 0.25))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         # From outside, the compound is wired exactly like a plain queue.
         connect!(source.out, queue.in)
@@ -263,8 +262,7 @@ using OmnetppSimulator.VolatileModule
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         queue = priority_queue(network, :queue, 2)
-        server = add_module!(network, PacketServerModule(:server,
-            PacketServerParameters(processing_time = 0.05)))
+        server = add_module!(network, PacketServerModule(:server; processing_time = 0.05))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, queue.in)
         connect!(queue.out, server.in)

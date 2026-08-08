@@ -43,8 +43,8 @@ function priority_chain(; production_interval = 0.1, processing_time = 0.25,
     queues = [add_module!(network, PacketQueueModule(Symbol(:queue, index)))
               for index in 1:2]
     join = add_module!(network, priority_scheduler(:scheduler, 2))
-    server = add_module!(network, PacketServerModule(:server,
-        PacketServerParameters(processing_time = processing_time)))
+    server = add_module!(network, PacketServerModule(:server;
+        processing_time = processing_time))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
     connect!(source.out, fork.in)
     for index in 1:2
@@ -84,12 +84,10 @@ end
         fork = add_module!(network, priority_classifier(:classifier, 2))
         # The first queue holds two packets; after that the classifier has to
         # use the second.
-        first = add_module!(network, PacketQueueModule(:first,
-            PacketQueueParameters(packet_capacity = 2)))
+        first = add_module!(network, PacketQueueModule(:first; packet_capacity = 2))
         second = add_module!(network, PacketQueueModule(:second))
         join = add_module!(network, priority_scheduler(:scheduler, 2))
-        server = add_module!(network, PacketServerModule(:server,
-            PacketServerParameters(processing_time = 100.0)))
+        server = add_module!(network, PacketServerModule(:server; processing_time = 100.0))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, fork.in)
         connect!(fork.out[1], first.in)
@@ -136,8 +134,7 @@ end
         first = add_module!(network, PacketQueueModule(:first))
         second = add_module!(network, PacketQueueModule(:second))
         join = add_module!(network, weighted_round_robin_scheduler(:scheduler, [1, 1]))
-        server = add_module!(network, PacketServerModule(:server,
-            PacketServerParameters(processing_time = 0.01)))
+        server = add_module!(network, PacketServerModule(:server; processing_time = 0.01))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, second.in)          # the FIRST queue is never fed
         connect!(first.out, join.in[1])
@@ -244,8 +241,8 @@ end
         # The classifier prefers the first queue while it will take packets, and
         # a priority queue never has anything waiting behind an empty one: the
         # scheduler empties the first before touching the second.
-        @test chain.join.statistics.num_packets == chain.server.statistics.num_packets +
-              (chain.server.states.packet === nothing ? 0 : 1)
+        @test chain.join.statistics.num_packets == chain.server.num_packets +
+              (chain.server.packet === nothing ? 0 : 1)
         @test scheduler_inputs(chain.join) == 2
         @test chain.join.statistics.per_input[1] > 0
         served = sum(chain.join.statistics.per_input)
@@ -292,8 +289,8 @@ end
             source = add_module!(network, ActivePacketSourceModule(:source;
                 production_interval = 0.1))
             queue = add_module!(network, PacketQueueModule(:queue))
-            server = add_module!(network, PacketServerModule(:server,
-                PacketServerParameters(processing_time = 0.01)))
+            server = add_module!(network, PacketServerModule(:server;
+                processing_time = 0.01))
             filter = add_module!(network, PacketFilterModule(:filter,
                 PacketFilterParameters(predicate = _ -> false, backpressure = backpressure)))
             sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -311,14 +308,14 @@ end
         refusing = filtered_chain(true)
         @test refusing.source.num_packets == 11
         @test queue_length(refusing.queue) == 11
-        @test refusing.server.statistics.num_packets == 0
+        @test refusing.server.num_packets == 0
         @test refusing.filter.statistics.num_dropped == 0
 
         # Without it the filter accepts everything and drops what does not
         # match, so the same chain runs dry instead.
         dropping = filtered_chain(false)
         @test queue_length(dropping.queue) == 0
-        @test dropping.filter.statistics.num_dropped == dropping.server.statistics.num_packets
+        @test dropping.filter.statistics.num_dropped == dropping.server.num_packets
         @test dropping.sink.num_packets == 0
     end
 

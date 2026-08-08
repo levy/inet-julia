@@ -21,7 +21,7 @@ using InetPacket.PacketModule: BitLength, Bits, Bytes
 using InetQueuing.ActivePacketSourceElement: ActivePacketSourceModule
 using InetQueuing.PassivePacketSinkElement: PassivePacketSinkModule
 using InetQueuing.ActivePacketSinkElement: ActivePacketSinkModule
-using InetQueuing.PacketQueueElement: PacketQueueModule, PacketQueueParameters
+using InetQueuing.PacketQueueElement: PacketQueueModule
 using InetQueuing.PacketSourceModule: PacketTemplate
 
 export register_queuing_ned_types!
@@ -47,14 +47,12 @@ _length_or(values, key, default) = haskey(values, key) ? _length(values[key]) : 
 
 # ── PacketQueue: one conversion, otherwise a fit ────────────────────────
 
-OmnetppDescription.ned_parameters_type(::Type{PacketQueueModule}) = PacketQueueParameters
-
 function OmnetppDescription.build_ned_module(::Type{PacketQueueModule}, name::Symbol,
                                              values::AbstractDict{Symbol})
-    PacketQueueModule(name, PacketQueueParameters(;
+    PacketQueueModule(name;
         packet_capacity = _capacity(get(values, :packet_capacity, nothing)),
         data_capacity = haskey(values, :data_capacity) ?
-                        _capacity_length(values[:data_capacity]) : nothing))
+                        _capacity_length(values[:data_capacity]) : nothing)
 end
 
 # NED writes "no limit" as -1, and this port writes it as `nothing`.

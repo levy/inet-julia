@@ -110,7 +110,7 @@ end
     @test isempty(unused_rules(resolution))
 
     queue = only(m for m in network.modules if module_name(m) === :queue)
-    @test queue.parameters.packet_capacity === nothing   # the INI sets none here
+    @test queue.packet_capacity === nothing               # the INI sets none here
 
     produced = statistic_scalar(recorder, "$net.producer", "packets:count")
     collected = statistic_scalar(recorder, "$net.collector", "packets:count")
@@ -127,7 +127,7 @@ end
 
     # Conservation: what the source made is what the sink took, plus what the
     # queue still holds. This holds exactly, whatever the stream.
-    @test produced == collected + length(queue.states.packets)
+    @test produced == collected + length(queue.packets)
 end
 
 end # inet-cpp present

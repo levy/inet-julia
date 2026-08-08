@@ -71,9 +71,9 @@ function _build_complex_network(m)
     end
     # One compound queue for both of them, drained by one server.
     queue = priority_queue(network, :queue, m.priorities;
-        queue_parameters = PacketQueueParameters(packet_capacity = m.level_capacity))
-    server = add_module!(network, PacketServerModule(:server,
-        PacketServerParameters(processing_time = m.processing_time)))
+        queue_parameters = (packet_capacity = m.level_capacity,))
+    server = add_module!(network, PacketServerModule(:server;
+        processing_time = m.processing_time))
     # And a filter on the way out, dropping rather than refusing so the chain
     # keeps running.
     rng = MersenneTwister(m.seed + 99)

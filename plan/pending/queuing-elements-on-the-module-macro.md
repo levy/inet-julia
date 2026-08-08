@@ -213,7 +213,7 @@ Four waves, each ending green, in the order the elements were built:
 | wave | elements |
 | --- | --- |
 | 2 | `PassivePacketSource`, `PassivePacketSink`, `ActivePacketSink` — **done** |
-| 3 | `PacketQueue`, `PacketServer`, `InstantServer` |
+| 3 | `PacketQueue`, `PacketServer`, `InstantServer` — **done** |
 | 4 | `PacketClassifier`, `PacketScheduler`, `PacketFilter` |
 | 5 | the six `common` elements |
 
@@ -253,6 +253,31 @@ theirs, the first for a unit conversion and the second for `PacketTemplate`.
 
 *The baseline moved to 278 passed, 2 errored*, from the three assertions the
 reset guard adds. The two errors are still `record_tap!`.
+
+**Wave 3 findings.**
+
+*A parameter struct that is passed around, not just constructed in place.*
+`PacketQueueParameters` was a value in its own right: held in a variable, chosen
+by a ternary, handed to `priority_queue` as `queue_parameters` for every level.
+A keyword set replaces it, as a named tuple that is splatted —
+`PacketQueueModule(name; parameters...)`. This is the compound's public
+interface, so Phase 6 inherits it rather than deciding it.
+
+*Two rules the transformer gained, both paid for by this wave.* A struct
+declaration says what its fields hold, so `sum(q -> q.statistics.num_dropped,
+m.queues)` resolves from `queues::Vector{PacketQueueModule}`. And a signature
+binds its receiver for any struct the tree defines, not only for a ported
+element, which is what lets a compound under `AbstractCompoundModule` be a
+receiver at all.
+
+*One bug the transformer's own guard caught.* Two retired names next to each
+other in one import list produced two cuts that overlapped on the comma between
+them. `apply_edits` refused to write, which is what it is for. Neighbours now go
+in one cut.
+
+*What stays unknowable.* `only(m for m in network.modules if module_name(m) ===
+:queue)` picks a module out of a list by name. No inference reaches that, and
+the two sites in `nedini.jl` were rewritten by hand.
 
 ### Phase 6 — the compound
 

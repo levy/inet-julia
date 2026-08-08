@@ -12,9 +12,9 @@
 using .PacketProtocolModule: check_packet_connections
 using .PacketSourceModule: PacketTemplate
 using .ActivePacketSourceElement: ActivePacketSourceModule
-using .PacketQueueElement: PacketQueueModule, PacketQueueParameters, drop_at_end,
+using .PacketQueueElement: PacketQueueModule, drop_at_end,
     queue_length
-using .PacketServerElement: PacketServerModule, PacketServerParameters
+using .PacketServerElement: PacketServerModule
 using .PassivePacketSinkElement: PassivePacketSinkModule
 using OmnetppSimulator.NetworkModule: Network, add_module!, connect!,
     network_module_count, network_barrier, network_delay_edges, network_topology,
@@ -80,11 +80,11 @@ function _build_queuing_network(m)
         seed = m.seed))
     # A capacity with a dropper rather than back pressure: an M/M/1/K queue
     # loses what does not fit instead of stopping the arrivals.
-    queue = add_module!(network, PacketQueueModule(:queue,
-        m.packet_capacity == 0 ? PacketQueueParameters() :
-        PacketQueueParameters(packet_capacity = m.packet_capacity, dropper = drop_at_end)))
-    server = add_module!(network, PacketServerModule(:server,
-        PacketServerParameters(processing_time = Volatile(exponential(1 / m.service_rate)));
+    queue = add_module!(network, m.packet_capacity == 0 ? PacketQueueModule(:queue) :
+        PacketQueueModule(:queue; packet_capacity = m.packet_capacity,
+                          dropper = drop_at_end))
+    server = add_module!(network, PacketServerModule(:server;
+        processing_time = Volatile(exponential(1 / m.service_rate)),
         seed = m.seed + 1))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
     connect!(source.out, queue.in)

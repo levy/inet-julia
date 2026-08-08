@@ -22,8 +22,8 @@ modelled.
 module PacketServerElement
 
 using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network,
-    input_gate, output_gate, module_id
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+    @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
 using OmnetppSimulator.VolatileModule: evaluate
 using InetPacket.PacketModule: Packet, bits, data_length
@@ -35,88 +35,60 @@ using ..PacketProtocolModule: PacketProtocolModule, PassivePacketSink, PassivePa
 using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic!,
     emit_time_statistic!, record_statistic!
 
-export PacketServerParameters, PacketServerStates, PacketServerStatistics, PacketServerModule
+export PacketServerModule
 
 """
-    PacketServerParameters(; processing_time = 0.0, processing_bitrate = Inf)
+    PacketServerModule(name; processing_time = 0.0, …)
+
+The module, declared by the kind of each of its fields.
 
 How long serving a packet takes: `processing_time` seconds, plus the packet's
 length divided by `processing_bitrate` bits per second. Either may be
 [`Volatile`](@ref), and then it is drawn per packet.
+
+`serving` is set before the packet is taken, not after. Taking one frees room
+upstream, and being told about that reaches this server again before its timer
+is running — without the flag it would start serving a second packet on top of
+the one it is holding.
 """
-struct PacketServerParameters
-    processing_time::Any
-    processing_bitrate::Any
+@simulation_module struct PacketServerModule
+    @parameters begin
+        processing_time::Any = 0.0
+        processing_bitrate::Any = Inf
+        seed::Int = 0
+    end
+    @gates begin
+        in::InputGate
+        out::OutputGate
+    end
+    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @variables begin
+        timer::TimerHandle = TimerHandle()
+        packet::Union{Packet,Nothing} = nothing        # the packet being served
+        service_started::SimTime = SimTime(0)
+        serving::Bool = false
+        provider::ModuleRef = NO_MODULE_REF
+        consumer::ModuleRef = NO_MODULE_REF
+    end
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_packets::Int = 0
+        total_length::Int = 0                          # bits
+        total_service_time::SimTime = SimTime(0)
+    end
 end
 
-PacketServerParameters(; processing_time = 0.0, processing_bitrate = Inf) =
-    PacketServerParameters(processing_time, processing_bitrate)
-
-mutable struct PacketServerStates
-    rng::MersenneTwister
-    seed::Int
-    timer::TimerHandle
-    packet::Union{Packet,Nothing}     # the packet being served
-    service_started::SimTime
-    # Set before the packet is taken, not after. Taking one frees room upstream,
-    # and being told about that reaches this server again before its timer is
-    # running — without the flag it would start serving a second packet on top
-    # of the one it is holding.
-    serving::Bool
-end
-
-PacketServerStates(seed::Int) =
-    PacketServerStates(MersenneTwister(seed), seed, TimerHandle(), nothing, SimTime(0), false)
-
-reset_states!(states::PacketServerStates) =
-    (states.rng = MersenneTwister(states.seed); states.timer = TimerHandle();
-     states.packet = nothing; states.service_started = SimTime(0);
-     states.serving = false; states)
-
-mutable struct PacketServerStatistics
-    recording::ModuleStatistics
-    num_packets::Int
-    total_length::Int              # bits
-    total_service_time::SimTime
-end
-
-PacketServerStatistics() = PacketServerStatistics(ModuleStatistics(), 0, 0, SimTime(0))
-
-reset_statistics!(statistics::PacketServerStatistics) =
-    (statistics.num_packets = 0; statistics.total_length = 0;
-     statistics.total_service_time = SimTime(0); statistics)
-
-const STATISTIC_NAMES = (:packetLengths, :processingTime)
-
-mutable struct PacketServerModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Gate
-    parameters::PacketServerParameters
-    states::PacketServerStates
-    statistics::PacketServerStatistics
-    provider::ModuleRef
-    consumer::ModuleRef
-end
-
-function PacketServerModule(name::Symbol,
-                            parameters::PacketServerParameters = PacketServerParameters();
-                            seed::Int = 0)
-    m = PacketServerModule(
-        name, 0,
-        # A server answers a lookup for something that will pull only when it
-        # has somewhere to put what it pulls.
-        input_gate(nothing, :in;
-                   annotations = Any[ForwardClaim(ActivePacketSink, :out;
-                                                  forwarded = PassivePacketSink)]),
-        output_gate(nothing, :out; annotations = Any[InterfaceClaim(ActivePacketSource)]),
-        parameters, PacketServerStates(seed), PacketServerStatistics(),
-        NO_MODULE_REF, NO_MODULE_REF)
-    m.in.owner = m
-    m.out.owner = m
+# The claims a lookup reads off the gates, set before any lookup walks the
+# wiring. A server answers a lookup for something that will pull only when it
+# has somewhere to put what it pulls.
+function NetworkModule.decorate_module!(m::PacketServerModule)
+    push!(m.in.annotations, ForwardClaim(ActivePacketSink, :out;
+                                         forwarded = PassivePacketSink))
+    push!(m.out.annotations, InterfaceClaim(ActivePacketSource))
     m
 end
+
+const STATISTIC_NAMES = (:packetLengths, :processingTime)
 
 function NetworkModule.initialize_module!(::Network, m::PacketServerModule)
     m.provider = resolve_interface(m.in, PassivePacketSource)
@@ -125,7 +97,7 @@ function NetworkModule.initialize_module!(::Network, m::PacketServerModule)
 end
 
 NetworkModule.register_module_statistics!(m::PacketServerModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
 NetworkModule.module_starts(::PacketServerModule) = true
 
@@ -134,21 +106,16 @@ NetworkModule.start_module!(ctx, m::PacketServerModule) = (_start_if_possible!(c
 # A server is either working on something or it is not; how long it has been at
 # it is a statistic, not a badge.
 NetworkModule.module_status(m::PacketServerModule) =
-    m.states.packet === nothing ? "idle" : "serving"
+    m.packet === nothing ? "idle" : "serving"
 
 NetworkModule.module_icon(::PacketServerModule) = "block/server"
 
-NetworkModule.reset_module!(m::PacketServerModule) =
-    (reset_states!(m.states); reset_statistics!(m.statistics); m)
-
 function NetworkModule.finalize_module!(m::PacketServerModule, ::Any)
-    statistics = m.statistics
-    recording = statistics.recording
-    record_statistic!(recording, "packets:count", statistics.num_packets)
-    record_statistic!(recording, "packetLengths:sum", statistics.total_length)
-    statistics.num_packets == 0 && return nothing
-    record_statistic!(recording, "processingTime:mean",
-                      seconds(statistics.total_service_time / statistics.num_packets))
+    record_statistic!(m.recording, "packets:count", m.num_packets)
+    record_statistic!(m.recording, "packetLengths:sum", m.total_length)
+    m.num_packets == 0 && return nothing
+    record_statistic!(m.recording, "processingTime:mean",
+                      seconds(m.total_service_time / m.num_packets))
     nothing
 end
 
@@ -161,8 +128,7 @@ PacketProtocolModule.handle_can_pull_packet_changed!(ctx, m::PacketServerModule,
     (_start_if_possible!(ctx, m); nothing)
 
 function _start_if_possible!(ctx, m::PacketServerModule)
-    states = m.states
-    (states.serving || is_scheduled(states.timer)) && return nothing
+    (m.serving || is_scheduled(m.timer)) && return nothing
     # Both ends have to allow it: something to take, and room for it when done.
     # Checking the far end now is what keeps the server from being stuck later
     # holding a packet nobody will accept.
@@ -174,31 +140,29 @@ function _start_if_possible!(ctx, m::PacketServerModule)
 end
 
 function _start_service!(ctx, m::PacketServerModule)
-    parameters, states = m.parameters, m.states
-    states.serving = true
+    m.serving = true
     packet = pull_packet!(ctx, m.provider)
-    states.packet = packet
-    states.service_started = ctx.timestamp
-    duration = evaluate(parameters.processing_time, states.rng)
-    bitrate = evaluate(parameters.processing_bitrate, states.rng)
+    m.packet = packet
+    m.service_started = ctx.timestamp
+    duration = evaluate(m.processing_time, m.rng)
+    bitrate = evaluate(m.processing_bitrate, m.rng)
     isfinite(bitrate) && (duration += bits(data_length(packet)) / bitrate)
-    schedule_timer!(ctx, to_simtime(duration), m.module_id, states.timer,
+    schedule_timer!(ctx, to_simtime(duration), m.module_id, m.timer,
                     c -> _finish_service!(c, m))
     nothing
 end
 
 function _finish_service!(ctx, m::PacketServerModule)
-    states, statistics = m.states, m.statistics
-    packet = states.packet
-    states.packet = nothing
-    states.serving = false
+    packet = m.packet
+    m.packet = nothing
+    m.serving = false
     length = bits(data_length(packet))
-    service_time = ctx.timestamp - states.service_started
-    statistics.num_packets += 1
-    statistics.total_length += length
-    statistics.total_service_time += service_time
-    emit_statistic!(statistics.recording, ctx, :packetLengths, length)
-    emit_time_statistic!(statistics.recording, ctx, :processingTime, service_time)
+    service_time = ctx.timestamp - m.service_started
+    m.num_packets += 1
+    m.total_length += length
+    m.total_service_time += service_time
+    emit_statistic!(m.recording, ctx, :packetLengths, length)
+    emit_time_statistic!(m.recording, ctx, :processingTime, service_time)
     push_or_schedule!(ctx, m.consumer, packet)
     # Straight on to the next one, if there is one and there is room.
     _start_if_possible!(ctx, m)

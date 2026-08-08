@@ -68,9 +68,9 @@ function _build_priority_queue_network(m)
     # output will not take a packet — would never reach the next level. Refusing
     # is what makes the overflow an overflow.
     queue = priority_queue(network, :queue, m.priorities;
-        queue_parameters = PacketQueueParameters(packet_capacity = m.level_capacity))
-    server = add_module!(network, PacketServerModule(:server,
-        PacketServerParameters(processing_time = m.processing_time)))
+        queue_parameters = (packet_capacity = m.level_capacity,))
+    server = add_module!(network, PacketServerModule(:server;
+        processing_time = m.processing_time))
     sink = _step_sink(network, :sink)
     connect!(source.out, queue.in)
     connect!(queue.out, server.in)
@@ -144,8 +144,8 @@ function _build_backpressure_network(m)
     network = Network(:Backpressure)
     source = _step_source(network, m)
     queue = add_module!(network, PacketQueueModule(:queue))
-    server = add_module!(network, PacketServerModule(:server,
-        PacketServerParameters(processing_time = m.processing_time)))
+    server = add_module!(network, PacketServerModule(:server;
+        processing_time = m.processing_time))
     # The filter's own generator decides which packets pass, so `pass_rate` is
     # a share of the traffic rather than a property of any one packet.
     rng = MersenneTwister(m.seed + 7)

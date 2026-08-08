@@ -21,8 +21,7 @@ module PriorityQueueElement
 using OmnetppSimulator: NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractCompoundModule, Gate, Network,
     input_gate, output_gate, connect!, add_module!, module_path
-using ..PacketQueueElement: PacketQueueModule, PacketQueueParameters, queue_length,
-    queue_bit_length
+using ..PacketQueueElement: PacketQueueModule, queue_length, queue_bit_length
 using ..PacketClassifierElement: PacketClassifierModule, priority_classifier,
     content_based_classifier
 using ..PacketSchedulerElement: PacketSchedulerModule, priority_scheduler
@@ -56,11 +55,12 @@ its submodules.
 By default packets go to the first level that will take them, so a full level
 overflows into the next; pass `classifier` — built with
 [`content_based_classifier`](@ref), say — to decide by what is in the packet
-instead. `queue_parameters` is either one set for every level or one per level.
+instead. `queue_parameters` is the keywords a level's queue is built with, as a
+named tuple — either one set for every level or one per level.
 """
 function priority_queue(network::Network, name::Symbol, priorities::Int;
                         classifier::Union{Nothing,PacketClassifierModule} = nothing,
-                        queue_parameters = PacketQueueParameters())
+                        queue_parameters = (;))
     fork = classifier === nothing ? priority_classifier(:classifier, priorities) : classifier
     parameters = queue_parameters isa AbstractVector ? queue_parameters :
                  fill(queue_parameters, priorities)
@@ -78,7 +78,7 @@ function priority_queue(network::Network, name::Symbol, priorities::Int;
 
     add_module!(network, fork; parent = compound)
     for level in 1:priorities
-        queue = PacketQueueModule(Symbol(:queue, level), parameters[level])
+        queue = PacketQueueModule(Symbol(:queue, level); parameters[level]...)
         push!(compound.queues, queue)
         add_module!(network, queue; parent = compound)
     end
@@ -120,6 +120,6 @@ priority_queue_bit_length(m::PriorityQueueModule) = sum(queue_bit_length, m.queu
 How many packets the levels dropped between them.
 """
 priority_queue_dropped(m::PriorityQueueModule) =
-    sum(queue -> queue.statistics.num_dropped, m.queues)
+    sum(queue -> queue.num_dropped, m.queues)
 
 end # module

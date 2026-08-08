@@ -21,10 +21,12 @@ function queue_chain(; production_interval, processing_time, packet_capacity = n
         production_interval = production_interval,
         packet = PacketTemplate(length = length),
         seed = seed))
-    queue = add_module!(network, PacketQueueModule(:queue,
-        PacketQueueParameters(packet_capacity = packet_capacity, dropper = dropper)))
-    server = add_module!(network, PacketServerModule(:server,
-        PacketServerParameters(processing_time = processing_time); seed = seed + 100))
+    queue = add_module!(network, PacketQueueModule(:queue;
+        packet_capacity = packet_capacity,
+        dropper = dropper))
+    server = add_module!(network, PacketServerModule(:server;
+        processing_time = processing_time,
+        seed = seed + 100))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
     connect!(source.out, queue.in)
     connect!(queue.out, server.in)
@@ -57,7 +59,7 @@ end
         @test queue_length(chain.queue) ==
               chain.source.num_packets - chain.sink.num_packets - 1
         # Waiting time grows, so the average is well above zero.
-        @test chain.queue.statistics.total_queueing_time > to_simtime(0.5)
+        @test chain.queue.total_queueing_time > to_simtime(0.5)
     end
 
     @testset "a queue with a capacity and no dropper pushes back" begin
@@ -68,7 +70,7 @@ end
         # The queue refuses when it is full, and the source waits rather than
         # losing packets: nothing is dropped, and production is held back to
         # what the server can take.
-        @test chain.queue.statistics.num_dropped == 0
+        @test chain.queue.num_dropped == 0
         @test queue_length(chain.queue) <= 2
         @test chain.source.num_packets ==
               chain.sink.num_packets + queue_length(chain.queue) + 1
@@ -85,10 +87,10 @@ end
         # Now the source runs freely and the queue throws away what does not
         # fit, so everything produced is either delivered, held, or dropped.
         @test chain.source.num_packets == 21
-        @test chain.queue.statistics.num_dropped > 0
+        @test chain.queue.num_dropped > 0
         @test chain.source.num_packets ==
               chain.sink.num_packets + queue_length(chain.queue) +
-              chain.queue.statistics.num_dropped + 1
+              chain.queue.num_dropped + 1
     end
 
     @testset "which packet a full queue drops" begin
@@ -106,7 +108,7 @@ end
                            packet_capacity = 2, dropper = drop_at_begin)
         run_network!(head.network; until = 1.0)
         @test queue_length(head.queue) == 2
-        @test tail.queue.statistics.num_dropped == head.queue.statistics.num_dropped
+        @test tail.queue.num_dropped == head.queue.num_dropped
         # Same arrivals, same number dropped, different survivors.
         @test [queue_packet(head.queue, i) for i in 1:2] != first_two
     end
@@ -115,9 +117,9 @@ end
         network = Network(:Presets)
         tail = add_module!(network, drop_tail_queue(:tail; packet_capacity = 5))
         head = add_module!(network, drop_head_queue(:head; packet_capacity = 5))
-        @test tail.parameters.packet_capacity == 5
-        @test tail.parameters.dropper === drop_at_end
-        @test head.parameters.dropper === drop_at_begin
+        @test tail.packet_capacity == 5
+        @test tail.dropper === drop_at_end
+        @test head.dropper === drop_at_begin
     end
 
     @testset "a comparator keeps the queue sorted" begin
@@ -129,10 +131,8 @@ end
             production_interval = 0.1,
             packet = PacketTemplate(length = Volatile(intuniform(80, 8000))),
             seed = 4))
-        queue = add_module!(network, PacketQueueModule(:queue,
-            PacketQueueParameters(comparator = shortest_first)))
-        server = add_module!(network, PacketServerModule(:server,
-            PacketServerParameters(processing_time = 10.0)))
+        queue = add_module!(network, PacketQueueModule(:queue; comparator = shortest_first))
+        server = add_module!(network, PacketServerModule(:server; processing_time = 10.0))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, queue.in)
         connect!(queue.out, server.in)
@@ -150,11 +150,11 @@ end
 
         # However fast packets arrive, exactly one is in service and the rest
         # are in the queue.
-        @test chain.server.states.packet !== nothing
+        @test chain.server.packet !== nothing
         @test chain.sink.num_packets == 5
         # Every served packet took the same fixed time.
-        @test chain.server.statistics.total_service_time ==
-              chain.server.statistics.num_packets * to_simtime(0.1)
+        @test chain.server.total_service_time ==
+              chain.server.num_packets * to_simtime(0.1)
     end
 
     @testset "service time can depend on packet length" begin
@@ -165,16 +165,17 @@ end
         queue = add_module!(network, PacketQueueModule(:queue))
         # A thousand bits at a thousand bits per second is one second of
         # service, whatever the fixed processing time says.
-        server = add_module!(network, PacketServerModule(:server,
-            PacketServerParameters(processing_time = 0.0, processing_bitrate = 1000.0)))
+        server = add_module!(network, PacketServerModule(:server;
+            processing_time = 0.0,
+            processing_bitrate = 1000.0))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, queue.in)
         connect!(queue.out, server.in)
         connect!(server.out, sink.in)
         run_network!(network; until = 5.0)
 
-        @test server.statistics.num_packets == 5
-        @test server.statistics.total_service_time == 5 * to_simtime(1.0)
+        @test server.num_packets == 5
+        @test server.total_service_time == 5 * to_simtime(1.0)
     end
 
     @testset "an instant server takes no time" begin
@@ -194,7 +195,7 @@ end
         @test sink.num_packets == 11
         @test queue_length(queue) == 0
         @test sink.total_life_time == SimTime(0)
-        @test queue.statistics.total_queueing_time == SimTime(0)
+        @test queue.total_queueing_time == SimTime(0)
     end
 
     @testset "what a chain records" begin
@@ -208,14 +209,14 @@ end
         @test maximum(sample -> sample[2], lengths) <= 3.0
 
         queueing = statistic_samples(recorder, "Chain.queue", "queueingTime")
-        @test length(queueing) == chain.queue.statistics.num_pulled
+        @test length(queueing) == chain.queue.num_pulled
         # A packet that arrives at an empty queue with the server idle is pulled
         # straight back out in the same event and waited for nothing.
         @test all(sample -> sample[2] >= 0, queueing)
         @test any(sample -> sample[2] > 0, queueing)
 
         @test statistic_scalar(recorder, "Chain.queue", "droppedPacketsQueueOverflow:count") ==
-              chain.queue.statistics.num_dropped
+              chain.queue.num_dropped
         # The mean length comes from the integral kept as the queue changed, so
         # it is a time average rather than an average over samples.
         timeavg = statistic_scalar(recorder, "Chain.queue", "queueLength:timeavg")
@@ -232,8 +233,9 @@ end
             production_interval = Volatile(exponential(0.2)),
             seed = 20))
         queue = add_module!(network, PacketQueueModule(:queue))
-        server = add_module!(network, PacketServerModule(:server,
-            PacketServerParameters(processing_time = Volatile(exponential(0.1))); seed = 21))
+        server = add_module!(network, PacketServerModule(:server;
+            processing_time = Volatile(exponential(0.1)),
+            seed = 21))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, queue.in)
         connect!(queue.out, server.in)

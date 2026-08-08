@@ -44,8 +44,10 @@ function port(body::AbstractString; width::Int = 92)
     src = PRELUDE * body
     tree = JS.parseall(JS.SyntaxNode, src; filename = "case.jl")
     elements, structs = Dict{Symbol,P.Element}(), Set{Symbol}()
-    P.collect_elements!(elements, structs, "case.jl", tree)
-    world = P.World(elements, P.collect_retired(elements, structs), structs, Dict{Symbol,Any}())
+    struct_fields = Dict{Symbol,Dict{Symbol,Any}}()
+    P.collect_elements!(elements, structs, struct_fields, "case.jl", tree)
+    world = P.World(elements, P.collect_retired(elements, structs), structs, struct_fields,
+                    Dict{Symbol,Any}())
     for _ in 1:2
         harvest = P.FileScan("case.jl", src, world, width, [Dict{Symbol,Any}()],
                              P.Edit[], P.Note[], true)
@@ -64,7 +66,7 @@ end
 @testset "it reads the declaration" begin
     tree = JS.parseall(JS.SyntaxNode, PRELUDE; filename = "p.jl")
     elements, structs = Dict{Symbol,P.Element}(), Set{Symbol}()
-    P.collect_elements!(elements, structs, "p.jl", tree)
+    P.collect_elements!(elements, structs, Dict{Symbol,Dict{Symbol,Any}}(), "p.jl", tree)
     active = elements[:ActiveSourceModule]
     @test active.ported
     @test active.fields[:production_interval] === :parameter
@@ -181,6 +183,26 @@ end
     @test isempty(r.refused)
 end
 
+@testset "a struct says what its fields hold" begin
+    # A compound keeps its submodules in a typed field, and that declaration is
+    # the only thing that says what a lambda over them receives.
+    r = port("""
+    mutable struct CompoundModule <: AbstractModule
+        name::Symbol
+        sources::Vector{ActiveSourceModule}
+        sink::PassiveSinkModule
+    end
+    total(m::CompoundModule) = sum(s -> s.statistics.num_packets, m.sources)
+    first_of(m::CompoundModule) = m.sources[1].statistics.num_packets
+    at_the_end(m::CompoundModule) = m.sink.statistics.num_packets
+    """)
+    @test occursin("sum(s -> s.num_packets, m.sources)", r.text)
+    @test occursin("m.sources[1].num_packets", r.text)
+    # The sink is not ported, so its container stays.
+    @test occursin("m.sink.statistics.num_packets", r.text)
+    @test isempty(r.refused)
+end
+
 @testset "a ternary with one known branch" begin
     # `given === nothing ? make_one() : given` is how a builder takes an
     # override, and the branch that is known says what the other one is.
@@ -243,6 +265,16 @@ end
     @test occursin("using InetQueuing: PassiveSinkModule\n", r.text)
     @test !occursin("ActiveSourceStates", r.text)
     @test occursin("export ActiveSourceModule\n", r.text)
+    @test isempty(r.refused)
+
+    # Two neighbours go in one cut: two cuts would overlap on the comma.
+    r = port("""
+    using InetQueuing: ActiveSourceModule, ActiveSourceParameters, ActiveSourceStates,
+        PassiveSinkModule
+    using InetQueuing: ActiveSourceParameters, ActiveSourceStates, ActiveSourceModule
+    """)
+    @test occursin("using InetQueuing: ActiveSourceModule,\n    PassiveSinkModule\n", r.text)
+    @test occursin("using InetQueuing: ActiveSourceModule\n", r.text)
     @test isempty(r.refused)
 
     # Anywhere else, a retired name is a person's problem.

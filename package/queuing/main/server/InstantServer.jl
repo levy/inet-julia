@@ -16,8 +16,8 @@ whole burst is one event and not one event per packet.
 module InstantServerElement
 
 using OmnetppSimulator: SimTime, NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network,
-    input_gate, output_gate, module_id
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+    @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
     resolve_interface
@@ -27,59 +27,45 @@ using ..PacketProtocolModule: PacketProtocolModule, PassivePacketSink, PassivePa
 using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic!,
     record_statistic!
 
-export InstantServerStates, InstantServerStatistics, InstantServerModule
+export InstantServerModule
 
 """
-    InstantServerStates()
+    InstantServerModule(name)
 
-Only whether the server is already moving packets. It calls into its peers,
-which may call back into it, and without the guard a burst would be moved
-twice over.
+The module, declared by the kind of each of its fields. It takes no parameter:
+an instant server has nothing to set.
+
+`serving` says whether the server is already moving packets. It calls into its
+peers, which may call back into it, and without the guard a burst would be
+moved twice over.
 """
-mutable struct InstantServerStates
-    serving::Bool
+@simulation_module struct InstantServerModule
+    @gates begin
+        in::InputGate
+        out::OutputGate
+    end
+    @variables begin
+        serving::Bool = false
+        provider::ModuleRef = NO_MODULE_REF
+        consumer::ModuleRef = NO_MODULE_REF
+    end
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_packets::Int = 0
+        total_length::Int = 0                          # bits
+    end
 end
 
-InstantServerStates() = InstantServerStates(false)
-
-reset_states!(states::InstantServerStates) = (states.serving = false; states)
-
-mutable struct InstantServerStatistics
-    recording::ModuleStatistics
-    num_packets::Int
-    total_length::Int      # bits
-end
-
-InstantServerStatistics() = InstantServerStatistics(ModuleStatistics(), 0, 0)
-
-reset_statistics!(statistics::InstantServerStatistics) =
-    (statistics.num_packets = 0; statistics.total_length = 0; statistics)
-
-const STATISTIC_NAMES = (:packetLengths,)
-
-mutable struct InstantServerModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Gate
-    states::InstantServerStates
-    statistics::InstantServerStatistics
-    provider::ModuleRef
-    consumer::ModuleRef
-end
-
-function InstantServerModule(name::Symbol)
-    m = InstantServerModule(
-        name, 0,
-        input_gate(nothing, :in;
-                   annotations = Any[ForwardClaim(ActivePacketSink, :out;
-                                                  forwarded = PassivePacketSink)]),
-        output_gate(nothing, :out; annotations = Any[InterfaceClaim(ActivePacketSource)]),
-        InstantServerStates(), InstantServerStatistics(), NO_MODULE_REF, NO_MODULE_REF)
-    m.in.owner = m
-    m.out.owner = m
+# The claims a lookup reads off the gates, set before any lookup walks the
+# wiring.
+function NetworkModule.decorate_module!(m::InstantServerModule)
+    push!(m.in.annotations, ForwardClaim(ActivePacketSink, :out;
+                                         forwarded = PassivePacketSink))
+    push!(m.out.annotations, InterfaceClaim(ActivePacketSource))
     m
 end
+
+const STATISTIC_NAMES = (:packetLengths,)
 
 function NetworkModule.initialize_module!(::Network, m::InstantServerModule)
     m.provider = resolve_interface(m.in, PassivePacketSource)
@@ -88,7 +74,7 @@ function NetworkModule.initialize_module!(::Network, m::InstantServerModule)
 end
 
 NetworkModule.register_module_statistics!(m::InstantServerModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
 NetworkModule.module_starts(::InstantServerModule) = true
 
@@ -96,12 +82,9 @@ NetworkModule.start_module!(ctx, m::InstantServerModule) = (_serve_all!(ctx, m);
 
 NetworkModule.module_icon(::InstantServerModule) = "block/server"
 
-NetworkModule.reset_module!(m::InstantServerModule) =
-    (reset_states!(m.states); reset_statistics!(m.statistics); m)
-
 function NetworkModule.finalize_module!(m::InstantServerModule, ::Any)
-    record_statistic!(m.statistics.recording, "packets:count", m.statistics.num_packets)
-    record_statistic!(m.statistics.recording, "packetLengths:sum", m.statistics.total_length)
+    record_statistic!(m.recording, "packets:count", m.num_packets)
+    record_statistic!(m.recording, "packetLengths:sum", m.total_length)
     nothing
 end
 
@@ -111,11 +94,10 @@ PacketProtocolModule.handle_can_pull_packet_changed!(ctx, m::InstantServerModule
     (_serve_all!(ctx, m); nothing)
 
 function _serve_all!(ctx, m::InstantServerModule)
-    states = m.states
     # Pushing a packet on can make the peers call straight back in; the guard
     # keeps this the only loop moving them.
-    states.serving && return nothing
-    states.serving = true
+    m.serving && return nothing
+    m.serving = true
     try
         while true
             packet = can_pull_packet(m.provider)
@@ -124,18 +106,17 @@ function _serve_all!(ctx, m::InstantServerModule)
             _serve_packet!(ctx, m)
         end
     finally
-        states.serving = false
+        m.serving = false
     end
     nothing
 end
 
 function _serve_packet!(ctx, m::InstantServerModule)
     packet = pull_packet!(ctx, m.provider)
-    statistics = m.statistics
     length = bits(data_length(packet))
-    statistics.num_packets += 1
-    statistics.total_length += length
-    emit_statistic!(statistics.recording, ctx, :packetLengths, length)
+    m.num_packets += 1
+    m.total_length += length
+    emit_statistic!(m.recording, ctx, :packetLengths, length)
     push_or_schedule!(ctx, m.consumer, packet)
     nothing
 end

@@ -7,8 +7,8 @@
 # ────────────────────────────────────────────────────────────────────────────
 
 using InetQueuing: ActivePacketSourceModule,
-    PassivePacketSinkModule, PacketQueueModule, PacketQueueParameters,
-    PacketServerModule, PacketServerParameters,
+    PassivePacketSinkModule, PacketQueueModule,
+    PacketServerModule,
     PacketFilterModule, PacketFilterParameters,
     content_based_classifier, priority_classifier, priority_scheduler,
     weighted_round_robin_classifier, weighted_round_robin_scheduler, markov_classifier,
@@ -164,12 +164,12 @@ function _build_priority_chain_network(m)
     # A priority classifier sends each packet to the first output that will
     # take it, so the small queue is preferred until it is full.
     fork = add_module!(network, priority_classifier(:classifier, 2))
-    first = add_module!(network, PacketQueueModule(:first,
-        PacketQueueParameters(packet_capacity = m.first_capacity)))
+    first = add_module!(network, PacketQueueModule(:first;
+        packet_capacity = m.first_capacity))
     second = add_module!(network, PacketQueueModule(:second))
     join = add_module!(network, priority_scheduler(:scheduler, 2))
-    server = add_module!(network, PacketServerModule(:server,
-        PacketServerParameters(processing_time = m.processing_time)))
+    server = add_module!(network, PacketServerModule(:server;
+        processing_time = m.processing_time))
     sink = _step_sink(network, :sink)
     connect!(source.out, fork.in)
     connect!(fork.out[1], first.in)
@@ -351,20 +351,19 @@ end
 # its queues are unbounded, and the share the classifier hands out is exactly
 # the share each queue receives.
 _shared_chain_queue_parameters(m) =
-    m.policy === :priority ? PacketQueueParameters(packet_capacity = 10) :
-                             PacketQueueParameters()
+    m.policy === :priority ? (packet_capacity = 10,) : (;)
 
 function _build_shared_chain_network(m)
     network = Network(:Shared)
     source = _step_source(network, m)
     fork = add_module!(network, _shared_chain_classifier(m))
     parameters = _shared_chain_queue_parameters(m)
-    first = add_module!(network, PacketQueueModule(:first, parameters))
-    second = add_module!(network, PacketQueueModule(:second, parameters))
+    first = add_module!(network, PacketQueueModule(:first; parameters...))
+    second = add_module!(network, PacketQueueModule(:second; parameters...))
     join = add_module!(network, weighted_round_robin_scheduler(:scheduler,
         Int[m.first_weight, m.second_weight]))
-    server = add_module!(network, PacketServerModule(:server,
-        PacketServerParameters(processing_time = m.processing_time)))
+    server = add_module!(network, PacketServerModule(:server;
+        processing_time = m.processing_time))
     sink = _step_sink(network, :sink)
     connect!(source.out, fork.in)
     connect!(fork.out[1], first.in)

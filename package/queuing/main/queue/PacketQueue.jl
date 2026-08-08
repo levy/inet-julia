@@ -22,8 +22,8 @@ comparator ranks first rather than whatever arrived first.
 module PacketQueueElement
 
 using OmnetppSimulator: SimTime, seconds, to_simtime, NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network,
-    input_gate, output_gate, module_id
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+    @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, BitLength, Bits, Bytes, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
     resolve_interface, is_resolved
@@ -33,7 +33,7 @@ using ..PacketProtocolModule: PacketProtocolModule, PassivePacketSink, PassivePa
 using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic!,
     emit_time_statistic!, record_statistic!
 
-export PacketQueueParameters, PacketQueueStates, PacketQueueStatistics, PacketQueueModule,
+export PacketQueueModule,
        queue_length, queue_bit_length, queue_packet, is_queue_empty,
        drop_at_end, drop_at_begin, drop_tail_queue, drop_head_queue
 
@@ -55,95 +55,59 @@ next. This is drop-head, INET's `PacketAtCollectionBeginDropper`.
 drop_at_begin(::Any) = 1
 
 """
-    PacketQueueParameters(; packet_capacity = nothing, data_capacity = nothing,
-                            dropper = nothing, comparator = nothing)
+    PacketQueueModule(name; packet_capacity = nothing, …)
 
-How much the queue holds, what it drops when that is exceeded, and in what
-order it keeps packets.
+The module, declared by the kind of each of its fields.
 
 A capacity of `nothing` is no limit. `dropper` chooses which packet goes when
 the queue is over capacity, as an index into it — with none, an over-capacity
 queue refuses instead. `comparator` is a `(a, b) -> Bool` ranking, and a queue
 given one keeps itself sorted.
+
+`length_area` is the running integral of the queue's length, which is how the
+time-average length is known at the end without sampling it.
 """
-struct PacketQueueParameters
-    packet_capacity::Union{Nothing,Int}
-    data_capacity::Union{Nothing,BitLength}
-    dropper::Any
-    comparator::Any
+@simulation_module struct PacketQueueModule
+    @parameters begin
+        packet_capacity::Union{Nothing,Int} = nothing
+        data_capacity::Union{Nothing,BitLength} = nothing
+        dropper::Any = nothing
+        comparator::Any = nothing
+    end
+    @gates begin
+        in::InputGate
+        out::OutputGate
+    end
+    @variables begin
+        packets::Vector{Packet} = Packet[]
+        arrival_times::Vector{SimTime} = SimTime[]
+        total_length::Int = 0                          # bits currently held
+        length_area::Float64 = 0.0                     # ∫ length dt, in packet-seconds
+        last_change::SimTime = SimTime(0)
+        producer::ModuleRef = NO_MODULE_REF
+        collector::ModuleRef = NO_MODULE_REF
+    end
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_pushed::Int = 0
+        num_pulled::Int = 0
+        num_dropped::Int = 0
+        total_queueing_time::SimTime = SimTime(0)
+    end
 end
 
-PacketQueueParameters(; packet_capacity::Union{Nothing,Integer} = nothing,
-                      data_capacity::Union{Nothing,BitLength} = nothing,
-                      dropper = nothing, comparator = nothing) =
-    PacketQueueParameters(packet_capacity === nothing ? nothing : Int(packet_capacity),
-                          data_capacity, dropper, comparator)
-
-"""
-    PacketQueueStates()
-
-The packets held, when each arrived, and the running integral of the queue's
-length — which is how the time-average length is known at the end without
-sampling it.
-"""
-mutable struct PacketQueueStates
-    packets::Vector{Packet}
-    arrival_times::Vector{SimTime}
-    total_length::Int              # bits currently held
-    length_area::Float64           # ∫ length dt, in packet-seconds
-    last_change::SimTime
-end
-
-PacketQueueStates() = PacketQueueStates(Packet[], SimTime[], 0, 0.0, SimTime(0))
-
-reset_states!(states::PacketQueueStates) =
-    (empty!(states.packets); empty!(states.arrival_times); states.total_length = 0;
-     states.length_area = 0.0; states.last_change = SimTime(0); states)
-
-mutable struct PacketQueueStatistics
-    recording::ModuleStatistics
-    num_pushed::Int
-    num_pulled::Int
-    num_dropped::Int
-    total_queueing_time::SimTime
-end
-
-PacketQueueStatistics() = PacketQueueStatistics(ModuleStatistics(), 0, 0, 0, SimTime(0))
-
-reset_statistics!(statistics::PacketQueueStatistics) =
-    (statistics.num_pushed = 0; statistics.num_pulled = 0; statistics.num_dropped = 0;
-     statistics.total_queueing_time = SimTime(0); statistics)
-
-const STATISTIC_NAMES = (:queueLength, :queueBitLength, :queueingTime)
-
-mutable struct PacketQueueModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Gate
-    parameters::PacketQueueParameters
-    states::PacketQueueStates
-    statistics::PacketQueueStatistics
-    producer::ModuleRef
-    collector::ModuleRef
-end
-
-function PacketQueueModule(name::Symbol,
-                           parameters::PacketQueueParameters = PacketQueueParameters())
-    m = PacketQueueModule(
-        name, 0,
-        # A queue answers a lookup for something to push into only when
-        # something downstream will pull: a queue nobody empties is not a sink.
-        input_gate(nothing, :in;
-                   annotations = Any[ForwardClaim(PassivePacketSink, :out;
-                                                  forwarded = ActivePacketSink)]),
-        output_gate(nothing, :out; annotations = Any[InterfaceClaim(PassivePacketSource)]),
-        parameters, PacketQueueStates(), PacketQueueStatistics(),
-        NO_MODULE_REF, NO_MODULE_REF)
-    m.in.owner = m
-    m.out.owner = m
+# The claims a lookup reads off the gates. They must be there before any lookup
+# walks the wiring, so they belong to construction rather than to
+# initialization. A queue answers a lookup for something to push into only when
+# something downstream will pull: a queue nobody empties is not a sink.
+function NetworkModule.decorate_module!(m::PacketQueueModule)
+    push!(m.in.annotations, ForwardClaim(PassivePacketSink, :out;
+                                         forwarded = ActivePacketSink))
+    push!(m.out.annotations, InterfaceClaim(PassivePacketSource))
     m
 end
+
+const STATISTIC_NAMES = (:queueLength, :queueBitLength, :queueingTime)
 
 """
     drop_tail_queue(name; packet_capacity = 100) -> PacketQueueModule
@@ -152,8 +116,7 @@ A queue that drops the packet that has just arrived when it is full — INET's
 `DropTailQueue`, which is this queue with a capacity and a dropper.
 """
 drop_tail_queue(name::Symbol; packet_capacity::Integer = 100) =
-    PacketQueueModule(name, PacketQueueParameters(packet_capacity = packet_capacity,
-                                                  dropper = drop_at_end))
+    PacketQueueModule(name; packet_capacity = packet_capacity, dropper = drop_at_end)
 
 """
     drop_head_queue(name; packet_capacity = 100) -> PacketQueueModule
@@ -162,31 +125,30 @@ A queue that makes room by dropping the packet at the front — INET's
 `DropHeadQueue`.
 """
 drop_head_queue(name::Symbol; packet_capacity::Integer = 100) =
-    PacketQueueModule(name, PacketQueueParameters(packet_capacity = packet_capacity,
-                                                  dropper = drop_at_begin))
+    PacketQueueModule(name; packet_capacity = packet_capacity, dropper = drop_at_begin)
 
 """
     queue_length(m) -> Int
 
 How many packets the queue holds.
 """
-queue_length(m::PacketQueueModule) = length(m.states.packets)
+queue_length(m::PacketQueueModule) = length(m.packets)
 
 """
     queue_bit_length(m) -> Int
 
 How much data the queue holds, in bits.
 """
-queue_bit_length(m::PacketQueueModule) = m.states.total_length
+queue_bit_length(m::PacketQueueModule) = m.total_length
 
 """
     queue_packet(m, index) -> Packet
 
 The packet at `index`, counting from the front.
 """
-queue_packet(m::PacketQueueModule, index::Int) = m.states.packets[index]
+queue_packet(m::PacketQueueModule, index::Int) = m.packets[index]
 
-is_queue_empty(m::PacketQueueModule) = isempty(m.states.packets)
+is_queue_empty(m::PacketQueueModule) = isempty(m.packets)
 
 function NetworkModule.initialize_module!(::Network, m::PacketQueueModule)
     # The producer matters only to a queue that refuses; the collector is what
@@ -197,7 +159,7 @@ function NetworkModule.initialize_module!(::Network, m::PacketQueueModule)
 end
 
 NetworkModule.register_module_statistics!(m::PacketQueueModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
 # What a queue is doing now: how much it is holding.
 NetworkModule.module_status(m::PacketQueueModule) =
@@ -205,22 +167,17 @@ NetworkModule.module_status(m::PacketQueueModule) =
 
 NetworkModule.module_icon(::PacketQueueModule) = "block/queue"
 
-NetworkModule.reset_module!(m::PacketQueueModule) =
-    (reset_states!(m.states); reset_statistics!(m.statistics); m)
-
 function NetworkModule.finalize_module!(m::PacketQueueModule, ::Any)
-    statistics, states = m.statistics, m.states
-    recording = statistics.recording
-    record_statistic!(recording, "packets:count", statistics.num_pushed)
-    record_statistic!(recording, "droppedPacketsQueueOverflow:count", statistics.num_dropped)
+    record_statistic!(m.recording, "packets:count", m.num_pushed)
+    record_statistic!(m.recording, "droppedPacketsQueueOverflow:count", m.num_dropped)
     # The mean length over the run, from the integral kept as the queue changed
     # rather than from samples — exact, and free.
-    duration = seconds(states.last_change)
-    duration > 0 && record_statistic!(recording, "queueLength:timeavg",
-                                      states.length_area / duration)
-    statistics.num_pulled == 0 && return nothing
-    record_statistic!(recording, "queueingTime:mean",
-                      seconds(statistics.total_queueing_time / statistics.num_pulled))
+    duration = seconds(m.last_change)
+    duration > 0 && record_statistic!(m.recording, "queueLength:timeavg",
+                                      m.length_area / duration)
+    m.num_pulled == 0 && return nothing
+    record_statistic!(m.recording, "queueingTime:mean",
+                      seconds(m.total_queueing_time / m.num_pulled))
     nothing
 end
 
@@ -230,20 +187,19 @@ end
 # decides what no longer fits, which is what lets an arriving packet displace a
 # stored one.
 PacketProtocolModule.can_push_some_packet(m::PacketQueueModule, ::Gate) =
-    m.parameters.dropper !== nothing || !_is_full(m)
+    m.dropper !== nothing || !_is_full(m)
 
 PacketProtocolModule.can_push_packet(m::PacketQueueModule, gate::Gate, ::Packet) =
     PacketProtocolModule.can_push_some_packet(m, gate)
 
 function PacketProtocolModule.push_packet!(ctx, m::PacketQueueModule, ::Gate, packet::Packet)
-    parameters, states, statistics = m.parameters, m.states, m.statistics
-    _advance_length_integral!(states, ctx.timestamp)
+    _advance_length_integral!(m, ctx.timestamp)
     _insert_packet!(m, packet, ctx.timestamp)
-    statistics.num_pushed += 1
+    m.num_pushed += 1
 
-    if parameters.dropper !== nothing
+    if m.dropper !== nothing
         while _is_overloaded(m)
-            _drop_packet!(ctx, m, parameters.dropper(m))
+            _drop_packet!(ctx, m, m.dropper(m))
         end
     elseif _is_overloaded(m)
         error("push_packet!: $(m.name) is over capacity and has no dropper — " *
@@ -253,33 +209,31 @@ function PacketProtocolModule.push_packet!(ctx, m::PacketQueueModule, ::Gate, pa
 
     # State first, then the notification: the collector may pull straight back
     # into this queue while the call is still on the stack.
-    is_resolved(m.collector) && !isempty(states.packets) &&
+    is_resolved(m.collector) && !isempty(m.packets) &&
         handle_can_pull_packet_changed!(ctx, m.collector)
     nothing
 end
 
 function _insert_packet!(m::PacketQueueModule, packet::Packet, time::SimTime)
-    states, comparator = m.states, m.parameters.comparator
-    position = length(states.packets) + 1
-    if comparator !== nothing
+    position = length(m.packets) + 1
+    if m.comparator !== nothing
         # Sorted: the packet goes ahead of the first one it outranks, so equal
         # ranks stay in arrival order.
-        position = something(findfirst(stored -> comparator(packet, stored), states.packets),
+        position = something(findfirst(stored -> m.comparator(packet, stored), m.packets),
                              position)
     end
-    insert!(states.packets, position, packet)
-    insert!(states.arrival_times, position, time)
-    states.total_length += bits(data_length(packet))
+    insert!(m.packets, position, packet)
+    insert!(m.arrival_times, position, time)
+    m.total_length += bits(data_length(packet))
     nothing
 end
 
 function _drop_packet!(ctx, m::PacketQueueModule, index::Int)
-    states = m.states
-    packet = states.packets[index]
-    deleteat!(states.packets, index)
-    deleteat!(states.arrival_times, index)
-    states.total_length -= bits(data_length(packet))
-    m.statistics.num_dropped += 1
+    packet = m.packets[index]
+    deleteat!(m.packets, index)
+    deleteat!(m.arrival_times, index)
+    m.total_length -= bits(data_length(packet))
+    m.num_dropped += 1
     nothing
 end
 
@@ -289,37 +243,35 @@ _is_overloaded(m::PacketQueueModule) = _exceeds(m, 1)
 # Full means "one more would not fit"; overloaded means "what is held already
 # does not fit". The same comparison, one packet apart.
 function _exceeds(m::PacketQueueModule, slack::Int)
-    parameters, states = m.parameters, m.states
-    capacity = parameters.packet_capacity
-    capacity !== nothing && length(states.packets) >= capacity + slack && return true
-    data_capacity = parameters.data_capacity
-    data_capacity !== nothing && states.total_length >= bits(data_capacity) + slack && return true
+    capacity = m.packet_capacity
+    capacity !== nothing && length(m.packets) >= capacity + slack && return true
+    data_capacity = m.data_capacity
+    data_capacity !== nothing && m.total_length >= bits(data_capacity) + slack && return true
     false
 end
 
 # ── Being pulled from ──────────────────────────────────────────────────────
 
 PacketProtocolModule.can_pull_some_packet(m::PacketQueueModule, ::Gate) =
-    !isempty(m.states.packets)
+    !isempty(m.packets)
 
 PacketProtocolModule.can_pull_packet(m::PacketQueueModule, ::Gate) =
-    isempty(m.states.packets) ? nothing : m.states.packets[1]
+    isempty(m.packets) ? nothing : m.packets[1]
 
 function PacketProtocolModule.pull_packet!(ctx, m::PacketQueueModule, ::Gate)
-    states, statistics = m.states, m.statistics
-    isempty(states.packets) &&
+    isempty(m.packets) &&
         error("pull_packet!: $(m.name) is empty — the collector pulled without " *
               "asking whether it could")
-    _advance_length_integral!(states, ctx.timestamp)
+    _advance_length_integral!(m, ctx.timestamp)
     was_full = _is_full(m)
-    packet = popfirst!(states.packets)
-    arrived = popfirst!(states.arrival_times)
-    states.total_length -= bits(data_length(packet))
-    statistics.num_pulled += 1
+    packet = popfirst!(m.packets)
+    arrived = popfirst!(m.arrival_times)
+    m.total_length -= bits(data_length(packet))
+    m.num_pulled += 1
 
     queueing_time = ctx.timestamp - arrived
-    statistics.total_queueing_time += queueing_time
-    emit_time_statistic!(statistics.recording, ctx, :queueingTime, queueing_time)
+    m.total_queueing_time += queueing_time
+    emit_time_statistic!(m.recording, ctx, :queueingTime, queueing_time)
     _emit_length!(m, ctx)
 
     # A queue that was refusing has room again, and the producer that stopped
@@ -333,17 +285,16 @@ end
 
 # The length integral is advanced before every change, so it always covers the
 # stretch of time the queue has just spent at its current length.
-function _advance_length_integral!(states::PacketQueueStates, now::SimTime)
-    elapsed = now - states.last_change
-    elapsed > zero(elapsed) && (states.length_area += length(states.packets) * seconds(elapsed))
-    states.last_change = now
+function _advance_length_integral!(m::PacketQueueModule, now::SimTime)
+    elapsed = now - m.last_change
+    elapsed > zero(elapsed) && (m.length_area += length(m.packets) * seconds(elapsed))
+    m.last_change = now
     nothing
 end
 
 function _emit_length!(m::PacketQueueModule, ctx)
-    recording = m.statistics.recording
-    emit_statistic!(recording, ctx, :queueLength, length(m.states.packets))
-    emit_statistic!(recording, ctx, :queueBitLength, m.states.total_length)
+    emit_statistic!(m.recording, ctx, :queueLength, length(m.packets))
+    emit_statistic!(m.recording, ctx, :queueBitLength, m.total_length)
     nothing
 end
 
