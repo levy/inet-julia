@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# The developer wrapper. Runs the same entry point the built executable runs,
+# through the checkout instead of through an image, so a change can be tried
+# without a build:
+#
+#     bin/inet-julia -f omnetpp.ini -c TestNetwork -r 0
+#
+# The built executable is what a user gets. Make it with:
+#
+#     julia --project=tool tool/build_binary.jl
+#
+root=$(cd "$(dirname "$0")/.." && pwd)
+exec julia --project="$root/package/runner/main" \
+     -e 'using InetRunner; exit(InetRunner.julia_main())' -- "$@"

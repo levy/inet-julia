@@ -15,6 +15,8 @@ InetPacketTest = "772aa187-4962-422d-ab89-8597970a7f70"
 InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
 InetQueuingExample = "f0a6f2c1-7b3d-4f2e-9a58-6c4d1e2b8a37"
 InetQueuingTest = "f714c29c-95bc-4097-b59d-ac4adcca3229"
+InetRunner = "3726c817-9e30-456a-b794-f8b80627f404"
+InetRunnerTest = "662bf8b9-11a9-45ea-80db-3f87185b7221"
 InetTest = "2f44235d-4d1e-46a7-bad9-542c69a24442"
 OmnetppPresentation = "87a68c42-f795-440d-9b5e-f3293ccf51cf"
 OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
@@ -43,6 +45,8 @@ InetPacket = {path = "package/packet/main"}
 InetPacketExample = {path = "package/packet/example"}
 InetPacketTest = {path = "package/packet/test"}
 InetQueuing = {path = "package/queuing/main"}
+InetRunner = {path = "package/runner/main"}
+InetRunnerTest = {path = "package/runner/test"}
 InetQueuingExample = {path = "package/queuing/example"}
 InetQueuingTest = {path = "package/queuing/test"}
 OmnetppPresentation = {path = "../omnetpp-julia/package/presentation/main"}

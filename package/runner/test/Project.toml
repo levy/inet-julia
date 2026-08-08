@@ -1,0 +1,25 @@
+name = "InetRunnerTest"
+uuid = "662bf8b9-11a9-45ea-80db-3f87185b7221"
+version = "0.1.0"
+authors = []
+entryfile = "InetRunnerTest.jl"
+
+# Test package for InetRunner — the command line, the exit codes, the result
+# files, and the guard that keeps the editor out of the executable.
+#
+# A test is not shipped, so this package is free to depend on whatever it
+# needs. The rule of plan/pending/native-simulation-binary.md §2.1 binds
+# `package/runner/main` alone, and `test_runner_closure()` is what checks it.
+
+[deps]
+InetRunner = "3726c817-9e30-456a-b794-f8b80627f404"
+OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+InetRunner = {path = "../main"}
+OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
+
+[compat]
+julia = "1.11"

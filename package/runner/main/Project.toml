@@ -1,0 +1,30 @@
+name = "InetRunner"
+uuid = "3726c817-9e30-456a-b794-f8b80627f404"
+version = "0.1.0"
+authors = []
+entryfile = "InetRunner.jl"
+
+# The command-line runner — one simulation, from a command line, to a pair of
+# result files. It is the package the `inet-julia` executable is built from.
+#
+# Its dependency list is a contract, not a convenience. A runner draws nothing,
+# opens no window and reads no gesture, so the editor must not be reachable
+# from here: no ProjecturedVisual, no ProjecturedDomain, no Projectured
+# umbrella, no OmnetppLegacy, no DataFrames, no Revise. `test_runner_closure()`
+# in the test package asserts it, and plan/pending/native-simulation-binary.md
+# §2 says why.
+#
+# ProjecturedKernel and ProjecturedBase arrive under OmnetppSimulator and stay:
+# they are the substrate the simulator declares its own model, engine and
+# execution types with, not the editor.
+
+[deps]
+InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
+OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+
+[sources]
+InetQueuing = {path = "../../queuing/main"}
+OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
+
+[compat]
+julia = "1.11"
