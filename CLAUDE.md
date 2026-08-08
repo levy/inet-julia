@@ -53,7 +53,7 @@ kernel. Keep it that way: that rule is what its separate package is for.
 executable a user installs, and a runner draws nothing.
 `InetRunnerTest.test_runner_closure()` asserts it. Before you add a dependency
 there, read
-[plan/pending/native-simulation-binary.md](plan/pending/native-simulation-binary.md) §2.
+[plan/done/native-simulation-binary.md](plan/done/native-simulation-binary.md) §2.
 
 ## Testing a change
 

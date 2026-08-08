@@ -8,21 +8,23 @@ the `inet-julia` executable is built from, by `tool/build_binary.jl`.
 
 The dependency list in `Project.toml` is a contract — the editor must not be
 reachable from here. `InetRunnerTest.test_runner_closure()` asserts it, and
-`plan/pending/native-simulation-binary.md` §2 says why.
+`plan/done/native-simulation-binary.md` §2 says why.
 
 Reached from Julia as well as from a command line:
 
     using InetRunner
-    InetRunner.main(["-c", "Queuing", "-r", "0"])
+    InetRunner.main(["-f", "omnetpp.ini", "-c", "TestNetwork", "-r", "0"])
 """
 module InetRunner
 
 include("CommandLine.jl")
 include("ResultFiles.jl")
+include("NedIni.jl")
 include("Runner.jl")
 
 using .CommandLineModule
 using .ResultFilesModule
+using .NedIni
 using .RunnerModule
 
 export main, julia_main

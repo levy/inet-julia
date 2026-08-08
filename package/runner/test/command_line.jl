@@ -3,7 +3,7 @@
 #
 # An option outside the set is an error and not a silence: an ignored
 # --sim-time-limit produces a run that is wrong in a way no output shows
-# (plan/pending/native-simulation-binary.md §4.4).
+# (plan/done/native-simulation-binary.md §4.4).
 # ============================================================================
 using Test
 using InetRunner

@@ -5,7 +5,7 @@
 # The names and the run attributes are OMNeT++'s, because `opp_scavetool` and
 # the readers of `OmnetppLegacy` both key on them, and because a Julia file and
 # a C++ file of the same configuration are meant to be compared with one tool
-# (plan/pending/native-simulation-binary.md §4.6).
+# (plan/done/native-simulation-binary.md §4.6).
 # ============================================================================
 
 """

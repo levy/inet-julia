@@ -1,19 +1,28 @@
 # A native binary that runs a simulation from a NED file and an INI file
 
-**Status:** phases 1, 2, 3 and 4 done (2026-08-08). Phase 0 was done by the
-companion plan. **Phase 5 waits on one merge, not on any work**: phase 1 lands
-in `omnetpp-julia`, and an `inet-julia` `[sources]` entry reaches that
-repository's *main* checkout, so phase 5 cannot start until phase 1 is
-fast-forwarded there. §6 carries the state of each phase.
+**Status: every phase done (2026-08-08).** Phase 0 was done by the companion
+plan; phases 1 to 6 by this one. §6 carries the state of each.
 
-**The binary exists.** `tool/build_binary.jl` produces a 735 MB directory that
-runs a simulation in 0.38 s on a machine with no Julia, against 4.53 s for the
-same run through the checkout. Its scalars are identical to the ones the
-checkout writes.
+**The goal is met.** In `inet-cpp/tutorials/queueing`, on a machine with no
+Julia and with `env -i`:
 
-**What is left is phase 5, then phase 6.** Both are changes to `InetRunner`
-alone. §7 lists every file, and `OmnetppFormat` — phase 1's leaf below both
-stacks — is the only package this plan ever creates.
+```
+$ inet-julia -f omnetpp.ini -c ActiveSourcePassiveSink -r 0
+inet-julia 0.1.0
+Preparing configuration ActiveSourcePassiveSink, run #0.
+Network ProducerConsumerTutorialStep, from …/QueueingTutorial.ned.
+Running the simulation.
+Finished: t=10.0, 11 events, simulation time limit reached.
+Results: results/ActiveSourcePassiveSink-#0.sca
+         results/ActiveSourcePassiveSink-#0.vec
+```
+
+Neither file was edited, nothing was copied, and every scalar the C++ run
+recorded is the scalar this one records. The bundle is 695 MB.
+
+**One thing is worth fixing before anyone uses it in anger.** Five of those
+seconds are the NED and INI parsers building their tables, on every
+invocation — see the end of §6.
 
 **Goal:** ship one executable that runs an INET simulation from an unmodified
 NED file and an unmodified INI file, with no user interface, no Julia
@@ -592,13 +601,17 @@ its own limit.
 `JULIA_NUM_THREADS`, and nothing sets it. The sequential engine does not care.
 The parallel engine would.
 
-### Phase 5 — The NED file and the INI file — **ready, after phase 1**
+### Phase 5 — The NED file and the INI file — **done**
 
-The companion plan is done, so nothing outside this plan blocks this any more.
-Phase 1 must land first: without it, adding `OmnetppDescription` to
-`InetRunner` puts the whole editor in the executable, and the guard says so.
+Every step is a change to `InetRunner`. The reader was not touched.
 
-Every step below is a change to `InetRunner`. The reader is not touched.
+The guard ran first, with `OmnetppDescription` newly in the dependencies, and
+answered what phase 1 was for:
+
+```
+InetRunner reaches 18 packages
+forbidden: NONE
+```
 
 1. Add `split_module_path = true` to the sink in `Runner.jl`, and the module
    column of every scalar line becomes the one OMNeT++ writes. One line; the
@@ -637,7 +650,34 @@ name, every submodule type, every connection and every resolved parameter.
 `package/queuing/test/nedini.jl` asserts most of this already — read it before
 writing a second version of it.
 
-### Phase 6 — Compare against the C++ result — **after phase 5**
+Result: it runs, and the numbers are the C++ numbers.
+`ActiveSourcePassiveSink` draws nothing, so 11 events and
+`packets:count 11` / `packetLengths:sum 88` are exact rather than a tolerance.
+The runner suite is 88 pass, 0 fail — the `Revise` assertion of the closure
+guard included, now that phase 1 has landed.
+
+Three things came out of the work.
+
+**A `do` block passes its closure first.** `_describing("reading $path") do …`
+calls `_describing(closure, action)`, so the helper takes the body as its first
+argument. It failed at run time and not at load time, which is what a test that
+runs the whole path is for.
+
+**`engine.time` is a `SimTime`, not seconds.** The lifecycle path answered a
+`Float64` and this one does not, so the finish line first read
+`10000000000000 ps s`. `fmt_time` is the formatter.
+
+**A new dependency needs `Pkg.resolve()` in every environment that reaches
+it** — `package/runner/main` as well as `package/runner/test`. Both the
+developer wrapper and the build failed on a stale manifest before the resolve,
+with an error that reads like a code fault and is not.
+
+The two errors the queuing suite reports are **not** this plan's. `record_tap!`
+changed signature in `omnetpp-julia`'s capture work and
+`InetQueuing.QueuingCapture` has not caught up. Measured both ways: 275 pass /
+2 errors on the main checkout without any of this, and 275 / 2 with it.
+
+### Phase 6 — Compare against the C++ result — **done**
 
 1. Run `ActiveSourcePassiveSink` and `PacketQueue` with the built binary,
    against the unmodified files of `inet-cpp/tutorials/queueing`.
@@ -651,6 +691,58 @@ writing a second version of it.
    comparison runs the **built binary** and reads the `.sca` it wrote.
 4. Measure the event rate that phase 4 could not, on a configuration that sets
    its own `sim-time-limit`.
+
+Result: both configurations run, and `ActiveSourcePassiveSink` matches the C++
+file exactly — it draws nothing, so 11 packets of 8 bytes are a target and not
+a tolerance.
+
+```
+producer packets:count        C++=11  julia=11  MATCH
+producer packetLengths:sum    C++=88  julia=88  MATCH
+consumer packets:count        C++=11  julia=11  MATCH
+consumer packetLengths:sum    C++=88  julia=88  MATCH
+```
+
+`PacketQueue` draws two uniforms off streams that are not OMNeT++'s, so it is
+compared by range, and both sides land in it. The runner suite is 107 pass,
+0 fail. `package/runner/test/reference.jl` reads both `.sca` files with one
+reader, so a quoting difference cannot be mistaken for a numeric one.
+
+**The event rate is still not measured, and something bigger showed up
+instead.** See the parser cost below; at five seconds of fixed overhead the
+rate of an 11-event or a 25-event configuration says nothing. Measure it on a
+configuration that runs long enough to swamp the overhead, once the overhead is
+gone.
+
+### The parser costs five seconds per run
+
+Measured on the built binary, in the tutorial directory:
+
+| what | time |
+| --- | --- |
+| `inet-julia --version` — no parse | 0.29 s |
+| a run that reads one NED and one INI file | 5.30 s |
+| the same run again | 5.41 s |
+
+The simulation is eleven events. **Essentially all of it is the LALR table
+build**, and it is paid on every invocation: both parsers build their tables
+lazily into a `Ref` on first use, so the tables never reach the system image
+however much the precompile file parses.
+
+Phase 4's risk list called this out and asked for a decision if it cost more
+than a second. It costs five. A runner a script invokes a hundred times pays
+eight minutes for nothing.
+
+The decision is not taken here, because it belongs to `OmnetppFormat` and it is
+not obviously cheap. The options, in the order they should be tried:
+
+1. Build the two `Lark` objects into a `const` at precompile time, so they land
+   in the `.ji` and in the image. Whether a `Lark` serializes is the open
+   question — that is presumably why they are lazy today.
+2. Serialize the parse tables alone, not the parser object, and rebuild the
+   thin wrapper around them at load.
+3. Accept it, and give the runner a mode that runs many configurations in one
+   process, so the cost is paid once.
 
 **Done when both configurations run through the built binary, on a machine with
 no Julia, and their statistics agree with the C++ reference.**

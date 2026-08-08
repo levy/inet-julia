@@ -1,5 +1,5 @@
 # The command-line runner and the executable built from it
-# (plan/pending/native-simulation-binary.md).
+# (plan/done/native-simulation-binary.md).
 #
 #     julia --project=package/runner/test -e 'using InetRunnerTest; test_runner()'
 
@@ -12,4 +12,5 @@ using Test
     include("command_line.jl")
     include("run.jl")
     include("result_files.jl")
+    include("reference.jl")
 end

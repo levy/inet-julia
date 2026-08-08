@@ -3,7 +3,7 @@ authors = []
 
 # The build environment. It is not the executable's closure: `build_binary.jl`
 # resolves `package/runner/main` separately, and that project is the one bound
-# by plan/pending/native-simulation-binary.md §2.1. Projectured is here for the
+# by plan/done/native-simulation-binary.md §2.1. Projectured is here for the
 # FSM generators, PackageCompiler for the executable.
 [deps]
 PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"

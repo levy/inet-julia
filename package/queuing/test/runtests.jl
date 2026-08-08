@@ -17,7 +17,9 @@ using Test
     include("phase5_capture.jl")
     # The NED and INI path: two tutorial configurations run from the original
     # files (omnetpp-julia plan/pending/first-run-from-ned-ini.md, Phase 6).
-    include("src/NedIni.jl")
+    # The glue that says which Julia type each NED type name means now lives in
+    # `InetRunner`, because the shipped executable needs it and a test is not
+    # shipped (plan/done/native-simulation-binary.md §4.8).
     include("nedini.jl")
     test_ned_ini()
 end

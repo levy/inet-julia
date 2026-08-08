@@ -9,7 +9,7 @@
 #
 # PackageCompiler and not juliac: `juliac --trim` forbids dynamic dispatch, and
 # the element library dispatches on module type at every gate
-# (plan/pending/native-simulation-binary.md §4.1).
+# (plan/done/native-simulation-binary.md §4.1).
 # ============================================================================
 
 using Pkg
@@ -35,7 +35,7 @@ create_app(SOURCE, TARGET;
            include_lazy_artifacts = true,
            force = true)
 
-# The three numbers plan/pending/native-simulation-binary.md phase 4 asks to be
+# The three numbers plan/done/native-simulation-binary.md phase 4 asks to be
 # recorded. Measure them here, so they are measured the same way every time.
 size_bytes = parse(Int, split(read(`du -sb $TARGET`, String))[1])
 @info "Built" size_MB = round(size_bytes / 1024^2; digits = 1)
@@ -47,7 +47,7 @@ run(pipeline(`$executable --version`; stdout = devnull))
 
 println("""
 
-Built. Try it:
+Built. Try it, in a directory that holds a NED file and an INI file:
 
-    $executable -c Queuing --result-dir=/tmp/inet-julia-results
+    $executable -f omnetpp.ini -c <Config> -r 0
 """)

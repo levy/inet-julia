@@ -11,7 +11,7 @@ entryfile = "InetRunner.jl"
 # opens no window and reads no gesture, so the editor must not be reachable
 # from here: no ProjecturedVisual, no ProjecturedDomain, no Projectured
 # umbrella, no OmnetppLegacy, no DataFrames, no Revise. `test_runner_closure()`
-# in the test package asserts it, and plan/pending/native-simulation-binary.md
+# in the test package asserts it, and plan/done/native-simulation-binary.md
 # §2 says why.
 #
 # ProjecturedKernel and ProjecturedBase arrive under OmnetppSimulator and stay:
@@ -20,12 +20,20 @@ entryfile = "InetRunner.jl"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
 InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
+OmnetppDescription = "0e66750a-b7dd-4ea1-aa12-f1d16f19c855"
+OmnetppFormat = "029ac688-3079-4530-b344-ec3e77fcc7cf"
 OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
+OmnetppUnits = "9affc4b9-111a-4929-bbfb-901be4983719"
 
 [sources]
+InetPacket = {path = "../../packet/main"}
 InetQueuing = {path = "../../queuing/main"}
+OmnetppDescription = {path = "../../../../omnetpp-julia/package/description/main"}
+OmnetppFormat = {path = "../../../../omnetpp-julia/package/format/main"}
 OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
+OmnetppUnits = {path = "../../../../omnetpp-julia/package/units/main"}
 
 [compat]
 julia = "1.11"

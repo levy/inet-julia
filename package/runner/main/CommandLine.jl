@@ -5,7 +5,7 @@
 # Nothing here names INET, a model, a network or an element. The runner's
 # second consumer is a simulation that is not INET, and when it arrives this
 # file moves down to `OmnetppDescription` unchanged
-# (plan/pending/native-simulation-binary.md §4.3).
+# (plan/done/native-simulation-binary.md §4.3).
 # ============================================================================
 
 """

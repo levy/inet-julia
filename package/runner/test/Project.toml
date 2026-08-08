@@ -8,7 +8,7 @@ entryfile = "InetRunnerTest.jl"
 # files, and the guard that keeps the editor out of the executable.
 #
 # A test is not shipped, so this package is free to depend on whatever it
-# needs. The rule of plan/pending/native-simulation-binary.md §2.1 binds
+# needs. The rule of plan/done/native-simulation-binary.md §2.1 binds
 # `package/runner/main` alone, and `test_runner_closure()` is what checks it.
 
 [deps]

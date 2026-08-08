@@ -7,7 +7,7 @@
 # drifting apart in silence.
 
 using OmnetppDescription
-using .NedIni: register_queuing_ned_types!
+using InetRunner: register_queuing_ned_types!
 
 # The `inet-cpp` checkout, or nothing when it is absent.
 function _inet_root()

@@ -4,7 +4,7 @@
 # A runner writes result files. It draws nothing, opens no window and reads no
 # gesture, so 65268 lines of syntax, widget, layout and domain code have no
 # business in its image. This is the only thing that holds that rule
-# (plan/pending/native-simulation-binary.md §2).
+# (plan/done/native-simulation-binary.md §2).
 #
 # The walk is static — `[deps]` followed through `[sources]`, project file by
 # project file — because a resolved Manifest belongs to an environment and the

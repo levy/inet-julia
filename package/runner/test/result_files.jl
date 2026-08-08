@@ -4,7 +4,7 @@
 # The header is checked against the shape of a C++ file, not against a string
 # this test wrote: `opp_scavetool` and the readers of OmnetppLegacy key on it,
 # and a Julia file and a C++ file of one configuration are meant to be compared
-# with one tool (plan/pending/native-simulation-binary.md §4.6).
+# with one tool (plan/done/native-simulation-binary.md §4.6).
 # ============================================================================
 using Test
 using Dates: DateTime
@@ -59,28 +59,35 @@ _run_line(path) = strip(split(first(filter(l -> startswith(l, "run "), readlines
     end
 
     @testset "a run writes both files, with the header it promised" begin
+        inet_root = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "inet-cpp"))
+        if !isdir(inet_root)
+            @test_skip "inet-cpp is not beside this repository"
+        else
+        ini = joinpath(inet_root, "tutorials", "queueing", "omnetpp.ini")
         mktempdir() do directory
             buffer = IOBuffer()
-            code = InetRunner.main(["-c", "Queuing", "-r", "0", "-f", "queuing.ini",
+            code = InetRunner.main(["-f", ini, "-c", "PacketQueue", "-r", "0",
                                     "--result-dir=$directory"]; io = buffer)
             @test code == 0
 
-            scalar_path = joinpath(directory, "Queuing-#0.sca")
-            vector_path = joinpath(directory, "Queuing-#0.vec")
+            scalar_path = joinpath(directory, "PacketQueue-#0.sca")
+            vector_path = joinpath(directory, "PacketQueue-#0.vec")
             @test isfile(scalar_path)
             @test isfile(vector_path)
 
             # The run name identifies the run in both files, and it is the
             # same name in both — that is what joins them.
             name = _run_line(scalar_path)
-            @test startswith(name, "Queuing-0-")
+            @test startswith(name, "PacketQueue-0-")
             @test _run_line(vector_path) == name
 
             attributes = _attributes(scalar_path)
-            @test attributes["configname"] == "Queuing"
+            @test attributes["configname"] == "PacketQueue"
             @test attributes["runnumber"] == "0"
-            @test attributes["network"] == "Queuing"
-            @test attributes["inifile"] == "queuing.ini"
+            # The network comes from the INI file's `network =`, so it is the
+            # NED name and not the configuration's.
+            @test attributes["network"] == "PacketQueueTutorialStep"
+            @test attributes["inifile"] == ini
             @test attributes["processid"] == string(getpid())
             @test occursin(r"^\d{8}-\d\d:\d\d:\d\d$", attributes["datetime"])
 
@@ -89,10 +96,11 @@ _run_line(path) = strip(split(first(filter(l -> startswith(l, "run "), readlines
             @test occursin(attributes["datetime"], name)
             @test endswith(name, "-" * attributes["processid"])
 
-            # The .vec file holds the time series the model declared, not just
-            # a header — the queue records its length.
+            # The .vec file holds the time series the elements declared, not
+            # just a header — the queue records its length.
             vector_lines = readlines(vector_path)
             @test any(line -> occursin("queueLength:vector", line), vector_lines)
+        end
         end
     end
 end
