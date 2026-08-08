@@ -1,18 +1,19 @@
 # A native binary that runs a simulation from a NED file and an INI file
 
-**Status:** phases 2, 3 and 4 done and on main (2026-08-08). Phase 0 was done
-by the companion plan. Phase 1 is half done: the stale dependency is gone, the
-file move is ready. **Nothing is blocked any more** — `first-run-from-ned-ini.md`
-landed, and §3 says what that changed. §6 carries the state of each phase.
+**Status:** phases 1, 2, 3 and 4 done (2026-08-08). Phase 0 was done by the
+companion plan. **Phase 5 waits on one merge, not on any work**: phase 1 lands
+in `omnetpp-julia`, and an `inet-julia` `[sources]` entry reaches that
+repository's *main* checkout, so phase 5 cannot start until phase 1 is
+fast-forwarded there. §6 carries the state of each phase.
 
 **The binary exists.** `tool/build_binary.jl` produces a 735 MB directory that
 runs a simulation in 0.38 s on a machine with no Julia, against 4.53 s for the
 same run through the checkout. Its scalars are identical to the ones the
 checkout writes.
 
-**What is left is phase 1, then phase 5, then phase 6.** All of it lands in
-packages that already exist. §7 says so explicitly: this plan creates no
-package from here on.
+**What is left is phase 5, then phase 6.** Both are changes to `InetRunner`
+alone. §7 lists every file, and `OmnetppFormat` — phase 1's leaf below both
+stacks — is the only package this plan ever creates.
 
 **Goal:** ship one executable that runs an INET simulation from an unmodified
 NED file and an unmodified INI file, with no user interface, no Julia
@@ -27,9 +28,10 @@ inet-julia -f omnetpp.ini -c TestNetwork -r 0
 **Built on:** `omnetpp-julia/plan/pending/first-run-from-ned-ini.md`, which has
 landed. It built the NED reader, the INI reader, the type registry and the
 network builder in `OmnetppDescription`. §5 states the seam this plan calls, in
-the names that package actually uses. **§2.4 amends one thing**: the dependency
-edge between `OmnetppDescription` and `OmnetppLegacy` must run the other way,
-or the executable carries the editor.
+the names that package actually uses. **§2.4 changed one thing under it**: that
+package read its files through `OmnetppLegacy`, and phase 1 put the file
+formats in a leaf below both stacks instead, or the executable would carry the
+editor.
 
 **Mitigates:** `RISK-BINARY-DISTRIBUTION` in
 `omnetpp-julia/documentation/risks.md`.
@@ -105,14 +107,13 @@ sets. This was measured, not assumed.
 source, so they carry no data file either. The split is therefore a move of
 seven files and one rebind block, not a rewrite.
 
-### 2.4 Where the lean half goes
+### 2.4 Where the lean half goes — **done**
 
-**Move the lean half into `OmnetppDescription`,** and make `OmnetppLegacy`
-depend on it. **This creates no package.** `OmnetppDescription` already exists
-on `omnetpp-julia` main, and the move only changes what is inside it and which
-way one arrow points.
+**The lean half became `OmnetppFormat`, a leaf below both stacks.** It is the
+one package this plan creates, and the paragraphs below say why nothing cheaper
+works.
 
-The edge runs the wrong way today. Measured on main:
+The edge ran the wrong way. Measured before the split:
 
 ```
 OmnetppDescription reaches 19 packages
@@ -120,19 +121,45 @@ forbidden ones among them: DataFrames, OmnetppLegacy, Projectured,
                            ProjecturedDomain, ProjecturedVisual
 ```
 
-So adding `OmnetppDescription` to `InetRunner` as it stands puts the whole
-editor in the executable. The move also **removes** a dependency rather than
-adding one: `OmnetppDescription` drops `OmnetppLegacy` and gains `Lerche` and
-`ProjecturedBase`, both already in the runner's closure.
+So adding `OmnetppDescription` to `InetRunner` as it stood put the whole editor
+in the executable.
 
-The names then say what each package is. `OmnetppDescription` owns the
-description of a simulation — the NED file, the INI file, and the network they
-build. `OmnetppLegacy` owns the bridge to the C++ product — the launcher, the
-result reader, and the projections that put a NED file on screen.
+**The cheaper fix was the wrong one.** This plan first said: move the seven
+files into `OmnetppDescription`, and let `OmnetppLegacy` depend on it. That
+creates no package — and it breaks a rule stated in bold in
+`omnetpp-julia/documentation/architecture.md`:
 
-The repository already isolates a heavy dependency this way:
-`package/legacy/plot` exists to keep CairoMakie out of `OmnetppLegacy`. This
-is the same move, for the same reason.
+> **`OmnetppLegacy` must not grow a dependency on `OmnetppSimulator`** … A
+> dependency either way would couple the replacement to the thing it replaces.
+
+`OmnetppDescription` builds a `Network`, so it depends on `OmnetppSimulator`.
+Pointing `OmnetppLegacy` at it would carry the engine into the editor of the
+artifacts the engine replaces.
+
+**A leaf below both costs neither rule.** `OmnetppFormat` holds the NED, INI
+and `.test` documents, their three parsers and the quantity literal, and
+depends on `ProjecturedKernel`, `ProjecturedBase`, `Lerche` and `OmnetppUnits`.
+It knows about neither stack. That is the shape the layout rule already
+admits — the rule calls `OmnetppUnits` shared substrate because it is "a leaf
+with no opinion about either stack", and this is the second such leaf rather
+than an exception to anything.
+
+Measured after the split:
+
+```
+OmnetppFormat        reaches  7 packages; forbidden: NONE
+OmnetppDescription   reaches 13 packages; forbidden: NONE
+legacy reaches OmnetppSimulator?  false
+simulator reaches OmnetppLegacy?  false
+```
+
+`OmnetppLegacy` re-exports everything `OmnetppFormat` exports, so no caller
+changes. The names then say what each package is: `OmnetppFormat` owns the file
+formats, `OmnetppDescription` owns what a simulation is described by, and
+`OmnetppLegacy` owns the bridge to the C++ product.
+
+The repository already isolates a dependency this way: `package/legacy/plot`
+exists to keep CairoMakie out of `OmnetppLegacy`.
 
 ### 2.5 One dependency is simply stale
 
@@ -379,40 +406,55 @@ Warning: do not name a destination folder `results`. `.gitignore` holds
 `results/`, which matches that name at any depth, and git would drop the
 reference files without a word.
 
-### Phase 1 — Turn the reader's arrow round — **step 6 done, the rest ready**
+### Phase 1 — Put the file formats below both stacks — **done**
 
-This phase lands in `omnetpp-julia`, on main, in a worktree of its own.
+This phase lands in `omnetpp-julia`, in the worktree
+`/home/projectured/workspace/omnetpp-julia-binary` on branch `binary`. Step 6
+landed earlier, on its own; the rest is one commit, "A file format is an
+opinion about neither stack".
 
-**Step 6 is done.** `OmnetppSimulator` no longer declares `Revise` ("A
-development tool is not a dependency of the engine", on main). The guard of
-phase 2 found it on its first run, and the build of phase 4 proved it was not
-academic: `Revise` precompiled into the shipped image.
+The step list below is what was written first. §2.4 says why step 1 changed
+from an inversion into a new leaf package.
 
-**The rest is now unblocked, and it creates no package.** `package/description`
-landed on main with the companion plan, so step 1 is no longer a creation —
-it is an inversion. `OmnetppDescription` ends the phase with one dependency
-fewer than it starts with.
-
-1. Change `OmnetppDescription`'s dependencies. Drop `OmnetppLegacy`. Add
-   `Lerche` and `ProjecturedBase`. `ProjecturedKernel`, `OmnetppSimulator` and
-   `OmnetppUnits` stay.
+1. Create `package/format/main` — `OmnetppFormat`, depending on
+   `ProjecturedKernel`, `ProjecturedBase`, `Lerche` and `OmnetppUnits`, and on
+   nothing else. Point `OmnetppDescription` at it and drop `OmnetppLegacy`
+   from its dependencies.
 2. Move seven files into it: `document/Ini.jl`, `document/Ned.jl`,
    `document/Test.jl`, `parser/IniParser.jl`, `parser/NedParser.jl`,
-   `parser/TestParser.jl` and `simulation/Quantity.jl`.
+   `parser/TestParser.jl` and `simulation/Quantity.jl`. Use `git mv`, so the
+   history follows.
 3. Give its module root the rebind block for the five submodules of §2.3, the
-   same way `OmnetppLegacy.jl` does today.
-4. Add `OmnetppDescription` to `OmnetppLegacy`'s dependencies, and rebind the
-   moved submodules there so `IniToSyntax.jl` and `NedToSyntax.jl` still
-   resolve `..IniModule` and `..NedModule`.
-5. Re-export the moved names from `OmnetppLegacy`, so no caller changes.
+   same way `OmnetppLegacy.jl` does for the visual ones.
+4. Add `OmnetppFormat` to `OmnetppLegacy`'s dependencies, and rebind the moved
+   submodules there under the names they had as siblings, so `IniToSyntax.jl`
+   and `NedToSyntax.jl` still resolve `..IniModule` and `..NedModule`.
+5. Re-export the moved names from `OmnetppLegacy`, so no caller changes. One
+   `using OmnetppFormat` replaces six `using .XModule` lines.
 6. Delete the stale `Revise` entry of §2.5.
-7. Correct the `[sources]` and the inventory in `SEALING.md` for the seven
-   moved files. `OmnetppDescription` is already in the umbrella and the root.
-8. Instantiate the `package/description/main` environment standalone, not only
-   from the root.
-9. Promote `run_network!` of §4.8 into `NetworkModule`, without the
-   `check_packet_connections` call. It is twelve lines and it belongs beside
-   the three verbs it already calls.
+7. Register `OmnetppFormat` in the root `[sources]`, in the `Omnetpp` umbrella
+   and in the `SEALING.md` inventory. Correct the two live documents that name
+   a moved file by its old path.
+8. Instantiate `package/format/main` standalone, not only from the root.
+9. Promote `run_network!` of §4.8. It goes in `harness/SimulationModel.jl` and
+   **not** in `NetworkModule`, because that module is included long before any
+   engine type exists and cannot name `SequentialSimulator`. It takes a `check`
+   hook, called after `initialize_network!` and before the run, because
+   `check_packet_connections` belongs to whoever knows the protocol.
+
+Check: `OmnetppFormat` parses a NED file in an environment that has no
+`ProjecturedVisual` in it at all. The legacy suite and the description suite
+both pass unchanged, which is what proves the re-export complete. The closure
+walk from `package/format/main` and from `package/description/main` names none
+of the six of §2.1.
+
+Result: all four hold. `OmnetppLegacy` 512/512, `OmnetppDescription` 227/227,
+and the four closure numbers are quoted in §2.4.
+
+**A new dependency needs `Pkg.resolve()`, not `Pkg.instantiate()`.** The root
+environment failed to load `OmnetppLegacy` after the split, with a stale
+manifest that did not know about `OmnetppFormat`. Nothing was wrong with the
+code.
 
 Check: `julia --project=package/description/main -e 'using OmnetppDescription;
 nedparse_file(…)'` parses a NED file in an environment that has no
@@ -615,14 +657,15 @@ no Julia, and their statistics agree with the C++ reference.**
 
 ## 7. Where the code goes
 
-**No package is created anywhere.** Every file below lands in a package that
-already exists.
+**One package is created, and only one.** `OmnetppFormat`, by phase 1, for the
+reason §2.4 gives. Everything else lands in a package that already exists.
 
 In `omnetpp-julia`:
 
-- `package/description/main/src/` — the seven moved files, and the rebind block
-  in the module root that already sits there.
-- `package/simulator/main/src/model/module/` — `run_network!`, promoted.
+- `package/format/main/` — `OmnetppFormat`: the module root, the seven moved
+  files, and the rebind block for the five kernel and base submodules.
+- `package/simulator/main/src/harness/SimulationModel.jl` — `run_network!`,
+  promoted. Not `NetworkModule`; phase 1 step 9 says why.
 
 In `inet-julia` (the entry file sits at the package root, not under `src/`,
 which is what every package here does):
