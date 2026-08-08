@@ -11,4 +11,5 @@ using Test
     include("closure.jl")
     include("command_line.jl")
     include("run.jl")
+    include("result_files.jl")
 end

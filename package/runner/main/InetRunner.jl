@@ -18,9 +18,11 @@ Reached from Julia as well as from a command line:
 module InetRunner
 
 include("CommandLine.jl")
+include("ResultFiles.jl")
 include("Runner.jl")
 
 using .CommandLineModule
+using .ResultFilesModule
 using .RunnerModule
 
 export main, julia_main
