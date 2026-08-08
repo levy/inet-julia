@@ -15,4 +15,9 @@ using Test
     # Communication capture over the ModuleRef seams
     # (omnetpp-julia plan/pending/observable-communication.md, Phase 3).
     include("phase5_capture.jl")
+    # The NED and INI path: two tutorial configurations run from the original
+    # files (omnetpp-julia plan/pending/first-run-from-ned-ini.md, Phase 6).
+    include("src/NedIni.jl")
+    include("nedini.jl")
+    test_ned_ini()
 end
