@@ -608,7 +608,17 @@ function visit_construction!(sc::FileScan, n)
                            get(sc.world.retired, something(simple_name(kids(a)[1]), :_), nothing) === callee &&
                            endswith(String(something(simple_name(kids(a)[1]), :_)), "Parameters"),
                       positional)
-    which === nothing && return                    # already in the new shape
+    if which === nothing
+        # No parameter struct to dissolve. That is the new shape already, unless
+        # the old constructor took something else positionally — a gate count,
+        # say — which the generated one takes as a keyword. Nothing here can
+        # know which keyword that was, so it is a person's to move.
+        length(positional) <= 1 && return
+        note!(sc, at, :refuse,
+              "`$(callee)(…)` is given $(length(positional) - 1) positional argument(s) " *
+              "after its name, and the generated constructor takes keywords")
+        return
+    end
     pstruct = positional[which]
     deleteat!(positional, which)
 

@@ -244,6 +244,12 @@ end
     @test occursin("n = ActiveSourceModule(:s,", r.text)
     @test any(m -> occursin("holds a comment", m), r.refused)
 
+    # A positional argument the generated constructor cannot take. Without this
+    # the call would be passed over in silence and break at run time.
+    r = port("m = ActiveSourceModule(:s, 3)\n")
+    @test occursin("ActiveSourceModule(:s, 3)", r.text)
+    @test any(m -> occursin("positional argument", m), r.refused)
+
     # A field the declaration does not have is a rename, not a rewrite.
     r = port("""
     function f(m::ActiveSourceModule)

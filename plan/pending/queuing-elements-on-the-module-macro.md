@@ -215,7 +215,7 @@ Four waves, each ending green, in the order the elements were built:
 | 2 | `PassivePacketSource`, `PassivePacketSink`, `ActivePacketSink` — **done** |
 | 3 | `PacketQueue`, `PacketServer`, `InstantServer` — **done** |
 | 4 | `PacketClassifier`, `PacketScheduler`, `PacketFilter` — **done** |
-| 5 | the six `common` elements |
+| 5 | the six `common` elements — **done** |
 
 Each wave is the same three steps:
 
@@ -297,6 +297,29 @@ site outside them constructs either element directly.
 *Neither element needed a stream.* `markov_classifier` keeps its own
 `MersenneTwister` in a closure, which is a stream the module does not own. §16
 will have something to say about that; nothing needs it yet.
+
+**Wave 5 findings.**
+
+*A ported element whose old constructor took a bare count was a silent hazard.*
+`PacketMultiplexerModule(:mux, 2)` has no parameter struct to dissolve, so the
+transformer passed over it and the call would have broken at run time with
+nothing said. It now refuses a construction of a ported element that carries
+any positional argument after the name, which found all nine sites. This is the
+one gap in the tool that a wave discovered by nearly falling into it.
+
+*A constructor's validation moves to `decorate_module!`.* The cloner checked
+`outputs >= 1` before building. The generated constructor has no such seam, and
+`decorate_module!` is called last with the module built, so the check reads
+`isempty(m.out)` there.
+
+*The multiplexer and demultiplexer kept a count with no `Statistics` struct
+around it.* `num_packets` was a plain module field with a two-line
+`reset_module!`. Declared `@statistic`, it needs neither.
+
+**All sixteen simple elements are ported.** No `Parameters`, `States` or
+`Statistics` struct is left in `package/queuing/main`, and there is no
+hand-written `reset_states!`, `reset_statistics!` or `reset_module!` anywhere in
+the package. That is §7.1 and §7.2 done as a byproduct of the waves.
 
 ### Phase 6 — the compound
 

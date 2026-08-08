@@ -7,7 +7,7 @@
 # step is about the shape of the network rather than about the packets in it.
 # ────────────────────────────────────────────────────────────────────────────
 
-using InetQueuing: PacketDelayerModule, PacketDelayerParameters,
+using InetQueuing: PacketDelayerModule,
     PacketMultiplexerModule, PacketDemultiplexerModule,
     PassivePacketSourceModule,
     ActivePacketSinkModule
@@ -62,8 +62,9 @@ function _build_delayer_network(m)
     network = Network(:Delayer)
     source = _step_source(network, m)
     delay = m.random_delay ? Volatile(exponential(m.delay)) : m.delay
-    delayer = add_module!(network, PacketDelayerModule(:delayer,
-        PacketDelayerParameters(delay = delay); seed = m.seed + 1))
+    delayer = add_module!(network, PacketDelayerModule(:delayer;
+        delay = delay,
+        seed = m.seed + 1))
     sink = _step_sink(network, :sink)
     connect!(source.out, delayer.in)
     connect!(delayer.out, sink.in)
@@ -127,7 +128,7 @@ end
 
 function _build_multiplexer_network(m)
     network = Network(:Multiplexer)
-    join = add_module!(network, PacketMultiplexerModule(:multiplexer, m.sources))
+    join = add_module!(network, PacketMultiplexerModule(:multiplexer; inputs = m.sources))
     sink = _step_sink(network, :sink)
     connect!(join.out, sink.in)
     # Each source gets its own seed, or they would all produce the same stream.
@@ -205,7 +206,7 @@ function _build_demultiplexer_network(m)
     source = add_module!(network, PassivePacketSourceModule(:source;
         packet = PacketTemplate(length = Bytes(100)),
         seed = m.seed))
-    fork = add_module!(network, PacketDemultiplexerModule(:demultiplexer, m.sinks))
+    fork = add_module!(network, PacketDemultiplexerModule(:demultiplexer; outputs = m.sinks))
     connect!(source.out, fork.in)
     # Each sink collects on its own clock, so which one gets a given packet is
     # decided by who asks first.

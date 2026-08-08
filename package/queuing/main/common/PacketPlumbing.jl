@@ -18,8 +18,8 @@ traffic exactly as a network path does.
 module PacketPlumbingElement
 
 using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule, schedule!
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateInput, GateOutput, Network,
-    input_gate, output_gate, gate_vector, module_id
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+    @simulation_module, decorate_module!
 using OmnetppSimulator.VolatileModule: evaluate
 using InetPacket.PacketModule: Packet, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
@@ -32,36 +32,35 @@ using ..PacketProtocolModule: PacketProtocolModule, PassivePacketSink, PassivePa
 using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic!,
     record_statistic!
 
-export PacketMultiplexerModule, PacketDemultiplexerModule,
-       PacketDelayerParameters, PacketDelayerStatistics, PacketDelayerModule,
+export PacketMultiplexerModule, PacketDemultiplexerModule, PacketDelayerModule,
        packets_in_flight
 
 # ── Multiplexer: several push chains into one ──────────────────────────────
 
 """
-    PacketMultiplexerModule(name, inputs)
+    PacketMultiplexerModule(name; inputs)
 
 Merges `inputs` push chains into one output. Every producer pushes into its own
 input and the packets come out in the order they arrived.
 """
-mutable struct PacketMultiplexerModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Vector{Gate}
-    out::Gate
-    num_packets::Int
-    producers::Vector{ModuleRef}
-    consumer::ModuleRef
+@simulation_module struct PacketMultiplexerModule
+    @parameter inputs::Int                             # no default: a merge of what?
+    @gates begin
+        in::Vector{InputGate} = inputs
+        out::OutputGate
+    end
+    @variables begin
+        producers::Vector{ModuleRef} = ModuleRef[]
+        consumer::ModuleRef = NO_MODULE_REF
+    end
+    @statistic num_packets::Int = 0
 end
 
-function PacketMultiplexerModule(name::Symbol, inputs::Int)
-    m = PacketMultiplexerModule(
-        name, 0, Gate[],
-        output_gate(nothing, :out; annotations = Any[InterfaceClaim(ActivePacketSource)]),
-        0, ModuleRef[], NO_MODULE_REF)
-    m.out.owner = m
-    m.in = gate_vector(m, :in, GateInput, inputs;
-                       annotations = () -> Any[ForwardClaim(PassivePacketSink, :out)])
+function NetworkModule.decorate_module!(m::PacketMultiplexerModule)
+    for gate in m.in
+        push!(gate.annotations, ForwardClaim(PassivePacketSink, :out))
+    end
+    push!(m.out.annotations, InterfaceClaim(ActivePacketSource))
     m
 end
 
@@ -73,8 +72,6 @@ function NetworkModule.initialize_module!(::Network, m::PacketMultiplexerModule)
 end
 
 NetworkModule.module_icon(::PacketMultiplexerModule) = "block/join"
-
-NetworkModule.reset_module!(m::PacketMultiplexerModule) = (m.num_packets = 0; m)
 
 PacketProtocolModule.can_push_some_packet(m::PacketMultiplexerModule, ::Gate) =
     can_push_some_packet(m.consumer)
@@ -101,29 +98,29 @@ end
 # ── Demultiplexer: one provider, several collectors ────────────────────────
 
 """
-    PacketDemultiplexerModule(name, outputs)
+    PacketDemultiplexerModule(name; outputs)
 
 Lets `outputs` collectors pull from one provider. Whichever pulls first gets
 the packet.
 """
-mutable struct PacketDemultiplexerModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Vector{Gate}
-    num_packets::Int
-    provider::ModuleRef
-    collectors::Vector{ModuleRef}
+@simulation_module struct PacketDemultiplexerModule
+    @parameter outputs::Int                            # no default: a split into what?
+    @gates begin
+        in::InputGate
+        out::Vector{OutputGate} = outputs
+    end
+    @variables begin
+        provider::ModuleRef = NO_MODULE_REF
+        collectors::Vector{ModuleRef} = ModuleRef[]
+    end
+    @statistic num_packets::Int = 0
 end
 
-function PacketDemultiplexerModule(name::Symbol, outputs::Int)
-    m = PacketDemultiplexerModule(
-        name, 0,
-        input_gate(nothing, :in; annotations = Any[InterfaceClaim(ActivePacketSink)]),
-        Gate[], 0, NO_MODULE_REF, ModuleRef[])
-    m.in.owner = m
-    m.out = gate_vector(m, :out, GateOutput, outputs;
-                        annotations = () -> Any[InterfaceClaim(PassivePacketSource)])
+function NetworkModule.decorate_module!(m::PacketDemultiplexerModule)
+    push!(m.in.annotations, InterfaceClaim(ActivePacketSink))
+    for gate in m.out
+        push!(gate.annotations, InterfaceClaim(PassivePacketSource))
+    end
     m
 end
 
@@ -135,8 +132,6 @@ function NetworkModule.initialize_module!(::Network, m::PacketDemultiplexerModul
 end
 
 NetworkModule.module_icon(::PacketDemultiplexerModule) = "block/fork"
-
-NetworkModule.reset_module!(m::PacketDemultiplexerModule) = (m.num_packets = 0; m)
 
 PacketProtocolModule.can_pull_some_packet(m::PacketDemultiplexerModule, ::Gate) =
     can_pull_some_packet(m.provider)
@@ -159,59 +154,44 @@ end
 # ── Delayer: holds each packet for a while ─────────────────────────────────
 
 """
-    PacketDelayerParameters(; delay)
+    PacketDelayerModule(name; delay, seed = 0)
 
 How long each packet is held, in seconds. [`Volatile`](@ref) delays are drawn
 per packet, and then packets can overtake one another — which is the point, a
 path whose delay varies reorders what crosses it.
 """
-struct PacketDelayerParameters
-    delay::Any
+@simulation_module struct PacketDelayerModule
+    @parameters begin
+        delay::Any                                     # no default: held for how long?
+        seed::Int = 0
+    end
+    @gates begin
+        in::InputGate
+        out::OutputGate
+    end
+    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @variable consumer::ModuleRef = NO_MODULE_REF
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_packets::Int = 0
+        in_flight::Int = 0
+    end
 end
 
-PacketDelayerParameters(; delay) = PacketDelayerParameters(delay)
-
-mutable struct PacketDelayerStatistics
-    recording::ModuleStatistics
-    num_packets::Int
-    in_flight::Int
-end
-
-PacketDelayerStatistics() = PacketDelayerStatistics(ModuleStatistics(), 0, 0)
-
-const STATISTIC_NAMES = (:packetDelay,)
-
-mutable struct PacketDelayerModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Gate
-    parameters::PacketDelayerParameters
-    statistics::PacketDelayerStatistics
-    rng::MersenneTwister
-    seed::Int
-    consumer::ModuleRef
-end
-
-function PacketDelayerModule(name::Symbol, parameters::PacketDelayerParameters;
-                             seed::Int = 0)
-    m = PacketDelayerModule(
-        name, 0,
-        input_gate(nothing, :in;
-                   annotations = Any[ForwardClaim(PassivePacketSink, :out)]),
-        output_gate(nothing, :out; annotations = Any[InterfaceClaim(ActivePacketSource)]),
-        parameters, PacketDelayerStatistics(), MersenneTwister(seed), seed, NO_MODULE_REF)
-    m.in.owner = m
-    m.out.owner = m
+function NetworkModule.decorate_module!(m::PacketDelayerModule)
+    push!(m.in.annotations, ForwardClaim(PassivePacketSink, :out))
+    push!(m.out.annotations, InterfaceClaim(ActivePacketSource))
     m
 end
+
+const STATISTIC_NAMES = (:packetDelay,)
 
 """
     packets_in_flight(m) -> Int
 
 How many packets the delayer is currently holding.
 """
-packets_in_flight(m::PacketDelayerModule) = m.statistics.in_flight
+packets_in_flight(m::PacketDelayerModule) = m.in_flight
 
 function NetworkModule.initialize_module!(::Network, m::PacketDelayerModule)
     m.consumer = resolve_interface(m.out, PassivePacketSink)
@@ -219,17 +199,12 @@ function NetworkModule.initialize_module!(::Network, m::PacketDelayerModule)
 end
 
 NetworkModule.register_module_statistics!(m::PacketDelayerModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
 NetworkModule.module_icon(::PacketDelayerModule) = "block/delay"
 
-NetworkModule.reset_module!(m::PacketDelayerModule) =
-    (m.rng = MersenneTwister(m.seed); m.statistics.num_packets = 0;
-     m.statistics.in_flight = 0; m)
-
 NetworkModule.finalize_module!(m::PacketDelayerModule, ::Any) =
-    (record_statistic!(m.statistics.recording, "packets:count", m.statistics.num_packets);
-     nothing)
+    (record_statistic!(m.recording, "packets:count", m.num_packets); nothing)
 
 # A delayer holds packets rather than blocking, so what it can take depends
 # only on what is behind it.
@@ -239,15 +214,14 @@ PacketProtocolModule.can_push_packet(m::PacketDelayerModule, ::Gate, packet::Pac
     can_push_packet(m.consumer, packet)
 
 function PacketProtocolModule.push_packet!(ctx, m::PacketDelayerModule, ::Gate, packet::Packet)
-    delay = to_simtime(evaluate(m.parameters.delay, m.rng))
-    statistics = m.statistics
-    statistics.num_packets += 1
-    statistics.in_flight += 1
-    emit_statistic!(statistics.recording, ctx, :packetDelay, seconds(delay))
+    delay = to_simtime(evaluate(m.delay, m.rng))
+    m.num_packets += 1
+    m.in_flight += 1
+    emit_statistic!(m.recording, ctx, :packetDelay, seconds(delay))
     # Each packet gets its own event, so several are in flight at once and a
     # drawn delay can reorder them.
     schedule!(ctx, delay, m.module_id, function (c)
-        statistics.in_flight -= 1
+        m.in_flight -= 1
         push_or_schedule!(c, m.consumer, packet)
     end)
     nothing

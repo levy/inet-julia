@@ -27,8 +27,7 @@ using OmnetppSimulator.VolatileModule
         network = Network(:Labeling)
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
-        labeler = add_module!(network, PacketLabelerModule(:labeler,
-            PacketLabelerParameters(label = 7)))
+        labeler = add_module!(network, PacketLabelerModule(:labeler; label = 7))
         # A filter for the label is how the test reads it back: only packets
         # carrying 7 reach the sink, and every one of them does.
         wants_seven = add_module!(network, PacketFilterModule(:filter;
@@ -39,7 +38,7 @@ using OmnetppSimulator.VolatileModule
         connect!(wants_seven.out, sink.in)
         run_network!(network; until = 1.0)
 
-        @test labeler.statistics.num_packets == 11
+        @test labeler.num_packets == 11
         @test sink.num_packets == 11
         @test wants_seven.num_dropped == 0
     end
@@ -48,7 +47,7 @@ using OmnetppSimulator.VolatileModule
         network = Network(:Cloning)
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
-        cloner = add_module!(network, PacketClonerModule(:cloner, 3))
+        cloner = add_module!(network, PacketClonerModule(:cloner; outputs = 3))
         sinks = [add_module!(network, PassivePacketSinkModule(Symbol(:sink, index)))
                  for index in 1:3]
         connect!(source.out, cloner.in)
@@ -58,9 +57,9 @@ using OmnetppSimulator.VolatileModule
         run_network!(network; until = 1.0)
 
         @test cloner_outputs(cloner) == 3
-        @test cloner.statistics.num_packets == 11
+        @test cloner.num_packets == 11
         # Two copies per packet: the last output gets the original.
-        @test cloner.statistics.num_copies == 22
+        @test cloner.num_copies == 22
         @test all(sink -> sink.num_packets == 11, sinks)
     end
 
@@ -68,16 +67,16 @@ using OmnetppSimulator.VolatileModule
         network = Network(:Duplicating)
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
-        duplicator = add_module!(network, PacketDuplicatorModule(:duplicator,
-            PacketDuplicatorParameters(predicate = ordinal_predicate(n -> n % 2 == 0))))
+        duplicator = add_module!(network, PacketDuplicatorModule(:duplicator;
+            predicate = ordinal_predicate(n -> n % 2 == 0)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, duplicator.in)
         connect!(duplicator.out, sink.in)
         run_network!(network; until = 1.0)
 
         # Eleven packets, every second one sent twice: five duplicates.
-        @test duplicator.statistics.num_packets == 11
-        @test duplicator.statistics.num_duplicates == 5
+        @test duplicator.num_packets == 11
+        @test duplicator.num_duplicates == 5
         @test sink.num_packets == 16
     end
 
@@ -88,11 +87,9 @@ using OmnetppSimulator.VolatileModule
         network = Network(:CopyTags)
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.5))
-        cloner = add_module!(network, PacketClonerModule(:cloner, 2))
-        first_label = add_module!(network, PacketLabelerModule(:first,
-            PacketLabelerParameters(label = 1)))
-        second_label = add_module!(network, PacketLabelerModule(:second,
-            PacketLabelerParameters(label = 2)))
+        cloner = add_module!(network, PacketClonerModule(:cloner; outputs = 2))
+        first_label = add_module!(network, PacketLabelerModule(:first; label = 1))
+        second_label = add_module!(network, PacketLabelerModule(:second; label = 2))
         # Each branch keeps only its OWN label. Shared tag sets would mean the
         # second labeler overwrote the first's work, and one filter would drop
         # everything.
@@ -122,7 +119,7 @@ using OmnetppSimulator.VolatileModule
         sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
             production_interval = 0.1 * index))
                    for index in 1:2]
-        merge = add_module!(network, PacketMultiplexerModule(:merge, 2))
+        merge = add_module!(network, PacketMultiplexerModule(:merge; inputs = 2))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(sources[1].out, merge.in[1])
         connect!(sources[2].out, merge.in[2])
@@ -141,7 +138,7 @@ using OmnetppSimulator.VolatileModule
         sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
             production_interval = 0.1))
                    for index in 1:2]
-        merge = add_module!(network, PacketMultiplexerModule(:merge, 2))
+        merge = add_module!(network, PacketMultiplexerModule(:merge; inputs = 2))
         slow = add_module!(network, PassivePacketSinkModule(:sink;
             consumption_interval = 0.25))
         connect!(sources[1].out, merge.in[1])
@@ -164,7 +161,7 @@ using OmnetppSimulator.VolatileModule
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         queue = add_module!(network, PacketQueueModule(:queue))
-        split = add_module!(network, PacketDemultiplexerModule(:split, 2))
+        split = add_module!(network, PacketDemultiplexerModule(:split; outputs = 2))
         sinks = [add_module!(network, ActivePacketSinkModule(Symbol(:sink, index);
             collection_interval = 0.2 * index))
                  for index in 1:2]
@@ -186,8 +183,7 @@ using OmnetppSimulator.VolatileModule
         network = Network(:Delay)
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
-        delayer = add_module!(network, PacketDelayerModule(:delayer,
-            PacketDelayerParameters(delay = 0.25)))
+        delayer = add_module!(network, PacketDelayerModule(:delayer; delay = 0.25))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, delayer.in)
         connect!(delayer.out, sink.in)
@@ -207,8 +203,9 @@ using OmnetppSimulator.VolatileModule
             production_interval = 0.1,
             packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
             seed = 6))
-        delayer = add_module!(network, PacketDelayerModule(:delayer,
-            PacketDelayerParameters(delay = Volatile(uniform(0.05, 0.5))); seed = 8))
+        delayer = add_module!(network, PacketDelayerModule(:delayer;
+            delay = Volatile(uniform(0.05, 0.5)),
+            seed = 8))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, delayer.in)
         connect!(delayer.out, sink.in)

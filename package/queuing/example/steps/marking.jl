@@ -6,8 +6,8 @@
 # them twice.
 # ────────────────────────────────────────────────────────────────────────────
 
-using InetQueuing: PacketLabelerModule, PacketLabelerParameters,
-    PacketClonerModule, PacketDuplicatorModule, PacketDuplicatorParameters,
+using InetQueuing: PacketLabelerModule,
+    PacketClonerModule, PacketDuplicatorModule,
     ordinal_predicate, data_predicate
 
 export LabelerModel, ClonerModel
@@ -57,8 +57,8 @@ function _build_labeler_network(m)
     network = Network(:Labeling)
     # The source writes nothing — the packets are plain.
     source = _step_source(network, m)
-    labeler = add_module!(network, PacketLabelerModule(:labeler,
-        PacketLabelerParameters(label = Volatile(intuniform(1, m.labels)));
+    labeler = add_module!(network, PacketLabelerModule(:labeler;
+        label = Volatile(intuniform(1, m.labels)),
         seed = m.seed + 1))
     # And the classifier sorts by exactly what the labeler wrote.
     predicates = Any[]
@@ -135,13 +135,13 @@ end
 function _build_cloner_network(m)
     network = Network(:Cloning)
     source = _step_source(network, m)
-    cloner = add_module!(network, PacketClonerModule(:cloner, m.branches))
+    cloner = add_module!(network, PacketClonerModule(:cloner; outputs = m.branches))
     connect!(source.out, cloner.in)
     # The first branch is thickened again; the rest go straight to a sink, so
     # the counts can be compared.
     every = m.duplicate_every
-    duplicator = add_module!(network, PacketDuplicatorModule(:duplicator,
-        PacketDuplicatorParameters(predicate = ordinal_predicate(n -> n % every == 0))))
+    duplicator = add_module!(network, PacketDuplicatorModule(:duplicator;
+        predicate = ordinal_predicate(n -> n % every == 0)))
     first_sink = _step_sink(network, :sink1)
     connect!(cloner.out[1], duplicator.in)
     connect!(duplicator.out, first_sink.in)

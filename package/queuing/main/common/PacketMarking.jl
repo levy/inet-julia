@@ -23,8 +23,8 @@ downstream of a cloner mark each copy differently.
 module PacketMarkingModule
 
 using OmnetppSimulator: NetworkModule, MersenneTwister
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateOutput, Network,
-    input_gate, output_gate, gate_vector, module_id
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+    @simulation_module, decorate_module!
 using OmnetppSimulator.VolatileModule: evaluate
 using InetPacket.PacketModule: Packet, dup, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
@@ -36,72 +36,50 @@ using ..PacketSourceModule: DataTag
 using ..StatisticsModule: ModuleStatistics, register_statistics!, emit_statistic!,
     record_statistic!
 
-export PacketLabelerParameters, PacketLabelerStatistics, PacketLabelerModule,
-       PacketClonerStatistics, PacketClonerModule, cloner_outputs,
-       PacketDuplicatorParameters, PacketDuplicatorStatistics, PacketDuplicatorModule
+export PacketLabelerModule, PacketClonerModule, cloner_outputs,
+       PacketDuplicatorModule
 
 # ── Labeler ─────────────────────────────────────────────────────────────────
 
 """
-    PacketLabelerParameters(; label)
-
-`label` is what to write on each packet: a constant, a
-[`Volatile`](@ref) drawn per packet, or `packet -> value` when the label
-depends on what is already there.
-
-The value is written as the same tag a source writes, so everything that reads
-a packet's data reads a label too — a labeler is not a separate vocabulary.
-"""
-struct PacketLabelerParameters
-    label::Any
-end
-
-PacketLabelerParameters(; label) = PacketLabelerParameters(label)
-
-mutable struct PacketLabelerStatistics
-    recording::ModuleStatistics
-    num_packets::Int
-end
-
-PacketLabelerStatistics() = PacketLabelerStatistics(ModuleStatistics(), 0)
-
-reset_statistics!(statistics::PacketLabelerStatistics) =
-    (statistics.num_packets = 0; statistics)
-
-const LABELER_STATISTIC_NAMES = (:outgoingPacketLengths,)
-
-"""
-    PacketLabelerModule(name, parameters; seed = 0)
+    PacketLabelerModule(name; label, seed = 0)
 
 Writes a value on every packet that passes, and passes it on. Holds nothing and
 refuses nothing: what the output will take, the labeler will take.
+
+`label` is what to write on each packet: a constant, a [`Volatile`](@ref) drawn
+per packet, or `packet -> value` when the label depends on what is already
+there. The value is written as the same tag a source writes, so everything that
+reads a packet's data reads a label too — a labeler is not a separate
+vocabulary.
 """
-mutable struct PacketLabelerModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Gate
-    parameters::PacketLabelerParameters
-    statistics::PacketLabelerStatistics
-    rng::MersenneTwister
-    seed::Int
-    producer::ModuleRef
-    consumer::ModuleRef
+@simulation_module struct PacketLabelerModule
+    @parameters begin
+        label::Any                                     # no default: labelled with what?
+        seed::Int = 0
+    end
+    @gates begin
+        in::InputGate
+        out::OutputGate
+    end
+    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @variables begin
+        producer::ModuleRef = NO_MODULE_REF
+        consumer::ModuleRef = NO_MODULE_REF
+    end
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_packets::Int = 0
+    end
 end
 
-function PacketLabelerModule(name::Symbol, parameters::PacketLabelerParameters;
-                             seed::Int = 0)
-    m = PacketLabelerModule(
-        name, 0,
-        input_gate(nothing, :in;
-                   annotations = Any[ForwardClaim(PassivePacketSink, :out)]),
-        output_gate(nothing, :out; annotations = Any[InterfaceClaim(ActivePacketSource)]),
-        parameters, PacketLabelerStatistics(), MersenneTwister(seed), seed,
-        NO_MODULE_REF, NO_MODULE_REF)
-    m.in.owner = m
-    m.out.owner = m
+function NetworkModule.decorate_module!(m::PacketLabelerModule)
+    push!(m.in.annotations, ForwardClaim(PassivePacketSink, :out))
+    push!(m.out.annotations, InterfaceClaim(ActivePacketSource))
     m
 end
+
+const LABELER_STATISTIC_NAMES = (:outgoingPacketLengths,)
 
 # A function of the packet, a draw, or a constant — in that order, because a
 # function is the only one that can look at what is already there.
@@ -115,15 +93,12 @@ function NetworkModule.initialize_module!(::Network, m::PacketLabelerModule)
 end
 
 NetworkModule.register_module_statistics!(m::PacketLabelerModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, LABELER_STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, LABELER_STATISTIC_NAMES)
 
 NetworkModule.module_icon(::PacketLabelerModule) = "block/process"
 
-NetworkModule.reset_module!(m::PacketLabelerModule) =
-    (reset_statistics!(m.statistics); m.rng = MersenneTwister(m.seed); m)
-
 function NetworkModule.finalize_module!(m::PacketLabelerModule, ::Any)
-    record_statistic!(m.statistics.recording, "packets:count", m.statistics.num_packets)
+    record_statistic!(m.recording, "packets:count", m.num_packets)
     nothing
 end
 
@@ -134,10 +109,9 @@ PacketProtocolModule.can_push_packet(m::PacketLabelerModule, ::Gate, packet::Pac
     can_push_packet(m.consumer, packet)
 
 function PacketProtocolModule.push_packet!(ctx, m::PacketLabelerModule, ::Gate, packet::Packet)
-    packet.packet_tags[DataTag] = DataTag(_label_value(m.parameters.label, packet, m.rng))
-    m.statistics.num_packets += 1
-    emit_statistic!(m.statistics.recording, ctx, :outgoingPacketLengths,
-                    bits(data_length(packet)))
+    packet.packet_tags[DataTag] = DataTag(_label_value(m.label, packet, m.rng))
+    m.num_packets += 1
+    emit_statistic!(m.recording, ctx, :outgoingPacketLengths, bits(data_length(packet)))
     push_or_schedule!(ctx, m.consumer, packet)
     nothing
 end
@@ -149,21 +123,8 @@ end
 
 # ── Cloner ──────────────────────────────────────────────────────────────────
 
-mutable struct PacketClonerStatistics
-    recording::ModuleStatistics
-    num_packets::Int
-    num_copies::Int
-end
-
-PacketClonerStatistics() = PacketClonerStatistics(ModuleStatistics(), 0, 0)
-
-reset_statistics!(statistics::PacketClonerStatistics) =
-    (statistics.num_packets = 0; statistics.num_copies = 0; statistics)
-
-const CLONER_STATISTIC_NAMES = (:outgoingPacketLengths,)
-
 """
-    PacketClonerModule(name, outputs)
+    PacketClonerModule(name; outputs)
 
 Sends a copy of every packet out of each of its outputs.
 
@@ -172,28 +133,33 @@ handing out three copies and then discovering the fourth output is full would
 leave the stream half-cloned, which is not something a downstream element could
 make sense of. So a cloner refuses until they all agree.
 """
-mutable struct PacketClonerModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Vector{Gate}
-    statistics::PacketClonerStatistics
-    producer::ModuleRef
-    consumers::Vector{ModuleRef}
+@simulation_module struct PacketClonerModule
+    @parameter outputs::Int                            # no default: how many copies?
+    @gates begin
+        in::InputGate
+        out::Vector{OutputGate} = outputs
+    end
+    @variables begin
+        producer::ModuleRef = NO_MODULE_REF
+        consumers::Vector{ModuleRef} = ModuleRef[]
+    end
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_packets::Int = 0
+        num_copies::Int = 0
+    end
 end
 
-function PacketClonerModule(name::Symbol, outputs::Int)
-    outputs >= 1 || error("PacketClonerModule: a cloner needs at least one output")
-    m = PacketClonerModule(
-        name, 0,
-        input_gate(nothing, :in;
-                   annotations = Any[ForwardClaim(PassivePacketSink, :out)]),
-        Gate[], PacketClonerStatistics(), NO_MODULE_REF, ModuleRef[])
-    m.in.owner = m
-    m.out = gate_vector(m, :out, GateOutput, outputs;
-                        annotations = () -> Any[InterfaceClaim(ActivePacketSource)])
+function NetworkModule.decorate_module!(m::PacketClonerModule)
+    isempty(m.out) && error("PacketClonerModule: a cloner needs at least one output")
+    push!(m.in.annotations, ForwardClaim(PassivePacketSink, :out))
+    for gate in m.out
+        push!(gate.annotations, InterfaceClaim(ActivePacketSource))
+    end
     m
 end
+
+const CLONER_STATISTIC_NAMES = (:outgoingPacketLengths,)
 
 """
     cloner_outputs(m) -> Int
@@ -209,15 +175,13 @@ function NetworkModule.initialize_module!(::Network, m::PacketClonerModule)
 end
 
 NetworkModule.register_module_statistics!(m::PacketClonerModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, CLONER_STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, CLONER_STATISTIC_NAMES)
 
 NetworkModule.module_icon(::PacketClonerModule) = "block/broadcast"
 
-NetworkModule.reset_module!(m::PacketClonerModule) = (reset_statistics!(m.statistics); m)
-
 function NetworkModule.finalize_module!(m::PacketClonerModule, ::Any)
-    record_statistic!(m.statistics.recording, "packets:count", m.statistics.num_packets)
-    record_statistic!(m.statistics.recording, "clonedPackets:count", m.statistics.num_copies)
+    record_statistic!(m.recording, "packets:count", m.num_packets)
+    record_statistic!(m.recording, "clonedPackets:count", m.num_copies)
     nothing
 end
 
@@ -228,16 +192,14 @@ PacketProtocolModule.can_push_packet(m::PacketClonerModule, ::Gate, packet::Pack
     all(consumer -> can_push_packet(consumer, packet), m.consumers)
 
 function PacketProtocolModule.push_packet!(ctx, m::PacketClonerModule, ::Gate, packet::Packet)
-    statistics = m.statistics
-    statistics.num_packets += 1
-    emit_statistic!(statistics.recording, ctx, :outgoingPacketLengths,
-                    bits(data_length(packet)))
+    m.num_packets += 1
+    emit_statistic!(m.recording, ctx, :outgoingPacketLengths, bits(data_length(packet)))
     for (index, consumer) in enumerate(m.consumers)
         # The last output gets the packet itself; the others get copies. One
         # fewer copy, and the original is not left holding a tag some copy
         # wrote.
         copy = index == length(m.consumers) ? packet : dup(packet)
-        index == length(m.consumers) || (statistics.num_copies += 1)
+        index == length(m.consumers) || (m.num_copies += 1)
         push_or_schedule!(ctx, consumer, copy)
     end
     nothing
@@ -251,33 +213,7 @@ end
 # ── Duplicator ──────────────────────────────────────────────────────────────
 
 """
-    PacketDuplicatorParameters(; predicate)
-
-`predicate` is `packet -> Bool`: whether this packet goes down the output
-twice. An [`ordinal_predicate`](@ref) makes that "every k-th", which is what
-INET's ordinal-based duplicator is.
-"""
-struct PacketDuplicatorParameters
-    predicate::Any
-end
-
-PacketDuplicatorParameters(; predicate) = PacketDuplicatorParameters(predicate)
-
-mutable struct PacketDuplicatorStatistics
-    recording::ModuleStatistics
-    num_packets::Int
-    num_duplicates::Int
-end
-
-PacketDuplicatorStatistics() = PacketDuplicatorStatistics(ModuleStatistics(), 0, 0)
-
-reset_statistics!(statistics::PacketDuplicatorStatistics) =
-    (statistics.num_packets = 0; statistics.num_duplicates = 0; statistics)
-
-const DUPLICATOR_STATISTIC_NAMES = (:outgoingPacketLengths,)
-
-"""
-    PacketDuplicatorModule(name, parameters)
+    PacketDuplicatorModule(name; predicate)
 
 Passes every packet on, and sends a second copy of the ones its predicate
 picks — one output, some packets twice.
@@ -285,29 +221,35 @@ picks — one output, some packets twice.
 Where a cloner fans one stream into several, this thickens one stream in
 place, which is how a model produces the retransmissions and echoes a receiver
 has to cope with.
+
+`predicate` is `packet -> Bool`: whether this packet goes down the output
+twice. An [`ordinal_predicate`](@ref) makes that "every k-th", which is what
+INET's ordinal-based duplicator is.
 """
-mutable struct PacketDuplicatorModule <: AbstractModule
-    name::Symbol
-    module_id::Int
-    in::Gate
-    out::Gate
-    parameters::PacketDuplicatorParameters
-    statistics::PacketDuplicatorStatistics
-    producer::ModuleRef
-    consumer::ModuleRef
+@simulation_module struct PacketDuplicatorModule
+    @parameter predicate::Any                          # no default: duplicate which?
+    @gates begin
+        in::InputGate
+        out::OutputGate
+    end
+    @variables begin
+        producer::ModuleRef = NO_MODULE_REF
+        consumer::ModuleRef = NO_MODULE_REF
+    end
+    @statistics begin
+        recording::ModuleStatistics = ModuleStatistics()
+        num_packets::Int = 0
+        num_duplicates::Int = 0
+    end
 end
 
-function PacketDuplicatorModule(name::Symbol, parameters::PacketDuplicatorParameters)
-    m = PacketDuplicatorModule(
-        name, 0,
-        input_gate(nothing, :in;
-                   annotations = Any[ForwardClaim(PassivePacketSink, :out)]),
-        output_gate(nothing, :out; annotations = Any[InterfaceClaim(ActivePacketSource)]),
-        parameters, PacketDuplicatorStatistics(), NO_MODULE_REF, NO_MODULE_REF)
-    m.in.owner = m
-    m.out.owner = m
+function NetworkModule.decorate_module!(m::PacketDuplicatorModule)
+    push!(m.in.annotations, ForwardClaim(PassivePacketSink, :out))
+    push!(m.out.annotations, InterfaceClaim(ActivePacketSource))
     m
 end
+
+const DUPLICATOR_STATISTIC_NAMES = (:outgoingPacketLengths,)
 
 function NetworkModule.initialize_module!(::Network, m::PacketDuplicatorModule)
     m.producer = resolve_interface(m.in, ActivePacketSource; mandatory = false)
@@ -316,16 +258,13 @@ function NetworkModule.initialize_module!(::Network, m::PacketDuplicatorModule)
 end
 
 NetworkModule.register_module_statistics!(m::PacketDuplicatorModule, path::AbstractString, recorder) =
-    register_statistics!(m.statistics.recording, recorder, path, DUPLICATOR_STATISTIC_NAMES)
+    register_statistics!(m.recording, recorder, path, DUPLICATOR_STATISTIC_NAMES)
 
 NetworkModule.module_icon(::PacketDuplicatorModule) = "block/fork"
 
-NetworkModule.reset_module!(m::PacketDuplicatorModule) = (reset_statistics!(m.statistics); m)
-
 function NetworkModule.finalize_module!(m::PacketDuplicatorModule, ::Any)
-    record_statistic!(m.statistics.recording, "packets:count", m.statistics.num_packets)
-    record_statistic!(m.statistics.recording, "duplicatePackets:count",
-                      m.statistics.num_duplicates)
+    record_statistic!(m.recording, "packets:count", m.num_packets)
+    record_statistic!(m.recording, "duplicatePackets:count", m.num_duplicates)
     nothing
 end
 
@@ -340,14 +279,12 @@ PacketProtocolModule.can_push_packet(m::PacketDuplicatorModule, ::Gate, packet::
     can_push_packet(m.consumer, packet)
 
 function PacketProtocolModule.push_packet!(ctx, m::PacketDuplicatorModule, ::Gate, packet::Packet)
-    statistics = m.statistics
-    statistics.num_packets += 1
-    emit_statistic!(statistics.recording, ctx, :outgoingPacketLengths,
-                    bits(data_length(packet)))
-    duplicate = m.parameters.predicate(packet)
+    m.num_packets += 1
+    emit_statistic!(m.recording, ctx, :outgoingPacketLengths, bits(data_length(packet)))
+    duplicate = m.predicate(packet)
     push_or_schedule!(ctx, m.consumer, packet)
     if duplicate
-        statistics.num_duplicates += 1
+        m.num_duplicates += 1
         push_or_schedule!(ctx, m.consumer, dup(packet))
     end
     nothing
