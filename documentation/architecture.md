@@ -22,16 +22,22 @@ when it earns one.
 | `queuing/` | `InetQueuing` | the packet protocol, the queuing elements, `QueuingModel` | `InetPacket`, `InetCommon` |
 | `linklayer/` | `InetLinkLayer` | 10BASE-T1S / PLCA and `T1sModel` | `InetPacket` |
 | `inet/` | `Inet` | the umbrella: re-exports, `inet_simulation_catalog`, the packet diagram | all of the above, `ProjecturedVisual` |
+| `runner/` | `InetRunner` | the command line, the run, the result files — what the `inet-julia` executable is built from | `InetQueuing`, `OmnetppSimulator` |
 
 ```
-InetPacket ──┬─────────────► InetQueuing ──┐
-             └─────────────► InetLinkLayer ┼──► Inet
-InetCommon ────────────────► InetQueuing ──┘
+InetPacket ──┬─────────────► InetQueuing ──┬──────────────► Inet
+             └─────────────► InetLinkLayer ┘
+InetCommon ────────────────► InetQueuing ─────────────────► InetRunner
 ```
 
 `InetLinkLayer` does not depend on `InetQueuing` today — the 10BASE-T1S port
 predates the element library. The modular Ethernet models will add that edge;
 the graph stays acyclic either way.
+
+`InetRunner` and `Inet` are two leaves over the same library, and neither
+depends on the other. The umbrella carries the editor stack for the packet
+diagram; the runner must not, because it is shipped as an executable and a
+runner draws nothing. That rule is checked, not stated — see below.
 
 ## Where a thing belongs
 
@@ -58,6 +64,16 @@ the graph stays acyclic either way.
   reason the umbrella depends on the editor stack, and the reason a headless
   run of `using Inet` loads it; a split into its own package is the answer if
   that cost ever bites. See [packet-diagram.md](../package/inet/doc/packet-diagram.md).
+- **`runner`** — one simulation, from a command line, to a pair of result
+  files. It earns a package on both counts at once: its consumer is a command
+  line and not a Julia caller, and its `Project.toml` is a **contract** rather
+  than a convenience. The editor must not be reachable from it —
+  `ProjecturedVisual`, `ProjecturedDomain`, the `Projectured` umbrella,
+  `OmnetppLegacy`, `DataFrames` and `Revise` are all forbidden, because
+  `tool/build_binary.jl` compiles this closure into an executable a user
+  installs. `InetRunnerTest.test_runner_closure()` walks `[deps]` through
+  `[sources]` and asserts it. See
+  [native-simulation-binary.md](../plan/pending/native-simulation-binary.md).
 
 New material goes into the *lowest* package where it makes sense. A second
 protocol is a slice inside `linklayer`, not a package of its own; a package is
@@ -92,10 +108,16 @@ breaks.
 | the queuing elements + lookup | `julia --project=package/queuing/test -e 'using InetQueuingTest; test_queuing()'` |
 | 10BASE-T1S / PLCA | `julia --project=package/linklayer/test -e 'using InetLinkLayerTest; test_linklayer()'` |
 | the umbrella (catalog) | `julia --project=package/inet/test -e 'using InetTest; test_inet()'` |
+| the command line + the runner | `julia --project=package/runner/test -e 'using InetRunnerTest; test_runner()'` |
+| the executable's closure alone | `julia --project=package/runner/test -e 'using InetRunnerTest; test_runner_closure()'` |
 
 Each test package exposes one named function so the suite is callable from a
 REPL, and keeps the `runtests.jl` that `Pkg.test` conventions expect. The
-repository-wide `test/runtests.jl` is just the four calls in one testset.
+repository-wide `test/runtests.jl` is just the five calls in one testset.
+
+`test_runner_closure()` is worth running alone. It is a static walk of `[deps]`
+and `[sources]`, it needs nothing instantiated, and it is the only thing that
+keeps the editor out of the shipped executable.
 
 `InetCommon` has no test package: its lookup mechanism is covered by phase 0 of
 the queuing suite, which is written against the packet-protocol interfaces and

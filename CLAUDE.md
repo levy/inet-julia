@@ -29,10 +29,11 @@ and `AR-…` rules bind transitively. Per-component references live in
 
 ## Layout
 
-Five packages under `package/<component>/`, each `{main, test, example, doc}`:
+Six packages under `package/<component>/`, each `{main, test, example, doc}`:
 `packet` (`InetPacket`), `common` (`InetCommon`), `queuing` (`InetQueuing`),
-`linklayer` (`InetLinkLayer`) and `inet` (`Inet`, the umbrella). The repository
-root is a development **environment**, not a package.
+`linklayer` (`InetLinkLayer`), `inet` (`Inet`, the umbrella) and `runner`
+(`InetRunner`, the command line the `inet-julia` executable is built from). The
+repository root is a development **environment**, not a package.
 
 Nothing else belongs at the top level: a component's code, tests, examples,
 tooling and reference guide all live inside its folder. Cross-cutting guides go
@@ -46,6 +47,14 @@ protocol is a slice inside `linklayer`, not a package.
 `InetPacket` depends on **nothing** — not the simulator, not the ProjecturEd
 kernel. Keep it that way: that rule is what its separate package is for.
 
+`InetRunner` must not reach the **editor**: no `ProjecturedVisual`, no
+`ProjecturedDomain`, no `Projectured` umbrella, no `OmnetppLegacy`, no
+`DataFrames`, no `Revise`. `tool/build_binary.jl` compiles that closure into an
+executable a user installs, and a runner draws nothing.
+`InetRunnerTest.test_runner_closure()` asserts it. Before you add a dependency
+there, read
+[plan/pending/native-simulation-binary.md](plan/pending/native-simulation-binary.md) §2.
+
 ## Testing a change
 
 Run the **smallest suite that covers the change**, not the aggregator:
@@ -56,6 +65,8 @@ Run the **smallest suite that covers the change**, not the aggregator:
 | queuing elements, lookup | `julia --project=package/queuing/test -e 'using InetQueuingTest; test_queuing()'` |
 | 10BASE-T1S / PLCA | `julia --project=package/linklayer/test -e 'using InetLinkLayerTest; test_linklayer()'` |
 | the catalog / re-exports | `julia --project=package/inet/test -e 'using InetTest; test_inet()'` |
+| the command line, the runner | `julia --project=package/runner/test -e 'using InetRunnerTest; test_runner()'` |
+| a dependency of the runner | `julia --project=package/runner/test -e 'using InetRunnerTest; test_runner_closure()'` |
 | a cross-component change | `julia --project=. test/runtests.jl` |
 
 Only `Fail` and `Error` counts matter; the `Method definition … overwritten`
