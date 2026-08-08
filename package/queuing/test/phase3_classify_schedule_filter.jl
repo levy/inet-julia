@@ -34,9 +34,8 @@ using OmnetppSimulator.VolatileModule
 function priority_chain(; production_interval = 0.1, processing_time = 0.25,
                           classifier = nothing, seed = 1)
     network = Network(:Priority)
-    source = add_module!(network, ActivePacketSourceModule(:source,
-        ActivePacketSourceParameters(production_interval = production_interval,
-            packet = PacketTemplate(length = Volatile(intuniform(80, 800)))); seed = seed))
+    source = add_module!(network, ActivePacketSourceModule(:source; production_interval = production_interval,
+            packet = PacketTemplate(length = Volatile(intuniform(80, 800))), seed = seed))
     fork = add_module!(network, classifier === nothing ?
         priority_classifier(:classifier, 2) : classifier)
     queues = [add_module!(network, PacketQueueModule(Symbol(:queue, index)))
@@ -64,7 +63,7 @@ end
         run_network!(chain.network; until = 2.0)
 
         @test classifier_outputs(chain.fork) == 2
-        @test chain.fork.statistics.num_packets == chain.source.statistics.num_packets
+        @test chain.fork.statistics.num_packets == chain.source.num_packets
         # Both outputs were used, and each got only what belongs to it.
         @test all(count -> count > 0, chain.fork.statistics.per_output)
         @test sum(chain.fork.statistics.per_output) == chain.fork.statistics.num_packets
@@ -78,8 +77,7 @@ end
 
     @testset "a priority classifier fills the first output that will take it" begin
         network = Network(:Priority)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1)))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
         fork = add_module!(network, priority_classifier(:classifier, 2))
         # The first queue holds two packets; after that the classifier has to
         # use the second.
@@ -130,8 +128,7 @@ end
         # Two queues, only the second ever filled: the scheduler must not stall
         # on the first input's turn, or nothing would ever be pulled.
         network = Network(:Wrr)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1)))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
         first = add_module!(network, PacketQueueModule(:first))
         second = add_module!(network, PacketQueueModule(:second))
         join = add_module!(network, weighted_round_robin_scheduler(:scheduler, [1, 1]))
@@ -145,7 +142,7 @@ end
         connect!(server.out, sink.in)
         run_network!(network; until = 1.0)
 
-        @test source.statistics.num_packets == 11
+        @test source.num_packets == 11
         # Everything that arrived was pulled — the empty first input never got
         # to hold the second one up. The last packet is still in the server
         # when the run ends, which is why the sink is one short.
@@ -263,9 +260,8 @@ end
 
     @testset "a filter drops what does not match" begin
         network = Network(:Filter)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1,
-                packet = PacketTemplate(length = Volatile(intuniform(80, 800)))); seed = 2))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1,
+                packet = PacketTemplate(length = Volatile(intuniform(80, 800))), seed = 2))
         keep_short = add_module!(network, PacketFilterModule(:filter,
             PacketFilterParameters(predicate = packet -> bits(data_length(packet)) < 400)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -274,7 +270,7 @@ end
         run_network!(network; until = 2.0)
 
         @test keep_short.statistics.num_passed + keep_short.statistics.num_dropped ==
-              source.statistics.num_packets
+              source.num_packets
         @test keep_short.statistics.num_dropped > 0
         @test sink.statistics.num_packets == keep_short.statistics.num_passed
         # Only short packets made it through.
@@ -287,8 +283,7 @@ end
         # does: it will not start serving one it could not deliver.
         function filtered_chain(backpressure)
             network = Network(:Backpressure)
-            source = add_module!(network, ActivePacketSourceModule(:source,
-                ActivePacketSourceParameters(production_interval = 0.1)))
+            source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
             queue = add_module!(network, PacketQueueModule(:queue))
             server = add_module!(network, PacketServerModule(:server,
                 PacketServerParameters(processing_time = 0.01)))
@@ -307,7 +302,7 @@ end
         # starts and everything the source made is still waiting: refusing is
         # not losing.
         refusing = filtered_chain(true)
-        @test refusing.source.statistics.num_packets == 11
+        @test refusing.source.num_packets == 11
         @test queue_length(refusing.queue) == 11
         @test refusing.server.statistics.num_packets == 0
         @test refusing.filter.statistics.num_dropped == 0
@@ -322,8 +317,7 @@ end
 
     @testset "a filter passes flow control through" begin
         network = Network(:Through)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1)))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
         pass = add_module!(network, PacketFilterModule(:filter,
             PacketFilterParameters(predicate = _ -> true)))
         slow = add_module!(network, PassivePacketSinkModule(:sink,
@@ -335,7 +329,7 @@ end
         # The filter holds nothing, so the sink's rate is what the source ends
         # up producing at — the refusal and the recovery both travel through.
         @test slow.statistics.num_packets == 5
-        @test source.statistics.num_packets == 5
+        @test source.num_packets == 5
         @test pass.statistics.num_dropped == 0
     end
 

@@ -17,10 +17,8 @@ using OmnetppSimulator.VolatileModule
 function queue_chain(; production_interval, processing_time, packet_capacity = nothing,
                        dropper = nothing, length = Bytes(100), seed = 1)
     network = Network(:Chain)
-    source = add_module!(network, ActivePacketSourceModule(:source,
-        ActivePacketSourceParameters(production_interval = production_interval,
-                                     packet = PacketTemplate(length = length));
-        seed = seed))
+    source = add_module!(network, ActivePacketSourceModule(:source; production_interval = production_interval,
+                                     packet = PacketTemplate(length = length), seed = seed))
     queue = add_module!(network, PacketQueueModule(:queue,
         PacketQueueParameters(packet_capacity = packet_capacity, dropper = dropper)))
     server = add_module!(network, PacketServerModule(:server,
@@ -39,7 +37,7 @@ end
 
         # Service is faster than production, so nothing queues up for long and
         # everything produced gets through except what is still in the server.
-        @test chain.source.statistics.num_packets == 11
+        @test chain.source.num_packets == 11
         @test chain.sink.statistics.num_packets == 10
         @test queue_length(chain.queue) == 0
         # Each packet waited for nothing and spent the service time in the
@@ -55,7 +53,7 @@ end
         # produced is either served, in the server, or in the queue.
         @test chain.sink.statistics.num_packets == 4
         @test queue_length(chain.queue) ==
-              chain.source.statistics.num_packets - chain.sink.statistics.num_packets - 1
+              chain.source.num_packets - chain.sink.statistics.num_packets - 1
         # Waiting time grows, so the average is well above zero.
         @test chain.queue.statistics.total_queueing_time > to_simtime(0.5)
     end
@@ -70,7 +68,7 @@ end
         # what the server can take.
         @test chain.queue.statistics.num_dropped == 0
         @test queue_length(chain.queue) <= 2
-        @test chain.source.statistics.num_packets ==
+        @test chain.source.num_packets ==
               chain.sink.statistics.num_packets + queue_length(chain.queue) + 1
         # Once full the producer stops, and it is the queue emptying that starts
         # it again — without that it would stall for the rest of the run.
@@ -84,9 +82,9 @@ end
 
         # Now the source runs freely and the queue throws away what does not
         # fit, so everything produced is either delivered, held, or dropped.
-        @test chain.source.statistics.num_packets == 21
+        @test chain.source.num_packets == 21
         @test chain.queue.statistics.num_dropped > 0
-        @test chain.source.statistics.num_packets ==
+        @test chain.source.num_packets ==
               chain.sink.statistics.num_packets + queue_length(chain.queue) +
               chain.queue.statistics.num_dropped + 1
     end
@@ -125,10 +123,8 @@ end
         # queue over length rather than a first-in-first-out one.
         shortest_first = (a, b) -> data_length(a) < data_length(b)
         network = Network(:Sorted)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1,
-                packet = PacketTemplate(length = Volatile(intuniform(80, 8000))));
-            seed = 4))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1,
+                packet = PacketTemplate(length = Volatile(intuniform(80, 8000))), seed = 4))
         queue = add_module!(network, PacketQueueModule(:queue,
             PacketQueueParameters(comparator = shortest_first)))
         server = add_module!(network, PacketServerModule(:server,
@@ -159,9 +155,8 @@ end
 
     @testset "service time can depend on packet length" begin
         network = Network(:Bitrate)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 1.0,
-                                         packet = PacketTemplate(length = Bytes(125)))))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 1.0,
+                                         packet = PacketTemplate(length = Bytes(125))))
         queue = add_module!(network, PacketQueueModule(:queue))
         # A thousand bits at a thousand bits per second is one second of
         # service, whatever the fixed processing time says.
@@ -179,8 +174,7 @@ end
 
     @testset "an instant server takes no time" begin
         network = Network(:Instant)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1)))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
         queue = add_module!(network, PacketQueueModule(:queue))
         server = add_module!(network, InstantServerModule(:server))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -228,9 +222,7 @@ end
         # utilisation of one half, where the theory says the mean number
         # waiting is rho^2/(1-rho) = 0.5 and the mean wait is 0.1s.
         network = Network(:MM1)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = Volatile(exponential(0.2)));
-            seed = 20))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(0.2)), seed = 20))
         queue = add_module!(network, PacketQueueModule(:queue))
         server = add_module!(network, PacketServerModule(:server,
             PacketServerParameters(processing_time = Volatile(exponential(0.1))); seed = 21))
@@ -244,7 +236,7 @@ end
         recorder = Recorder(capture_vectors = false)
         run_network!(network; until = 5000.0, recorder = recorder)
 
-        arrivals = source.statistics.num_packets
+        arrivals = source.num_packets
         @test 23000 <= arrivals <= 27000             # about 5 per second
         mean_queue_length = statistic_scalar(recorder, "MM1.queue", "queueLength:timeavg")
         mean_wait = statistic_scalar(recorder, "MM1.queue", "queueingTime:mean")

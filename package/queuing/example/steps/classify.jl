@@ -6,7 +6,7 @@
 # filter thins it out — and nothing else in the chain has to know.
 # ────────────────────────────────────────────────────────────────────────────
 
-using InetQueuing: ActivePacketSourceModule, ActivePacketSourceParameters,
+using InetQueuing: ActivePacketSourceModule,
     PassivePacketSinkModule, PacketQueueModule, PacketQueueParameters,
     PacketServerModule, PacketServerParameters,
     PacketFilterModule, PacketFilterParameters,
@@ -23,11 +23,8 @@ export ContentBasedClassifierModel, PriorityQueueChainModel, FilterModel,
 # The three models below wire the same skeleton, so the pieces they share are
 # built here rather than three times over.
 _step_source(network, m; data = nothing) =
-    add_module!(network, ActivePacketSourceModule(:source,
-        ActivePacketSourceParameters(
-            production_interval = Volatile(exponential(1 / m.arrival_rate)),
-            packet = PacketTemplate(length = Bytes(100), data = data));
-        seed = m.seed))
+    add_module!(network, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(1 / m.arrival_rate)),
+            packet = PacketTemplate(length = Bytes(100), data = data), seed = m.seed))
 
 _step_sink(network, name::Symbol) = add_module!(network, PassivePacketSinkModule(name))
 

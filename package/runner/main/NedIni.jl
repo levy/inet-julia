@@ -18,8 +18,7 @@ module NedIni
 using OmnetppDescription
 using OmnetppUnits: AbstractDuration, AbstractInformation, seconds, ustrip, uconvert, bit
 using InetPacket.PacketModule: BitLength, Bits, Bytes
-using InetQueuing.ActivePacketSourceElement: ActivePacketSourceModule,
-                                             ActivePacketSourceParameters
+using InetQueuing.ActivePacketSourceElement: ActivePacketSourceModule
 using InetQueuing.PassivePacketSinkElement: PassivePacketSinkModule,
                                             PassivePacketSinkParameters
 using InetQueuing.ActivePacketSinkElement: ActivePacketSinkModule,
@@ -89,10 +88,9 @@ function OmnetppDescription.build_ned_module(::Type{ActivePacketSourceModule}, n
         length = _length_or(values, :packet_length, Bytes(1000)),
         data = get(values, :packet_data, nothing),
         attach_creation_time = get(values, :attach_creation_time_tag, true))
-    ActivePacketSourceModule(name, ActivePacketSourceParameters(;
-        production_interval = values[:production_interval],
+    ActivePacketSourceModule(name; production_interval = values[:production_interval],
         initial_production_offset = _offset(get(values, :initial_production_offset, -1.0)),
-        packet = template))
+        packet = template)
 end
 
 # ── The names ───────────────────────────────────────────────────────────

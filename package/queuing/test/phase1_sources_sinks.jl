@@ -15,16 +15,15 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 @testset "sources and sinks" begin
     @testset "a source pushes into a sink" begin
         network = Network(:Push)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1,
-                                         packet = PacketTemplate(length = Bytes(100)))))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1,
+                                         packet = PacketTemplate(length = Bytes(100))))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
         # The first packet is produced as the run starts and one every interval
         # after that, up to and including the last instant of the run.
-        @test source.statistics.num_packets == 11
+        @test source.num_packets == 11
         @test sink.statistics.num_packets == 11
         @test sink.statistics.total_length == 11 * 800
 
@@ -35,8 +34,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
     @testset "a sink that consumes slowly holds the source back" begin
         network = Network(:BackPressure)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1)))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
         sink = add_module!(network, PassivePacketSinkModule(:sink,
             PassivePacketSinkParameters(consumption_interval = 0.25)))
         connect!(source.out, sink.in)
@@ -46,7 +44,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         # pair settles at the sink's rate rather than the source's: production
         # is delayed, not queued up behind the refusal.
         @test sink.statistics.num_packets == 5
-        @test source.statistics.num_packets == sink.statistics.num_packets
+        @test source.num_packets == sink.statistics.num_packets
     end
 
     @testset "a source writes data on its packets" begin
@@ -54,22 +52,18 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         # downstream reads; a constant is the same on every packet, a Volatile
         # is drawn per packet like the length.
         network = Network(:Data)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1,
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1,
                                          packet = PacketTemplate(length = Bytes(100),
-                                                                 data = 7))))
+                                                                 data = 7)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in)
         run_network!(network; until = 0.5)
         @test sink.statistics.num_packets == 6
 
         varied = Network(:VariedData)
-        varied_source = add_module!(varied, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(
-                production_interval = 0.1,
+        varied_source = add_module!(varied, ActivePacketSourceModule(:source; production_interval = 0.1,
                 packet = PacketTemplate(length = Bytes(100),
-                                        data = Volatile(intuniform(0, 3))));
-            seed = 5))
+                                        data = Volatile(intuniform(0, 3))), seed = 5))
         collector = add_module!(varied, PassivePacketSinkModule(:sink))
         connect!(varied_source.out, collector.in)
         run_network!(varied, until = 2.0)
@@ -137,26 +131,24 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
     @testset "a delayed connection makes delivery an event" begin
         network = Network(:Link)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.1)))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in; delay = to_simtime(0.05))
         run_network!(network; until = 1.0)
 
         # Every packet spends the propagation delay in flight, so each arrives
         # one delay after it was made and the last one is still on the wire.
-        @test source.statistics.num_packets == 11
+        @test source.num_packets == 11
         @test sink.statistics.num_packets == 10
         @test sink.statistics.total_life_time == 10 * to_simtime(0.05)
     end
 
     @testset "packet length can be drawn per packet" begin
         network = Network(:Random)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(
+        source = add_module!(network, ActivePacketSourceModule(:source;
                 production_interval = 0.1,
-                packet = PacketTemplate(length = Volatile(intuniform(80, 800)))),
-            ; seed = 7))
+                packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
+                seed = 7))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in)
         run_network!(network; until = 1.0)
@@ -169,9 +161,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
     @testset "production interval can be drawn per packet" begin
         network = Network(:RandomInterval)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = Volatile(exponential(0.1)));
-            seed = 3))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(0.1)), seed = 3))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in)
         run_network!(network; until = 10.0)
@@ -181,9 +171,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         @test 60 <= sink.statistics.num_packets <= 140
 
         again = Network(:RandomInterval)
-        source2 = add_module!(again, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = Volatile(exponential(0.1)));
-            seed = 3))
+        source2 = add_module!(again, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(0.1)), seed = 3))
         sink2 = add_module!(again, PassivePacketSinkModule(:sink))
         connect!(source2.out, sink2.in)
         run_network!(again; until = 10.0)
@@ -193,9 +181,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     @testset "a run is reproducible" begin
         function build()
             network = Network(:Hashed)
-            source = add_module!(network, ActivePacketSourceModule(:source,
-                ActivePacketSourceParameters(production_interval = Volatile(exponential(0.1)));
-                seed = 11))
+            source = add_module!(network, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(0.1)), seed = 11))
             sink = add_module!(network, PassivePacketSinkModule(:sink))
             connect!(source.out, sink.in)
             network
@@ -207,9 +193,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
         # A different seed is a different run.
         other = Network(:Hashed)
-        source = add_module!(other, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = Volatile(exponential(0.1)));
-            seed = 12))
+        source = add_module!(other, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(0.1)), seed = 12))
         sink = add_module!(other, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in)
         @test network_hash(run_network!(other; until = 5.0)) != network_hash(first_run)
@@ -217,9 +201,8 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
     @testset "what a run records" begin
         network = Network(:Recorded)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.25,
-                                         packet = PacketTemplate(length = Bytes(125)))))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.25,
+                                         packet = PacketTemplate(length = Bytes(125))))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in; delay = to_simtime(0.01))
         recorder = Recorder()
@@ -244,9 +227,8 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
         # Recording is optional, and a run without it computes the same thing.
         plain = Network(:Recorded)
-        source2 = add_module!(plain, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = 0.25,
-                                         packet = PacketTemplate(length = Bytes(125)))))
+        source2 = add_module!(plain, ActivePacketSourceModule(:source; production_interval = 0.25,
+                                         packet = PacketTemplate(length = Bytes(125))))
         sink2 = add_module!(plain, PassivePacketSinkModule(:sink))
         connect!(source2.out, sink2.in; delay = to_simtime(0.01))
         run_network!(plain; until = 1.0)
@@ -255,9 +237,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
     @testset "a network can be run again" begin
         network = Network(:Reset)
-        source = add_module!(network, ActivePacketSourceModule(:source,
-            ActivePacketSourceParameters(production_interval = Volatile(exponential(0.1)));
-            seed = 5))
+        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(0.1)), seed = 5))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect!(source.out, sink.in)
 
