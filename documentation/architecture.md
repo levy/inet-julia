@@ -73,7 +73,7 @@ runner draws nothing. That rule is checked, not stated — see below.
   `tool/build_binary.jl` compiles this closure into an executable a user
   installs. `InetRunnerTest.test_runner_closure()` walks `[deps]` through
   `[sources]` and asserts it. See
-  [native-simulation-binary.md](../plan/pending/native-simulation-binary.md).
+  [native-simulation-binary.md](../plan/done/native-simulation-binary.md).
 
 New material goes into the *lowest* package where it makes sense. A second
 protocol is a slice inside `linklayer`, not a package of its own; a package is
