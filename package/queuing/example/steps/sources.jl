@@ -77,8 +77,10 @@ function _build_source_sink_network(m)
     # streams of every later step are made of.
     interval = m.random_intervals ? Volatile(exponential(m.production_interval)) :
                                     m.production_interval
-    source = add_module!(network, ActivePacketSourceModule(:source; production_interval = interval,
-                                     packet = PacketTemplate(length = Bytes(m.packet_bytes)), seed = m.seed))
+    source = add_module!(network, ActivePacketSourceModule(:source;
+        production_interval = interval,
+        packet = PacketTemplate(length = Bytes(m.packet_bytes)),
+        seed = m.seed))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
     connect!(source.out, sink.in)
     initialize_network!(network)

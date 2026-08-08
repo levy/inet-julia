@@ -74,8 +74,10 @@ end
 
 function _build_queuing_network(m)
     network = Network(:Queuing)
-    source = add_module!(network, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(1 / m.arrival_rate)),
-            packet = PacketTemplate(length = Bytes(m.packet_bytes)), seed = m.seed))
+    source = add_module!(network, ActivePacketSourceModule(:source;
+        production_interval = Volatile(exponential(1 / m.arrival_rate)),
+        packet = PacketTemplate(length = Bytes(m.packet_bytes)),
+        seed = m.seed))
     # A capacity with a dropper rather than back pressure: an M/M/1/K queue
     # loses what does not fit instead of stopping the arrivals.
     queue = add_module!(network, PacketQueueModule(:queue,

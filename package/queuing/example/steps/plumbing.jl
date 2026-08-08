@@ -132,8 +132,10 @@ function _build_multiplexer_network(m)
     connect!(join.out, sink.in)
     # Each source gets its own seed, or they would all produce the same stream.
     for index in 1:m.sources
-        source = add_module!(network, ActivePacketSourceModule(Symbol(:source, index); production_interval = Volatile(exponential(1 / m.arrival_rate)),
-                packet = PacketTemplate(length = Bytes(100)), seed = m.seed + index))
+        source = add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
+            production_interval = Volatile(exponential(1 / m.arrival_rate)),
+            packet = PacketTemplate(length = Bytes(100)),
+            seed = m.seed + index))
         connect!(source.out, join.in[index])
     end
     initialize_network!(network)

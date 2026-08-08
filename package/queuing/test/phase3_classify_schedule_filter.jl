@@ -34,8 +34,10 @@ using OmnetppSimulator.VolatileModule
 function priority_chain(; production_interval = 0.1, processing_time = 0.25,
                           classifier = nothing, seed = 1)
     network = Network(:Priority)
-    source = add_module!(network, ActivePacketSourceModule(:source; production_interval = production_interval,
-            packet = PacketTemplate(length = Volatile(intuniform(80, 800))), seed = seed))
+    source = add_module!(network, ActivePacketSourceModule(:source;
+        production_interval = production_interval,
+        packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
+        seed = seed))
     fork = add_module!(network, classifier === nothing ?
         priority_classifier(:classifier, 2) : classifier)
     queues = [add_module!(network, PacketQueueModule(Symbol(:queue, index)))
@@ -77,7 +79,8 @@ end
 
     @testset "a priority classifier fills the first output that will take it" begin
         network = Network(:Priority)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         fork = add_module!(network, priority_classifier(:classifier, 2))
         # The first queue holds two packets; after that the classifier has to
         # use the second.
@@ -128,7 +131,8 @@ end
         # Two queues, only the second ever filled: the scheduler must not stall
         # on the first input's turn, or nothing would ever be pulled.
         network = Network(:Wrr)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         first = add_module!(network, PacketQueueModule(:first))
         second = add_module!(network, PacketQueueModule(:second))
         join = add_module!(network, weighted_round_robin_scheduler(:scheduler, [1, 1]))
@@ -260,8 +264,10 @@ end
 
     @testset "a filter drops what does not match" begin
         network = Network(:Filter)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1,
-                packet = PacketTemplate(length = Volatile(intuniform(80, 800))), seed = 2))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1,
+            packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
+            seed = 2))
         keep_short = add_module!(network, PacketFilterModule(:filter,
             PacketFilterParameters(predicate = packet -> bits(data_length(packet)) < 400)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -283,7 +289,8 @@ end
         # does: it will not start serving one it could not deliver.
         function filtered_chain(backpressure)
             network = Network(:Backpressure)
-            source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+            source = add_module!(network, ActivePacketSourceModule(:source;
+                production_interval = 0.1))
             queue = add_module!(network, PacketQueueModule(:queue))
             server = add_module!(network, PacketServerModule(:server,
                 PacketServerParameters(processing_time = 0.01)))
@@ -317,7 +324,8 @@ end
 
     @testset "a filter passes flow control through" begin
         network = Network(:Through)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         pass = add_module!(network, PacketFilterModule(:filter,
             PacketFilterParameters(predicate = _ -> true)))
         slow = add_module!(network, PassivePacketSinkModule(:sink,

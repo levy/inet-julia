@@ -25,7 +25,8 @@ using OmnetppSimulator.VolatileModule
         # every element downstream can read, because it writes the SAME tag a
         # source would have.
         network = Network(:Labeling)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         labeler = add_module!(network, PacketLabelerModule(:labeler,
             PacketLabelerParameters(label = 7)))
         # A filter for the label is how the test reads it back: only packets
@@ -45,7 +46,8 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a cloner sends every output its own copy" begin
         network = Network(:Cloning)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         cloner = add_module!(network, PacketClonerModule(:cloner, 3))
         sinks = [add_module!(network, PassivePacketSinkModule(Symbol(:sink, index)))
                  for index in 1:3]
@@ -64,7 +66,8 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a duplicator thickens one stream in place" begin
         network = Network(:Duplicating)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         duplicator = add_module!(network, PacketDuplicatorModule(:duplicator,
             PacketDuplicatorParameters(predicate = ordinal_predicate(n -> n % 2 == 0))))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -83,7 +86,8 @@ using OmnetppSimulator.VolatileModule
         # cloner can mark each branch differently — which would be impossible
         # if the tag sets were shared.
         network = Network(:CopyTags)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.5))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.5))
         cloner = add_module!(network, PacketClonerModule(:cloner, 2))
         first_label = add_module!(network, PacketLabelerModule(:first,
             PacketLabelerParameters(label = 1)))
@@ -115,7 +119,8 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a multiplexer merges push chains" begin
         network = Network(:Merge)
-        sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index); production_interval = 0.1 * index))
+        sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
+            production_interval = 0.1 * index))
                    for index in 1:2]
         merge = add_module!(network, PacketMultiplexerModule(:merge, 2))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -133,7 +138,8 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a multiplexer passes back pressure to every producer" begin
         network = Network(:MergeSlow)
-        sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index); production_interval = 0.1))
+        sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
+            production_interval = 0.1))
                    for index in 1:2]
         merge = add_module!(network, PacketMultiplexerModule(:merge, 2))
         slow = add_module!(network, PassivePacketSinkModule(:sink,
@@ -155,7 +161,8 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a demultiplexer lets several collectors pull" begin
         network = Network(:Split)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         queue = add_module!(network, PacketQueueModule(:queue))
         split = add_module!(network, PacketDemultiplexerModule(:split, 2))
         sinks = [add_module!(network, ActivePacketSinkModule(Symbol(:sink, index),
@@ -177,7 +184,8 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a delayer holds each packet" begin
         network = Network(:Delay)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         delayer = add_module!(network, PacketDelayerModule(:delayer,
             PacketDelayerParameters(delay = 0.25)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -195,8 +203,10 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a drawn delay reorders packets" begin
         network = Network(:Jitter)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1,
-                packet = PacketTemplate(length = Volatile(intuniform(80, 800))), seed = 6))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1,
+            packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
+            seed = 6))
         delayer = add_module!(network, PacketDelayerModule(:delayer,
             PacketDelayerParameters(delay = Volatile(uniform(0.05, 0.5))); seed = 8))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -212,8 +222,10 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a priority queue behaves like one queue" begin
         network = Network(:Compound)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.05,
-                packet = PacketTemplate(length = Volatile(intuniform(80, 800))), seed = 3))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.05,
+            packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
+            seed = 3))
         # Short packets are urgent, the rest are not.
         urgent_first = content_based_classifier(:classifier,
             [packet -> bits(data_length(packet)) < 400, _ -> true])
@@ -248,7 +260,8 @@ using OmnetppSimulator.VolatileModule
 
     @testset "a compound is invisible to the wiring" begin
         network = Network(:Through)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         queue = priority_queue(network, :queue, 2)
         server = add_module!(network, PacketServerModule(:server,
             PacketServerParameters(processing_time = 0.05)))

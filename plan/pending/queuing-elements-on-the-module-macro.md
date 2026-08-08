@@ -101,7 +101,7 @@ Work in a worktree at `/home/projectured/workspace/inet-julia-module-macro`,
 sibling to this checkout, and one at `omnetpp-julia-module-macro` for Phase 0.
 Commit at each phase and mark it done here.
 
-### Phase 0 — the macro, in `omnetpp-julia`
+### Phase 0 — the macro, in `omnetpp-julia` — **done**
 
 1. `@simulation_module` over the sections of §10: `@parameters`, `@gates`,
    `@variables`, `@statistics`, `@signals`, `@streams`, and the singular form of
@@ -116,14 +116,95 @@ The macro expands at definition time, so it raises none of the world-age risk
 the NED reader's runtime type generation does. Keep it that way: no `eval` at
 run time.
 
-### Phase 1 — one real element, end to end
+Landed as `omnetpp-julia` `eb8caf1` and `c924c1b`, with 56 tests. The simulator
+suite stays at 5892.
+
+**What the macro must qualify.** Generated code runs in the module that wrote
+the declaration, so every name it emits has to be reached from there.
+`module_gates`, `input_gate`, `output_gate` and `Gate` were emitted bare and
+resolved in the caller. They are now written through an interpolated module
+object. A function object cannot be interpolated into definition position, so
+the macro builds `Expr(:., ThisModule, QuoteNode(name))` instead.
+
+**A docstring needs `Base.@__doc__`.** A macro that expands to a block cannot
+take a docstring without it.
+
+### Phase 1 — one real element, end to end — **done**
 
 `ActivePacketSource`. It has all five kinds — parameters, a stream, a timer
 variable, statistics, one gate — so it settles §4's three questions on the
 smallest thing that exercises them.
 
-Check: `test_queuing()` green, and the element's own tests unchanged. If a test
-had to change, the macro changed behaviour and that is a fault.
+Landed as `cd48ab4`. `test_queuing()` is 275 passed, 2 errored, which is the
+baseline on untouched mains: both errors are `record_tap!`, and `omnetpp-julia`
+main has moved ahead of what this repository's capture seam expects.
+
+**A gate needs its annotation before any lookup.** `InterfaceClaim` is read off
+the gate while the wiring is walked, so it cannot wait for initialization. The
+macro's constructor now calls `decorate_module!` last, and an element that
+claims an interface defines that one method:
+
+```julia
+NetworkModule.decorate_module!(m::ActivePacketSourceModule) =
+    (push!(m.out.annotations, InterfaceClaim(ActivePacketSource)); m)
+```
+
+**The check written above was too strong.** It said a test that had to change is
+a fault. Construction calls and field reads necessarily change — that is the
+port. The invariant that did hold, and the one to keep for every wave, is:
+**no assertion changed**.
+
+**The call sites are the bulk of the work.** One element of seventeen moved 67
+sites across ten files. They cannot be deferred to Phase 7 as this plan first
+said, because the suite only stays green if an element's call sites move with
+it. That is what §5.1 is for.
+
+### Phase 1.5 — the transformer — **done**
+
+`tool/port_to_module_macro.jl`, with `tool/test_port_to_module_macro.jl` beside
+it. At roughly 300 sites left over sixteen elements, the rewrite has to be a
+program.
+
+**A textual rewrite is not safe here.** `source` names an active source in one
+test set and a passive sink in the next, so the same characters must be changed
+in one place and left alone in the other. Only the receiver's type decides.
+
+So the tool parses with `Base.JuliaSyntax`, infers the type of every receiver,
+and splices text at the byte ranges the parser reports. What it infers, and why
+each one is needed by the queuing tests:
+
+| from | it learns |
+| --- | --- |
+| `m::PacketQueueModule` in a signature | the receiver of a method body |
+| `x = T(…)`, `x = add_module!(net, T(…))` | a local, in the scope that holds it |
+| a builder that answers `(; network, source, sink)` | the type of `chain.source` |
+| a comprehension or a vector of modules | `sources[1]` and `for s in sources` |
+| `all(s -> …, sources)` | the parameter of a lambda over a collection |
+| `given === nothing ? make_one() : given` | the branch that is known |
+
+A test set is a scope in Julia, which is why the scope-aware scan is right and
+not merely a heuristic.
+
+**What it refuses, it names.** An unresolved receiver, a field the declaration
+does not have, a call with a comment between its arguments, a retired name
+outside an import list — each is reported with its file and line and left
+alone. A rewrite that does not parse never reaches the working tree.
+
+**How it was proven.** The hand-made Phase 1 was reverted and redone by the
+tool: 67 rewrites, nothing refused, and every one of the ten files parses to
+the same expression as the hand-made version. Its formatting is better, so its
+output was kept.
+
+Run it after each element is declared by hand:
+
+```
+julia tool/port_to_module_macro.jl            # report, change nothing
+julia tool/port_to_module_macro.jl --apply    # write the files
+julia tool/test_port_to_module_macro.jl       # the tool's own tests
+```
+
+It takes no element argument. It finds what is ported by reading the
+`@simulation_module` declarations in the tree.
 
 ### Phases 2 to 5 — the rest of the simple elements
 
@@ -136,6 +217,16 @@ Four waves, each ending green, in the order the elements were built:
 | 4 | `PacketClassifier`, `PacketScheduler`, `PacketFilter` |
 | 5 | the six `common` elements |
 
+Each wave is the same three steps:
+
+1. Declare the elements by hand: delete the `Parameters`, `States` and
+   `Statistics` structs and the resets beside them, and write the sections.
+   Diff each hand-written reset before deleting it, per §7.
+2. Run `julia tool/port_to_module_macro.jl`, read the report, then `--apply`.
+   Nothing may be refused; a refusal is either a site to fix by hand or a rule
+   the tool is missing.
+3. `test_queuing()` back to 275 passed, 2 errored, and no assertion changed.
+
 ### Phase 6 — the compound
 
 `PriorityQueue`, onto `@submodules` and `@connections` of §11. This is the first
@@ -145,9 +236,11 @@ inside `@connections` generates the wiring a hand-written constructor does.
 ### Phase 7 — what stops being hand-written
 
 1. Delete the `Parameters`, `States` and `Statistics` structs the macro replaced,
-   and the `reset_states!` and `reset_statistics!` beside them.
+   and the `reset_states!` and `reset_statistics!` beside them. Waves 2 to 5 do
+   this per element, so what is left here is whatever no wave owned.
 2. `QueuingModel`, the demo builders under `example/steps/` and the catalog all
-   construct elements directly. Update the call sites.
+   construct elements directly. The transformer moves these with each wave, so
+   what is left here is only what it refused.
 3. **Collapse the NED reader's hooks.** `NedIni.jl` carries
    `ned_parameters_type` and `build_ned_module` only because a Julia element's
    parameters were somewhere the reader could not see. With

@@ -63,8 +63,10 @@ function _build_complex_network(m)
     # Two independent streams, joined into one.
     join = add_module!(network, PacketMultiplexerModule(:multiplexer, 2))
     for index in 1:2
-        source = add_module!(network, ActivePacketSourceModule(Symbol(:source, index); production_interval = Volatile(exponential(1 / m.arrival_rate)),
-                packet = PacketTemplate(length = Bytes(100)), seed = m.seed + index))
+        source = add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
+            production_interval = Volatile(exponential(1 / m.arrival_rate)),
+            packet = PacketTemplate(length = Bytes(100)),
+            seed = m.seed + index))
         connect!(source.out, join.in[index])
     end
     # One compound queue for both of them, drained by one server.

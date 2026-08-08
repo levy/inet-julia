@@ -88,7 +88,8 @@ function OmnetppDescription.build_ned_module(::Type{ActivePacketSourceModule}, n
         length = _length_or(values, :packet_length, Bytes(1000)),
         data = get(values, :packet_data, nothing),
         attach_creation_time = get(values, :attach_creation_time_tag, true))
-    ActivePacketSourceModule(name; production_interval = values[:production_interval],
+    ActivePacketSourceModule(name;
+        production_interval = values[:production_interval],
         initial_production_offset = _offset(get(values, :initial_production_offset, -1.0)),
         packet = template)
 end

@@ -17,8 +17,10 @@ using OmnetppSimulator.VolatileModule
 function queue_chain(; production_interval, processing_time, packet_capacity = nothing,
                        dropper = nothing, length = Bytes(100), seed = 1)
     network = Network(:Chain)
-    source = add_module!(network, ActivePacketSourceModule(:source; production_interval = production_interval,
-                                     packet = PacketTemplate(length = length), seed = seed))
+    source = add_module!(network, ActivePacketSourceModule(:source;
+        production_interval = production_interval,
+        packet = PacketTemplate(length = length),
+        seed = seed))
     queue = add_module!(network, PacketQueueModule(:queue,
         PacketQueueParameters(packet_capacity = packet_capacity, dropper = dropper)))
     server = add_module!(network, PacketServerModule(:server,
@@ -123,8 +125,10 @@ end
         # queue over length rather than a first-in-first-out one.
         shortest_first = (a, b) -> data_length(a) < data_length(b)
         network = Network(:Sorted)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1,
-                packet = PacketTemplate(length = Volatile(intuniform(80, 8000))), seed = 4))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1,
+            packet = PacketTemplate(length = Volatile(intuniform(80, 8000))),
+            seed = 4))
         queue = add_module!(network, PacketQueueModule(:queue,
             PacketQueueParameters(comparator = shortest_first)))
         server = add_module!(network, PacketServerModule(:server,
@@ -155,8 +159,9 @@ end
 
     @testset "service time can depend on packet length" begin
         network = Network(:Bitrate)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 1.0,
-                                         packet = PacketTemplate(length = Bytes(125))))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 1.0,
+            packet = PacketTemplate(length = Bytes(125))))
         queue = add_module!(network, PacketQueueModule(:queue))
         # A thousand bits at a thousand bits per second is one second of
         # service, whatever the fixed processing time says.
@@ -174,7 +179,8 @@ end
 
     @testset "an instant server takes no time" begin
         network = Network(:Instant)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = 0.1))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = 0.1))
         queue = add_module!(network, PacketQueueModule(:queue))
         server = add_module!(network, InstantServerModule(:server))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -222,7 +228,9 @@ end
         # utilisation of one half, where the theory says the mean number
         # waiting is rho^2/(1-rho) = 0.5 and the mean wait is 0.1s.
         network = Network(:MM1)
-        source = add_module!(network, ActivePacketSourceModule(:source; production_interval = Volatile(exponential(0.2)), seed = 20))
+        source = add_module!(network, ActivePacketSourceModule(:source;
+            production_interval = Volatile(exponential(0.2)),
+            seed = 20))
         queue = add_module!(network, PacketQueueModule(:queue))
         server = add_module!(network, PacketServerModule(:server,
             PacketServerParameters(processing_time = Volatile(exponential(0.1))); seed = 21))
