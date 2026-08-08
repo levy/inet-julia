@@ -51,12 +51,13 @@ export
     # the projected documents
     PacketDiagram, DiagramBand, DiagramHeaderBand, DiagramOpaqueBand, DiagramField,
     # building them from a packet, and announcing a change
-    diagram_bands, refresh_packet_diagram!,
+    packet_diagram, diagram_bands, refresh_packet_diagram!,
     # the row layout, as plain numbers
     DiagramCell, diagram_rows, grid_width, cell_width,
     # the projections and the two entry points
     PacketToPacketDiagram, PacketDiagramToText,
-    packet_projection, packet_diagram_entry, packet_diagram_string
+    packet_projection, packet_diagram_entry, packet_diagram_document_entry,
+    packet_diagram_entries, packet_diagram_string
 
 include("DiagramDocument.jl")
 include("DiagramGeometry.jl")

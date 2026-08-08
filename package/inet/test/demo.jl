@@ -311,10 +311,15 @@ end
     ctx = PrinterContext(EmptyReference(), Cell(1500), Cell(1200), Dict{Symbol,Any}())
     iomap = print_document(projection, nothing, shell, ctx)
     toggled = nothing
-    for y in 700:2:1000, x in 420:2:470
+    # Scan the page rather than a pinned rectangle: what this asserts is that a
+    # marker glyph is drawn and clickable, and where it lands moves whenever the
+    # embed's own framing does.
+    for y in 200:4:1200, x in 380:4:700
         intent = read_intent(projection, nothing, Intent(MousePress(:left, x, y)), iomap)
         op = intent isa Intent ? intent.operation : intent
-        if op isa ToggleCollapseOperation
+        # A chunk of the tree, not the embed card's own chevron: the card folds
+        # the whole embed and is a widget, and this is about the syntax markers.
+        if op isa ToggleCollapseOperation && op.target isa SyntaxNode
             toggled = op
             break
         end

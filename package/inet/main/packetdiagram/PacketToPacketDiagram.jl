@@ -29,13 +29,30 @@ end
     output::Any
 end
 
-function print_document(p::PacketToPacketDiagram, recursion, packet::Packet, ctx)
+"""
+    packet_diagram(packet; row_bits = 32, label = packet_label(packet)) -> PacketDiagram
+
+The figure's document for `packet`, built as the projection builds it.
+
+Public because a **document** is what an embed can carry: a `WidgetCard` renders
+its content only when the content is a `Document`
+(`WidgetToGraphics.jl`, `w.content isa Document`), and every marker on a page
+arrives in a card. So a page splices this, and the `Packet` entry of
+`packet_diagram_entries` serves a packet the renderer meets anywhere else.
+"""
+function packet_diagram(packet::Packet; row_bits::Int = 32,
+                        label::AbstractString = packet_label(packet))
     packet_cell = Cell(packet)
-    diagram = PacketDiagram(packet    = packet_cell,
-                            label     = packet_label(packet),
-                            row_bits  = p.row_bits,
-                            bands     = ComputedCellVector(() -> diagram_bands(packet_cell[])))
-    PacketToPacketDiagramIoMap(p, packet, diagram)
+    PacketDiagram(packet   = packet_cell,
+                  label    = String(label),
+                  row_bits = row_bits,
+                  bands    = ComputedCellVector(() -> diagram_bands(packet_cell[])))
+end
+
+packet_diagram(chunk::Chunk; kwargs...) = packet_diagram(Packet(chunk); kwargs...)
+
+function print_document(p::PacketToPacketDiagram, recursion, packet::Packet, ctx)
+    PacketToPacketDiagramIoMap(p, packet, packet_diagram(packet; row_bits = p.row_bits))
 end
 
 # A bare chunk draws too — a header on its own is a packet with no envelope, and

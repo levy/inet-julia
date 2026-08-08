@@ -50,12 +50,17 @@ function named_packet(name::AbstractString)
     return build()
 end
 
-# `<<packet("routed_ipv4")>>` splices the PACKET ITSELF onto the page. Nothing
-# converts it first: the renderer reaches a packet held inside a document by
-# type dispatch, and `packet_diagram_entry` is what that dispatch finds. So the
-# page shows the object the code above it makes, drawn as the figure the RFCs
-# draw.
-marker_packet(_ctx, name::AbstractString) = named_packet(name)
+# `<<packet("routed_ipv4")>>` puts the packet on the page as the figure the RFCs
+# draw. What it splices is the packet's DIAGRAM DOCUMENT, which holds the live
+# packet in its `packet` field — an embed arrives inside a `WidgetCard`, and a
+# card renders its content only when the content is a `Document`
+# (`w.content isa Document` in `WidgetToGraphics.jl`). A `Packet` is not one and
+# never can be: `InetPacket` may not import the kernel that defines documents.
+#
+# The figure is still drawn from the packet, by the same projection that draws
+# one the renderer meets anywhere else — `packet_diagram_entries` registers both
+# ends, so a packet in a document field needs no marker at all.
+marker_packet(_ctx, name::AbstractString) = packet_diagram(named_packet(name))
 
 # `<<packet_tree("routed_ipv4")>>` shows the same packet as its chunk tree, with
 # a fold marker on every chunk. Two views of one packet, and a page names the

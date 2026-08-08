@@ -11,10 +11,11 @@ Here it is not a picture. It is a projection of the packet itself:
 <<packet("ethernet_frame")>>
 ```
 
-Nothing converted that packet into a figure before the page got it. The marker
-splices the `Packet` the code makes, and the renderer reaches it by type
-dispatch — so what is drawn is the object, and a packet held anywhere in any
-document draws the same way.
+Nobody drew that. The marker splices the packet's **diagram document**, which
+holds the live packet in a field, and the figure is derived from it by the same
+projection that draws a packet the renderer meets anywhere else — in a document
+field, in a collection, on its own. Change the packet and the figure follows;
+there is no second description of it to keep in step.
 
 ## Read the fourth row
 

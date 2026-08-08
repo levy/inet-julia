@@ -25,7 +25,7 @@ import InetPacketExample
 import InetQueuingExample
 
 using Inet
-using Inet.PacketDiagramModule: packet_diagram_entry
+using Inet.PacketDiagramModule: packet_diagram, packet_diagram_entries
 using OmnetppSimulator: workbench_refresh!
 using OmnetppPresentation: CatalogShell, CatalogShellToWidget, SimulationEmbed,
     catalog_pages, default_topology_engine, open_page!, register_doctype_module!,
@@ -157,8 +157,8 @@ demo_projection(; measure = truetype_measure_text) =
                                                  Pair{Type,Any}[simulation_embed_entry(),
                                                      fsm_machine_entry(measure = measure),
                                                      fsm_diagram_entry(measure = measure),
-                                                     packet_entry(measure = measure),
-                                                     packet_diagram_entry(measure = measure)],
+                                                     packet_entry(measure = measure)],
+                                                 packet_diagram_entries(measure = measure),
                                                  _demo_prose_dispatch(measure),
                                                  workbench_document_dispatch(measure = measure)))))
 
