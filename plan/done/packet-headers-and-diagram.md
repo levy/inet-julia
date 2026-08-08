@@ -913,6 +913,36 @@ first thing anybody looks for in such a figure.
       depends on `ProjecturedVisual` and owns the packet diagram.
 - [x] Move this plan to `plan/done/`.
 
+## 12b. What the embed card changed, after the fact
+
+`690360e0 An embedded document arrives in a titled, foldable card` landed in
+`projectured-julia` **after** phase 8 was built and tested. It wraps every
+marker's value in a `WidgetCard`, and a card renders its content only when the
+content is a `Document`:
+
+```julia
+cim = w.content isa Document ? print_child(recursion, w.content, inner_ctx) : nothing
+```
+
+A `Packet` is not a `Document` and never can be, so the page drew the card's
+title and nothing under it. Section 8 said a packet draws wherever the renderer
+meets one; that is still true of the dispatch table, and false of an embed.
+
+The fix keeps both ends. `packet_diagram(pk)` is public and builds the figure's
+document, the marker splices that, and `packet_diagram_entries` registers
+`Packet => …` for a packet the table sees and `PacketDiagram => …` for a spliced
+one. Restoring the stronger claim — a marker splicing the packet itself — needs
+the card to descend into a non-`Document` value, which is a change in
+`projectured-julia`, not here.
+
+Two lessons, both already in the memory of this repository and both re-learnt:
+
+- **A test must read what renders.** The phase-8 case asserted strings that also
+  appear in the page's own prose, so four of its six checks passed on the prose
+  while the figure was absent. Assert what only the figure can say.
+- **`[sources]` reach live checkouts.** A green suite pins the neighbouring
+  repositories as they were that hour, not as they are.
+
 ## 13. Tests
 
 | what | where | command |
