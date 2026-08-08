@@ -321,6 +321,34 @@ around it.* `num_packets` was a plain module field with a two-line
 hand-written `reset_states!`, `reset_statistics!` or `reset_module!` anywhere in
 the package. That is §7.1 and §7.2 done as a byproduct of the waves.
 
+### Phase 7 — what stops being hand-written — **all but the compound's share**
+
+§7.1 and §7.2 fell out of waves 2 to 5: no `Parameters`, `States` or
+`Statistics` struct is left in `package/queuing/main`, and no hand-written
+`reset_states!`, `reset_statistics!` or `reset_module!` is left in the package.
+§7.3 is done bar a last look after Phase 6. §7.4 is done.
+
+Two NED hooks survive, and both earn it: `PacketQueue` converts a NED `-1` and
+an information quantity into what the field wants, and `ActivePacketSource`
+folds three NED parameters into one `PacketTemplate`. Neither is a shape the
+default path can express.
+
+**Every suite, after wave 5:**
+
+| suite | result |
+| --- | --- |
+| `test_queuing()` | 278 passed, 2 errored — the baseline |
+| `test_inet()` | 281 passed |
+| `test_linklayer()` | 424 passed, 4 errored — the baseline on clean main too |
+| `OmnetppDescriptionTest` | 227 passed |
+| `test_simulator()` | 5892 passed |
+
+The errors in the two INET suites are all `record_tap!` and its neighbours, and
+they predate this work: `omnetpp-julia` main has moved ahead of what this
+repository's capture seam expects. `test_simulator()` needs `julia -t 4`; with
+one thread `engine_startable(ParallelEngineSpec())` fails and it looks like a
+regression.
+
 ### Phase 6 — the compound
 
 `PriorityQueue`, onto `@submodules` and `@connections` of §11. This is the first
@@ -340,7 +368,9 @@ inside `@connections` generates the wiring a hand-written constructor does.
    needed only where a NED parameter maps to something other than a field.
    `ActivePacketSource`'s `PacketTemplate` is one such case. What is left here
    is to check that no hook survives whose element no longer needs it.
-4. Remove §4.1 from `queueing-tutorial-from-ned-ini.md`.
+4. Remove §4.1 from `queueing-tutorial-from-ned-ini.md`. **Done**: that
+   section now says the decision was carried out here, and names what is left
+   — the compound, and `InetLinkLayer`'s own plan.
 
 Check: `test_queuing()`, and the NED and INI configurations of
 `nedini.jl` still match the captured C++ results.
@@ -348,7 +378,7 @@ Check: `test_queuing()`, and the NED and INI configurations of
 ## 6. Out of scope
 
 - `InetLinkLayer`. `T1sModel` builds a network by hand too, and it gets its own
-  plan, as `queueing-tutorial-from-ned-ini.md` §4.1 already said.
+  plan, as `queueing-tutorial-from-ned-ini.md` §4 already said.
 - The anatomy's `SimulationModule` runtime, §12's model, §17's instance. The
   macro targets the module contract that exists.
 - §5's seed at a reference and §16's derivation. Phase 1 keeps today's seeding.

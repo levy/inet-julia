@@ -116,25 +116,14 @@ registry:
 - `inet::queueing::PacketDataScheduler`
 - `inet::queueing::PacketCharacterOrEnterClassifier`
 
-## 4. Three decisions to settle first
+## 4. Two decisions to settle first
 
-### 4.1 Migrate the elements onto the anatomy module form
-
-The companion plan makes a module a struct whose fields are its parameters, its
-gates, its streams and its submodules. This repository puts the parameters in a
-separate struct and builds the network by hand.
-
-**Migrate. Do not keep two forms.** The work is mostly mechanical:
-
-1. Fold each `XParameters` struct into the fields of the module struct.
-2. Turn each parameter into a declaration with a default, a unit and a domain.
-3. Turn `add_module!` and `connect!` in a compound into `@connect`.
-4. Turn each `register_statistic!` into a `@signal` declaration and a send.
-
-The cost falls outside the element library too. `QueuingModel`, the demo models
-under `package/queuing/example/steps/`, `T1sModel` and the catalog all build a
-`Network` by hand. Wave 0 migrates the queuing elements and `QueuingModel`.
-Give `InetLinkLayer` its own plan.
+The third — whether to migrate the elements onto the anatomy module form — is
+settled and done. `queuing-elements-on-the-module-macro.md` carried it out: all
+sixteen simple elements of `InetQueuing` declare their fields by kind, and no
+`Parameters`, `States` or `Statistics` struct is left in the package. The
+compound is what remains there, not here. `InetLinkLayer` still builds a
+`Network` by hand and still needs its own plan.
 
 ### 4.2 Give the chunk a fill byte
 
@@ -232,7 +221,8 @@ the wave done here.
 ### Wave 0 — The seam
 
 1. Add a dependency on `OmnetppDescription` to `InetQueuing`.
-2. Migrate the queuing elements onto the anatomy module form, per §4.1.
+2. Migrate the queuing elements onto the anatomy module form. Done: see
+   `queuing-elements-on-the-module-macro.md`.
 3. Migrate `QueuingModel` and the demo models under `example/steps/`.
 4. Register every element under its NED type name, such as
    `inet.queueing.queue.PacketQueue`.
