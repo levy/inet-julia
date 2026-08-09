@@ -11,15 +11,28 @@ gets its compiled code voided when the session loads the rest of the stack —
 measured at 3.5 s of `recompile_time` on one click in omnetpp-julia.
 
 ## Steps
-**Held.** Nothing here starts until the domain package split lands on
-projectured-julia `main` and both other repositories are done — this
-repository's `[sources]` reach their **main** checkouts.
+Both gates are open.
+
+## Result
+
+**The domain split had broken this repository.** `InetExample` named
+`ProjecturedDomainExample` at a path the split removed, so nothing here could
+resolve at all. `run_example` now lives in `ProjecturedExample`, which brings
+`ProjecturedLlm` with it — the root environment needed that source too.
+
+`InetRepl` is at `package/repl`, the same shape as the other two: the body is
+`precompile_workload(level)` in `InetExample`, the macro is in the leaf, and the
+level is a Preference. `:minimal` redoes `ProjecturedExample`'s workload in this
+image, `:demo` adds this repository's own catalog page.
+
+Measured at `:demo`: `using InetRepl` 2.77 s, first paint of the catalog 0.162 s,
+with 0.000 s of recompilation.
 
 
-- [ ] 1. `InetExample.precompile_workload(level::Symbol)` — `:none`, `:minimal`,
+- [x] 1. `InetExample.precompile_workload(level::Symbol)` — `:none`, `:minimal`,
       `:demo`, `:full`. The body is the documents this repository owns: the
       packet and chunk domain, and the 10BASE-T1S link layer.
-- [ ] 2. New `package/repl/` (loaded by an environment under `env/`) → `InetRepl`, depending on `InetTest` and
+- [x] 2. New `package/repl/` (loaded by an environment under `env/`) → `InetRepl`, depending on `InetTest` and
       `ProjecturedSdl`, with the Preferences-driven level and `set_workload!`.
       No `@compile_workload` anywhere else in this repository.
 - [ ] 3. The layering test: nothing depends on `InetRepl`; no `Example` is a
