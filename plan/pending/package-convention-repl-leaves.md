@@ -11,11 +11,15 @@ gets its compiled code voided when the session loads the rest of the stack —
 measured at 3.5 s of `recompile_time` on one click in omnetpp-julia.
 
 ## Steps
+**Held.** Nothing here starts until the domain package split lands on
+projectured-julia `main` and both other repositories are done — this
+repository's `[sources]` reach their **main** checkouts.
+
 
 - [ ] 1. `InetExample.precompile_workload(level::Symbol)` — `:none`, `:minimal`,
       `:demo`, `:full`. The body is the documents this repository owns: the
       packet and chunk domain, and the 10BASE-T1S link layer.
-- [ ] 2. New `package/repl/` → `InetRepl`, depending on `InetTest` and
+- [ ] 2. New `package/repl/` (loaded by an environment under `env/`) → `InetRepl`, depending on `InetTest` and
       `ProjecturedSdl`, with the Preferences-driven level and `set_workload!`.
       No `@compile_workload` anywhere else in this repository.
 - [ ] 3. The layering test: nothing depends on `InetRepl`; no `Example` is a
