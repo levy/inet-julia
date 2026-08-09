@@ -28,8 +28,8 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 OmnetppUnits = "9affc4b9-111a-4929-bbfb-901be4983719"
 ProjecturedAdaptagrams = "c86b9063-147e-43d0-b3a0-65343fae9a66"
 ProjecturedBase = "b83f0000-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
-ProjecturedDomain = "e0912940-0f50-4a55-a142-7b4aed3d6e35"
-ProjecturedDomainExample = "5393e5bd-6135-44b9-9645-408b92f5eb98"
+ProjecturedLlm = "7bcfe799-d9db-4ade-8cf5-c076331403f9"
+ProjecturedExample = "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"
 # The demo catalog opens a window, so the environment a demo is opened from
 # needs a backend. Only this environment does — no package depends on SDL.
 ProjecturedSdl = "f0002b97-94ba-416c-b93c-86cdc095626f"
@@ -56,7 +56,7 @@ ProjecturedKernel = {path = "../projectured-julia/package/kernel/main"}
 OmnetppUnits = {path = "../omnetpp-julia/package/units/main"}
 ProjecturedAdaptagrams = {path = "../projectured-julia/package/adaptagrams/main"}
 ProjecturedBase = {path = "../projectured-julia/package/base/main"}
-ProjecturedDomain = {path = "../projectured-julia/package/domain/main"}
-ProjecturedDomainExample = {path = "../projectured-julia/package/domain/example"}
+ProjecturedLlm = {path = "../projectured-julia/package/llm/main"}
+ProjecturedExample = {path = "../projectured-julia/package/projectured/example"}
 ProjecturedSdl = {path = "../projectured-julia/package/sdl/main"}
 ProjecturedVisual = {path = "../projectured-julia/package/visual/main"}

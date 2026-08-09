@@ -75,7 +75,7 @@ using Projectured.TrueTypeModule: truetype_measure_text
 using Projectured.TypeDispatchingProjectionModule: TypeDispatchingProjection
 using Projectured.WidgetHoverTrackingProjectionModule: WidgetHoverTrackingProjection
 using Projectured.WordWrappingModule: WordWrapping
-using ProjecturedDomainExample: run_example
+using ProjecturedExample: run_example
 
 export demo_directory, demo_catalog, demo_projection, run_demo
 export FSM_MACHINES, fsm_machines, FsmMachineToWidget, fsm_machine_entry, fsm_diagram_entry
