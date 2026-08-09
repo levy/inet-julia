@@ -6,3 +6,6 @@ Manifest.toml
 
 # The executable bundle that tool/build_binary.jl produces.
 build/
+
+# The workload level is a person's choice, not the project's.
+LocalPreferences.toml

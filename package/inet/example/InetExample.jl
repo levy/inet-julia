@@ -76,8 +76,10 @@ using Projectured.TypeDispatchingProjectionModule: TypeDispatchingProjection
 using Projectured.WidgetHoverTrackingProjectionModule: WidgetHoverTrackingProjection
 using Projectured.WordWrappingModule: WordWrapping
 using ProjecturedExample: run_example
+import ProjecturedExample
 
 export demo_directory, demo_catalog, demo_projection, run_demo
+export precompile_workload
 export FSM_MACHINES, fsm_machines, FsmMachineToWidget, fsm_machine_entry, fsm_diagram_entry
 export PACKET_VIEWS, packet_views, packet_syntax, packet_entry, named_packet
 
@@ -101,6 +103,8 @@ include("Machines.jl")
 
 # The packets a page can show as the live objects they are.
 include("Packets.jl")
+# The workload body comes last, so it can reach everything above it.
+include("Precompile.jl")
 
 """
     demo_directory() -> String

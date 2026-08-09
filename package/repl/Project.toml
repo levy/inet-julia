@@ -1,0 +1,19 @@
+name = "InetRepl"
+uuid = "e3a16932-2029-4525-a1bf-1ae6cc457e47"
+authors = []
+entryfile = "InetRepl.jl"
+version = "0.1.0"
+
+[deps]
+Inet = "e0528acb-81c4-485d-8c9f-a32e8325f910"
+InetExample = "36dabbcc-7d99-425e-af93-62d296f18444"
+InetTest = "2f44235d-4d1e-46a7-bad9-542c69a24442"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+ProjecturedSdl = "f0002b97-94ba-416c-b93c-86cdc095626f"
+
+[sources]
+Inet = {path = "../inet/main"}
+InetExample = {path = "../inet/example"}
+InetTest = {path = "../inet/test"}
+ProjecturedSdl = {path = "../../../projectured-julia/package/sdl/main"}
