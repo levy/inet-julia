@@ -18,11 +18,35 @@ measured at 3.5 s of `recompile_time` on one click in omnetpp-julia.
 - [ ] 2. New `package/repl/` → `InetRepl`, depending on `InetTest` and
       `ProjecturedSdl`, with the Preferences-driven level and `set_workload!`.
       No `@compile_workload` anywhere else in this repository.
-- [ ] 3. The layering test: nothing depends on `InetRepl`.
+- [ ] 3. The layering test: nothing depends on `InetRepl`; no `Example` is a
+      dependency of a non-`Example`; each package's external dependencies match
+      a written list.
 - [ ] 4. The `ji` alias becomes `using Revise, InetRepl`. Revise stays first and
       stays out of the package's dependencies.
-- [ ] 5. Measure the first click at each level, so this repository has a
+- [ ] 5. `InetQueuingExample` stops depending on `Test`. An example package does
+      not need the test standard library; move what uses it into
+      `InetQueuingTest`.
+- [ ] 6. `documentation/packages.md`: the five kinds, the dependency table, and
+      the leaf the `ji` alias loads.
+- [ ] 7. Measure the first click at each level, so this repository has a
       baseline of its own.
+
+## The dependency map this repository should hold
+
+| package | should depend on | external |
+| --- | --- | --- |
+| `InetPacket` | — | — |
+| `InetCommon` | OmnetppSimulator, ProjecturedKernel | — |
+| `InetLinkLayer` | Packet, OmnetppSimulator, ProjecturedKernel | — |
+| `InetQueuing` | Common, Packet, OmnetppSimulator, ProjecturedKernel | — |
+| `InetRunner` | Packet, Queuing, OmnetppDescription, OmnetppFormat, OmnetppSimulator, OmnetppUnits | — |
+| `Inet` | Common, LinkLayer, Packet, Queuing, OmnetppSimulator, ProjecturedVisual | — |
+| `<Stem>Example` | `<Stem>`, the Examples below it | — |
+| `<Stem>Test` | `<Stem>Example`, the Tests below it | — |
+| `InetRepl` **(leaf)** | InetTest, ProjecturedSdl | PrecompileTools, Preferences |
+
+No package in this repository holds a third-party dependency today, and none
+should acquire one without being named in the table above.
 
 ## Depends on
 
