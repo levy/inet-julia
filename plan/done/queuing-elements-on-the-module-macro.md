@@ -1,6 +1,7 @@
 # Port the queuing elements onto `@simulation_module`
 
-**Status:** design, not started (2026-08-08).
+**Status:** done (2026-08-09). All seventeen module kinds of `InetQueuing`
+declare their fields by kind, and the compound declares what it holds.
 **Goal:** every element of `InetQueuing` declares its fields in the sections
 that `simulation-anatomy.md` §10 and §11 define, and the macro generates what
 is written by hand today.
@@ -68,32 +69,38 @@ This is a change to how fields are declared, and to nothing else.
 | `@gates`, `@streams` | `collect_module_gates`, `collect_module_streams`, and gate construction with the owner set |
 | `@signals` | `collect_module_signals` |
 | the kinds together | `reset_module!` — write the variables and the statistics, leave the parameters |
-| `@submodules`, `@connections` | the compound's constructor, per §11 |
+| `@submodules`, `@connections` | the compound's constructor, and `submodules` |
 
 Flat, not nested. A parameter's reference is the module's reference and the
 field name, which is what lets an INI key address it with nothing in between.
 
-## 4. Three questions to settle in Phase 1, on one real element
+## 4. Three questions, and what they turned out to be
 
-Settle them where they are visible, not in the abstract.
+**Where the recorder handle goes** — *not* where this plan preferred. The idea
+was a hidden field the macro emits for every module that declares a statistic,
+so nothing can forget it. The macro cannot: `ModuleStatistics` is an INET type,
+and the engine stays free of model libraries. So `recording` is declared a
+`@statistic` like any other field, and every element writes the line.
 
-**Where the recorder handle goes.** `ModuleStatistics` holds `path`, `recorder`
-and `vectors` — recording plumbing, not a measurement. It is not a statistic and
-it is not a parameter. Either the macro emits it as a hidden field of every
-module that declares a statistic, or it stays an ordinary `@variable`. Prefer
-the first: nothing that declares a statistic can then forget it.
+That has a consequence the hidden field would not have had. A generated reset
+writes every statistic back to what it was declared as, so it replaces the
+recording handle where the hand-written `reset_statistics!` left it alone. It is
+safe, because a run initializes and registers again, but it is safe by an
+ordering rather than by construction. `phase1_sources_sinks.jl` pins it.
 
-**What a stream is, yet.** An element carries `rng` and `seed` in its states and
-re-seeds on reset. §5 makes a stream a kind with its seed as a parameter at a
-reference, and §16 derives that seed. Neither exists. **Keep the current seeding
-and declare the field a `@stream`**, so the kind is right and the derivation
-arrives later without touching an element.
+**What a stream is, yet** — as planned. `@stream rng::MersenneTwister =
+MersenneTwister(seed)` with `seed` an ordinary parameter, so a reset re-seeds
+from the same expression the build used. §5's seed at a reference and §16's
+derivation arrive later without touching an element. One thing to note for them:
+`markov_classifier` keeps a `MersenneTwister` in a closure, which is a stream no
+module owns.
 
-**Whether a parameter is immutable.** A flat struct makes every field mutable,
-so "a parameter is written once at the build" becomes a discipline rather than a
-type fact. Options are a check in the setter path, or `const` fields on the
-generated struct — Julia allows `const` in a `mutable struct`. Try the second in
-Phase 1; it costs nothing if it works.
+**Whether a parameter is immutable** — yes, and it costs nothing. A parameter
+field is emitted `const`, which Julia allows in a `mutable struct`, so a later
+write does not compile. Nothing in either repository writes a parameter after
+the build, which is what the question was really asking. Settled after the
+elements were ported, so there was a whole library to try it against rather than
+one element.
 
 ## 5. Phases
 
@@ -205,6 +212,11 @@ julia tool/test_port_to_module_macro.jl       # the tool's own tests
 
 It takes no element argument. It finds what is ported by reading the
 `@simulation_module` declarations in the tree.
+
+**It stays after this plan.** `InetLinkLayer` builds its network by hand and
+gets its own plan, and that plan wants this tool. Delete it when nothing in the
+repository declares a `Parameters`, `States` or `Statistics` struct beside a
+module any more.
 
 ### Phases 2 to 5 — the rest of the simple elements
 
@@ -321,34 +333,6 @@ around it.* `num_packets` was a plain module field with a two-line
 hand-written `reset_states!`, `reset_statistics!` or `reset_module!` anywhere in
 the package. That is §7.1 and §7.2 done as a byproduct of the waves.
 
-### Phase 7 — what stops being hand-written — **all but the compound's share**
-
-§7.1 and §7.2 fell out of waves 2 to 5: no `Parameters`, `States` or
-`Statistics` struct is left in `package/queuing/main`, and no hand-written
-`reset_states!`, `reset_statistics!` or `reset_module!` is left in the package.
-§7.3 is done bar a last look after Phase 6. §7.4 is done.
-
-Two NED hooks survive, and both earn it: `PacketQueue` converts a NED `-1` and
-an information quantity into what the field wants, and `ActivePacketSource`
-folds three NED parameters into one `PacketTemplate`. Neither is a shape the
-default path can express.
-
-**Every suite, after wave 5:**
-
-| suite | result |
-| --- | --- |
-| `test_queuing()` | 278 passed, 2 errored — the baseline |
-| `test_inet()` | 281 passed |
-| `test_linklayer()` | 424 passed, 4 errored — the baseline on clean main too |
-| `OmnetppDescriptionTest` | 227 passed |
-| `test_simulator()` | 5892 passed |
-
-The errors in the two INET suites are all `record_tap!` and its neighbours, and
-they predate this work: `omnetpp-julia` main has moved ahead of what this
-repository's capture seam expects. `test_simulator()` needs `julia -t 4`; with
-one thread `engine_startable(ParallelEngineSpec())` fails and it looks like a
-regression.
-
 ### Phase 6 — the compound — **done**
 
 `PriorityQueue`, onto `@submodules` and `@connections`. Landed as `omnetpp-julia`
@@ -385,25 +369,51 @@ constructor, so its four call sites did not move. Its `classifier` keyword maps
 to the `given_classifier` parameter — the submodule field is `classifier`, and
 a field and a parameter cannot share a name.
 
-### Phase 7 — what stops being hand-written
+### Phase 7 — what stops being hand-written — **done**
 
-1. Delete the `Parameters`, `States` and `Statistics` structs the macro replaced,
-   and the `reset_states!` and `reset_statistics!` beside them. Waves 2 to 5 do
-   this per element, so what is left here is whatever no wave owned.
-2. `QueuingModel`, the demo builders under `example/steps/` and the catalog all
-   construct elements directly. The transformer moves these with each wave, so
-   what is left here is only what it refused.
-3. **Collapse the NED reader's hooks.** Done as the elements port, from wave 2
-   on: the builder falls back to `collect_module_parameters`, so a hook is
-   needed only where a NED parameter maps to something other than a field.
-   `ActivePacketSource`'s `PacketTemplate` is one such case. What is left here
-   is to check that no hook survives whose element no longer needs it.
-4. Remove §4.1 from `queueing-tutorial-from-ned-ini.md`. **Done**: that
-   section now says the decision was carried out here, and names what is left
-   — the compound, and `InetLinkLayer`'s own plan.
+This phase mostly did not need doing. Its four items fell out of the waves,
+because an element's call sites have to move with it for the suite to stay
+green — which is the one thing this plan first got wrong.
 
-Check: `test_queuing()`, and the NED and INI configurations of
-`nedini.jl` still match the captured C++ results.
+1. **The structs and the resets.** Gone with each element. Nothing in
+   `package/queuing/main` declares a `Parameters`, `States` or `Statistics`
+   struct, and no hand-written `reset_states!`, `reset_statistics!` or
+   `reset_module!` is left in the package.
+2. **The call sites.** Moved by the transformer with each wave, and by hand
+   where it refused and said so.
+3. **The NED reader's hooks.** Collapsed from wave 2 on, when the two sinks lost
+   the struct `ned_parameters_type` pointed at. The builder falls back to
+   `collect_module_parameters`, so a declared kind needs no hook.
+4. **§4.1 of `queueing-tutorial-from-ned-ini.md`.** That section now records
+   that the decision was carried out here, and names what is left: the compound
+   is done, and `InetLinkLayer` still needs its own plan.
+
+Two NED hooks survive, and both earn it: `PacketQueue` converts a NED `-1` and
+an information quantity into what the field wants, and `ActivePacketSource`
+folds three NED parameters into one `PacketTemplate`. Neither is a shape the
+default path can express.
+
+**Every suite, at the end:**
+
+| suite | result | baseline |
+| --- | --- | --- |
+| `test_queuing()` | 278 passed, 2 errored | 275/2 plus the reset guard's three |
+| `test_inet()` | 281 passed | unchanged |
+| `test_linklayer()` | 424 passed, 4 errored | unchanged, confirmed on clean main |
+| `test_tutorial()` | 188 passed | unchanged |
+| `OmnetppDescriptionTest` | 227 passed | unchanged |
+| `test_simulator()` | 5914 passed | 5892 plus 22 new tests |
+
+The errors in the two INET suites are all `record_tap!` and its neighbours, and
+they predate this work: `omnetpp-julia` main has moved ahead of what this
+repository's capture seam expects.
+
+**Two ways to be misled when re-running these.** `test_simulator()` needs
+`julia -t 4`; with one thread `engine_startable(ParallelEngineSpec())` fails and
+reads as a regression. And `test_tutorial()` hangs off no `test_*` aggregator
+and needs the *root* project — `julia --project=. -e 'using InetQueuingExample;
+test_tutorial()'`. It was the only suite that caught the submodule path change,
+so it is worth running by hand after anything that touches a compound.
 
 ## 6. Out of scope
 
@@ -415,19 +425,30 @@ Check: `test_queuing()`, and the NED and INI configurations of
 - Making a statistic carry a unit or a recording mode. §28 will want it; nothing
   needs it yet.
 
-## 7. Risks
+## 7. Risks, and which of them came true
 
-- **A macro that generates a struct is hard to read when it is wrong.** Emit the
-  struct, not a chain of helpers, and make `check_module` name the field and the
-  section it failed in. A bad message here costs every element after it.
+- **A macro that generates a struct is hard to read when it is wrong.** It never
+  was, but only because the messages were written first. What actually cost
+  time was a different kind of wrongness: generated code that resolves a bare
+  name in the caller's module. Phase 0's notes say what that looks like.
 - **`reset_module!` becomes generated, and a hand-written one may have done
-  more.** Diff each of the 11 by hand before deleting it. A reset that also
-  cleared a cache and now does not is exactly the kind of leak
-  `OAR-FRESH-BUILD-PER-EXECUTION` warns about, and it shows up as a second run
-  that is plausible rather than wrong.
+  more.** *This one came true*, in the mildest form and in the opposite
+  direction. The generated reset does **more**, not less: it writes the
+  recording handle back where the hand-written one left it alone. Safe, because
+  a run registers again, but safe by an ordering. A test pins it now. Diffing
+  each reset before deleting it is what found this.
 - **A `const` field in a mutable struct changes the struct's layout rules.**
-  If Phase 1 finds it fights `reset_module!` or the constructors, drop it and
-  keep the discipline instead. Do not spend the plan on it.
+  Did not bite. Every parameter field is `const`, and every suite is at its
+  baseline. §4 has the answer.
 - **The statistics seam must not become a way to read a statistic from
-  behaviour.** The kind exists partly so that "no behaviour reads a statistic"
-  is checkable. Adding a convenient accessor would quietly remove that.
+  behaviour.** Still true, and now easier to check than it was: every statistic
+  is a declared field of a known kind, so `collect_module_statistics` says
+  exactly what no behaviour may read.
+
+**One risk this plan did not list, and should have.** A transformer that passes
+over a call site in silence is worse than one that refuses it. The tool stayed
+quiet on `PacketMultiplexerModule(:mux, 2)` — a ported element with no parameter
+struct to dissolve — and the call would have broken at run time with nothing
+said. Wave 5 found it, by nearly falling into it. Anything that rewrites in bulk
+needs a rule for *what it deliberately did not touch*, not only for what it
+changed.
