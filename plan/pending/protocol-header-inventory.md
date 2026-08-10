@@ -10,7 +10,7 @@ INET declares as a `FieldsChunk`, and it says which ones `@header` can already
 express. Second, it names every capability that is missing, groups the missing
 capabilities into seven categories, and designs each one.
 
-Status: **IN PROGRESS**. Phases 0 and 1 are done. §7 marks each phase as it
+Status: **IN PROGRESS**. Phases 0, 1 and 2 are done. §7 marks each phase as it
 lands, and the gate each one passed.
 
 Phase 1 delivered A2 to A6 and the value types the rest of the plan builds on:
@@ -304,18 +304,28 @@ total_length :: UInt16 | derive(bytes(chunk_length(h))) | check(total_length >= 
 model to have computed it, `CHECKSUM_DISABLED` writes zero. `inet-julia` today
 declares and never computes, which is INET's default.
 
-**Design.** A `checksum` clause names the algorithm and, through the algorithm,
-what the algorithm covers.
+**Design.** There is **no `checksum` clause**. Phase 2 found that it needs
+nothing a `derive` and a model-only field do not already give:
 
 ```julia
-header_checksum :: UInt16 | 16 | hex | checksum(internet_checksum) = 0x0000
+checksum      :: UInt16 | 16 | hex |
+                 derive(checksum_mode == CHECKSUM_COMPUTED ?
+                        internet_checksum(h) : checksum) = 0x0000
+checksum_mode :: ChecksumMode | 0 = CHECKSUM_DECLARED
 ```
 
-The clause is a `derive` with two differences. It obeys the `checksum_mode`
-model-only field of A6, and the algorithm receives the bytes already written
-before the field plus the bytes written after it. That needs the cursor of C4.
-A transport checksum also needs a pseudo-header, which the caller supplies:
-`checksum(internet_checksum, over = pseudo_header(h))`.
+A clause would have had to invent a way to name the mode field, and the
+conditional above names it in the open. `Checksum.jl` supplies `ChecksumMode`,
+`ones_complement_checksum` for RFC 1071, `with_field` and `internet_checksum`.
+
+The recursion that a checksum invites — computing it needs the bytes, and the
+bytes need it — is broken inside `internet_checksum`: it serialises a copy
+whose mode is `CHECKSUM_DECLARED` and whose checksum field is zero, so the
+derive that called it takes its other branch and stops. A transport checksum
+passes its pseudo-header as a third argument.
+
+It also did not need the cursor of C4, which is why Phase 2 could land before
+Phase 3.
 
 Keep `CHECKSUM_DECLARED` the default. A model that never computes a checksum
 still round-trips a capture byte for byte, which is the property the test corpus
@@ -641,7 +651,6 @@ name :: Type | width | base | order | clause(expr) … = default
 | --- | --- | --- |
 | `constant(v)` | A6 | wire-only; write `v`, discard on read |
 | `derive(expr)` | B1 | write the computed value, read and keep the wire value |
-| `checksum(f)` | B2 | a `derive` that obeys `checksum_mode` |
 | `check(expr)` | B3 | mark incorrect on read, throw on write |
 | `length(expr)` | C2 | the length of a byte field |
 | `rest` | C2 | to the end of the window; last line only |
@@ -735,7 +744,7 @@ Each phase ends with a green test and a commit. The test command is
 | --- | --- | --- |
 | 0 ✅ | `tool/inventory_headers.jl`, and the generated inventory it writes | the inventory reproduces the numbers of §2 |
 | 1 ✅ | A2 to A6: the value protocol, byte order, signed, wide, model-only, wire-only | the five headers of today round-trip unchanged; `Ipv6Header` is declarable |
-| 2 | B1 to B3: `derive`, `checksum`, `check`, real `quality` | a malformed IPv4 version marks incorrect and does not throw |
+| 2 ✅ | B1 to B3: `derive`, `check`, real `quality` (no `checksum` clause) | a malformed IPv4 version marks incorrect and does not throw |
 | 3 | C1 to C4: instance length, byte tail, padding, cursor | every fixed header behaves as before; `peek` finds a variable header |
 | 4 | D1: vector fields | an IGMPv3 report round-trips |
 | 5 | D2: TLV families | IPv4 options, TCP options and IPv6 options round-trip, in order, with an unknown code preserved |

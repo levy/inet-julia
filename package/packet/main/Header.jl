@@ -69,7 +69,7 @@ function deserialize end
 
 const _FIELD_BASES  = (:bin, :dec, :hex, :mac, :ipv4, :ipv6, :enum)
 const _FIELD_ORDERS = (:be, :le)
-const _FIELD_CLAUSES = (:constant,)
+const _FIELD_CLAUSES = (:constant, :derive, :check)
 
 # One field of a declaration, after the parse.
 #
@@ -80,6 +80,8 @@ const _FIELD_CLAUSES = (:constant,)
 #   order     `:be` or `:le`
 #   default   an expression, or `nothing`
 #   value     the constant a `:constant` field writes
+#   derive    an expression the writer computes instead of reading the struct
+#   check     an expression that must hold, or `nothing`
 struct FieldDecl
     name::Symbol
     type::Any
@@ -89,6 +91,15 @@ struct FieldDecl
     order::Symbol
     default::Any
     value::Any
+    derive::Any
+    check::Any
+end
+
+"What a failed check says. The expression is the message: it is what the
+declaration wrote, and a reader of the error wants to see exactly that."
+function _check_message(header, field, expr, what)
+    where_ = field === nothing ? "" : ".$(field)"
+    return "$(header)$(where_): $(what) — check failed: $(string(expr))"
 end
 
 "Peel the `|` chain of a field declaration into its head and its segments."
@@ -125,6 +136,8 @@ function _parse_field(expr)
     base = nothing
     order = :be
     value = nothing
+    derive = nothing
+    check = nothing
     kind = :wire
     for segment in segments
         if segment isa Symbol
@@ -140,8 +153,15 @@ function _parse_field(expr)
             clause = segment.args[1]
             Base.length(segment.args) == 2 ||
                 error("@header $name: `$clause` takes one argument")
-            kind = :constant
-            value = segment.args[2]
+            argument = segment.args[2]
+            if clause === :constant
+                kind = :constant
+                value = argument
+            elseif clause === :derive
+                derive = argument
+            else
+                check = argument
+            end
         elseif Meta.isexpr(segment, :call) && segment.args[1] isa Symbol &&
                Base.isidentifier(segment.args[1]) && segment.args[1] !== :|
             # A call the macro does not know is a clause of a later phase, and
@@ -166,8 +186,12 @@ function _parse_field(expr)
     end
     kind === :constant && default !== nothing &&
         error("@header $name: a `constant` field is not in the struct, so it cannot have a default")
+    kind === :constant && derive !== nothing &&
+        error("@header $name: a `constant` field already states its value, so it cannot `derive` one")
+    kind === :model && derive !== nothing &&
+        error("@header $name: a model-only field is not on the wire, so `derive` has nothing to write")
 
-    return FieldDecl(name, type, kind, width, base, order, default, value)
+    return FieldDecl(name, type, kind, width, base, order, default, value, derive, check)
 end
 
 macro header(name, block)
@@ -175,8 +199,16 @@ macro header(name, block)
         error("@header $name: expected a `begin … end` block")
 
     fields = FieldDecl[]
+    header_checks = Any[]
     for line in block.args
         line isa LineNumberNode && continue
+        if Meta.isexpr(line, :macrocall) && line.args[1] === Symbol("@check")
+            arguments = filter(a -> !(a isa LineNumberNode), line.args[2:end])
+            Base.length(arguments) == 1 ||
+                error("@header $name: `@check` takes one expression")
+            push!(header_checks, arguments[1])
+            continue
+        end
         push!(fields, _parse_field(line))
     end
     isempty(fields) && error("@header $name: no fields")
@@ -196,25 +228,55 @@ macro header(name, block)
     width_of(f) = f.width === nothing ? :($(M).field_width($(esc(f.type)))) : esc(f.width)
     total_expr = isempty(on_wire) ? 0 : Expr(:call, :+, (width_of(f) for f in on_wire)...)
 
-    # serialize: write each field on the wire. `M.field_write` so the generated
+    # Both codecs bind every field as a local of its own name, so a `derive` or
+    # a `check` reads `ihl` rather than `h.ihl`. The header itself is `h`, and
+    # that name is ESCAPED into the caller's scope: a clause is the caller's
+    # code, so a hygienic `h` would be invisible to it. A header therefore
+    # cannot have a field named `h`.
+    header_var = esc(:h)
+    bind_locals = [:($(esc(f.name)) = $(header_var).$(f.name)) for f in stored]
+    # A derive is arithmetic, and arithmetic in Julia widens to `Int`. Convert
+    # to the field's own type, so `derive(cld(bits(chunk_length(h)), 32))` on a
+    # `UInt8` field is a `UInt8` and not an `Int64` the codec cannot encode.
+    derive_locals = [:($(esc(f.name)) = convert($(esc(f.type)), $(esc(f.derive))))
+                     for f in on_wire if f.derive !== nothing]
+    constant_locals = [:($(esc(f.name)) = $(esc(f.value)))
+                       for f in on_wire if f.kind === :constant]
+
+    # A check that fails on WRITE is a bug in the model, so it throws. The same
+    # check on READ is a malformed packet, so it marks — see below.
+    checks = Any[(f.name, f.check) for f in fields if f.check !== nothing]
+    append!(checks, ((nothing, c) for c in header_checks))
+    write_checks = [:($(esc(expr)) ||
+                      error($(_check_message(name, field, expr, "refusing to serialize"))))
+                    for (field, expr) in checks]
+
+    # serialize: bind, derive, check, write. `M.field_write` so the generated
     # code doesn't rely on the caller having imported it.
     write_calls = Expr[]
     for f in on_wire
-        source = f.kind === :constant ? esc(f.value) : :(h.$(f.name))
         push!(write_calls,
-              :($(M).field_write(io, $(esc(f.type)), $(source),
+              :($(M).field_write(io, $(esc(f.type)), $(esc(f.name)),
                                  $(width_of(f)), $(QuoteNode(f.order)))))
     end
 
-    # deserialize: read each field, then call the ctor. A constant is read and
-    # dropped; a model-only field takes its default.
+    # deserialize: read each field, then call the ctor. A constant is not in the
+    # struct, but its local still takes the value that ARRIVED, so a `check` on
+    # a constant tests what the sender wrote. A model-only field takes its
+    # default, because no bits carried it.
     read_body = Expr[]
     for f in on_wire
         call = :($(M).field_read(io, $(esc(f.type)), $(width_of(f)), $(QuoteNode(f.order))))
-        push!(read_body, f.kind === :constant ? call : :($(esc(f.name)) = $call))
+        push!(read_body, :($(esc(f.name)) = $call))
     end
     ctor_args = [f.kind === :model ? esc(f.default) : esc(f.name) for f in stored]
     ctor_call = Expr(:call, esc(name), ctor_args...)
+
+    # A failed check on read gives the header back, marked incorrect. A packet
+    # that arrived malformed is data, not a program error: the caller decides,
+    # through the `peek` gate, whether to accept it.
+    read_checks = [:($(esc(expr)) || (correct = false)) for (_, expr) in checks]
+    has_checks = !isempty(checks)
 
     # The layout descriptor, built once at declaration time and returned by a
     # method on the type. The const lives in the caller's module, beside the
@@ -253,13 +315,27 @@ macro header(name, block)
         end
         $(M).chunk_length(::$(esc(name))) = $(M).Bits($total_expr)
         $(M).chunk_length(::Type{$(esc(name))}) = $(M).Bits($total_expr)
-        function $(M).serialize(io::$(M).BitWriter, h::$(esc(name)))
+        function $(M).serialize(io::$(M).BitWriter, $(header_var)::$(esc(name)))
+            $(bind_locals...)
+            $(constant_locals...)
+            $(derive_locals...)
+            $(write_checks...)
             $(write_calls...)
             return io
         end
         function $(M).deserialize(::Type{$(esc(name))}, io::$(M).BitReader)
             $(read_body...)
-            return $ctor_call
+            $(header_var) = $ctor_call
+            $(if has_checks
+                  quote
+                      correct = true
+                      $(read_checks...)
+                      correct || return $(M).mark_incorrect($(header_var))
+                  end
+              else
+                  :()
+              end)
+            return $(header_var)
         end
         const $(layout_const) = $(M).build_header_layout(
             $(QuoteNode(name)), $names_expr, $types_expr, $widths_expr, $bases_expr,

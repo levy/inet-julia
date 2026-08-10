@@ -47,6 +47,8 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        UdpHeader, UDP_HEADER_BYTES,
        TcpHeader, tcp_flags, TCP_MIN_DATA_OFFSET, TCP_HEADER_BYTES,
        @header, serialize, deserialize, to_bytes, from_bytes, has,
+       ChecksumMode, CHECKSUM_DECLARED, CHECKSUM_COMPUTED, CHECKSUM_DISABLED,
+       ones_complement_checksum, internet_checksum, with_field,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -64,6 +66,7 @@ include("BitIO.jl")
 include("FieldTypes.jl")
 include("HeaderLayout.jl")
 include("Header.jl")
+include("Checksum.jl")
 # The wire formats, declared with the macro above. One file per protocol.
 include("protocol/Ethernet.jl")
 include("protocol/Ipv4.jl")

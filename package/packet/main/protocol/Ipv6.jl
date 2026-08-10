@@ -15,6 +15,10 @@
 # `traffic_class` is one 8-bit field, as the serializer writes it. INET splits
 # it into a 6-bit DSCP and a 2-bit ECN through accessors rather than fields,
 # and `ipv6_dscp` and `ipv6_ecn` below do the same.
+#
+# The version check is `Ipv6HeaderSerializer.cc`'s `markIncorrect()`: a header
+# whose version is not 6 still comes back, marked, so `peek` refuses it until
+# the caller passes `incorrect = true`.
 # ============================================================================
 
 const IPV6_VERSION      = UInt8(6)
@@ -38,7 +42,7 @@ included. It is not the length of this header, and it is not the length of the
 datagram.
 """
 @header Ipv6Header begin
-    version        :: UInt8       | 4        = IPV6_VERSION
+    version        :: UInt8       | 4  | check(version == IPV6_VERSION) = IPV6_VERSION
     traffic_class  :: UInt8       | 8        = 0x00
     flow_label     :: UInt32      | 20 | hex = 0x00000
     payload_length :: UInt16

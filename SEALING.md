@@ -68,9 +68,11 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `FieldTypes.jl`
   - ⬜ `HeaderLayout.jl`
   - ⬜ `Header.jl`
+  - ⬜ `Checksum.jl`
   - *slice `protocol` — the wire formats, one file per protocol*
     - ⬜ `protocol/Ethernet.jl`
     - ⬜ `protocol/Ipv4.jl`
+    - ⬜ `protocol/Ipv6.jl`
     - ⬜ `protocol/Udp.jl`
     - ⬜ `protocol/Tcp.jl`
   - ⬜ `PeekFields.jl`

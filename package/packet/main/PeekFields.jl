@@ -38,7 +38,18 @@ function peek(c::Chunk, ::Type{T}; at = nothing, length = nothing,
     if c isa T && off == ZERO_LENGTH && len == chunk_length(c)
         return c::T
     end
-    return _to_fields(T, c, off, len, reinterpret)
+    result = _to_fields(T, c, off, len, reinterpret)
+    # A `check` clause that failed makes the DESERIALISER mark the header, and
+    # that mark is not in the source quality gated above: the source is a
+    # perfectly good `Raw`, and what is wrong is what its bits say. Gate again
+    # on what came back, so `peek(pk, Ipv4Header)` refuses a version field of 5
+    # and `peek(pk, Ipv4Header; incorrect = true)` accepts it.
+    if result isa MarkedFields
+        _check_quality(quality(result), T;
+            incomplete = incomplete, incorrect = incorrect, misrepresented = misrepresented)
+        return result.header
+    end
+    return result
 end
 
 # Fallback / dispatch entry — walks the tree to a leaf-shape.

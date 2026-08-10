@@ -144,6 +144,46 @@ is how a header carries state its protocol needs and its format does not, which
 is what INET's `ChecksumMode` and `FcsMode` are. It must have a default,
 because a reader has no bits to fill it with.
 
+### Derived values, checks and quality
+
+Two more clauses make a declaration state what the codec computes and what it
+refuses.
+
+    ihl     :: UInt8 | 4 | derive(cld(bits(chunk_length(h)), 32)) = IPV4_MIN_IHL
+    version :: UInt8 | 4 | check(version == 6)                    = IPV6_VERSION
+
+`derive(expr)` computes the value on write and ignores the struct field; on
+read it keeps what arrived, so a foreign sender's disagreement stays visible.
+The result converts to the field's type, because Julia arithmetic widens to
+`Int`.
+
+`check(expr)` marks on read and throws on write. A packet that arrived
+malformed is data, so the reader returns the header inside a `MarkedFields`
+envelope carrying `Q_INCORRECT`; a header the model built wrong is a bug, so
+the writer refuses it. `@check expr` on a line of its own is the same rule
+across fields.
+
+`peek` gates twice: once on the source chunk's quality, and once on what the
+deserializer said. So `peek(pk, Ipv6Header)` refuses a version of 5, and
+`peek(pk, Ipv6Header; incorrect = true)` returns the header.
+
+Inside either clause, every field is bound by its own name and the header is
+`h`. A header therefore cannot have a field named `h`.
+
+A checksum needs no clause of its own — it is a `derive` that reads a
+model-only mode field:
+
+    checksum      :: UInt16 | 16 | hex |
+                     derive(checksum_mode == CHECKSUM_COMPUTED ?
+                            internet_checksum(h) : checksum) = 0x0000
+    checksum_mode :: ChecksumMode | 0 = CHECKSUM_DECLARED
+
+`Checksum.jl` gives `ChecksumMode`, `ones_complement_checksum` (RFC 1071),
+`with_field` and `internet_checksum`. `CHECKSUM_DECLARED` is the default, as in
+INET: the stored value goes out unchanged, which is what lets a capture
+round-trip byte for byte. `internet_checksum` breaks the recursion by
+serialising a copy whose mode is declared and whose checksum is zero.
+
 ### The layout descriptor
 
 `header_layout(H)` returns the name, the bit offset, the bit width and the
