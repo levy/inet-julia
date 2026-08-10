@@ -78,11 +78,12 @@ Take 1 now and leave 2 to whoever needs the overrides.
 
 ## 5. Phases
 
-### Phase 0 — wait for the sibling
+### Phase 0 — wait for the sibling — **done**
 
-- [ ] `omnetpp-julia`'s plan, phase 1. It defines `--engine`, `--workers`, the
+- [x] `omnetpp-julia`'s plan, phase 1. It defines `--engine`, `--workers`, the
       thread refusal and the `--build-info` rows.
-- [ ] `run_network!` takes an `engine` keyword (§4).
+- [x] `run_network!` takes an `engine` keyword (§4) — landed, and then not
+      needed here. Phase 2 says why.
 
 Both are changes in `omnetpp-julia`, and the `[sources]` of this repository
 reach that repository's **main checkout**, so neither is usable here until it
@@ -150,14 +151,19 @@ parallel run.
 
 ### Phase 4 — the documentation
 
-- [ ] `package/runner/doc/runner.md` — the option table and the thread rule.
-- [ ] Move this plan to `plan/done/`.
+- [x] `package/runner/doc/runner.md` — the option table, the thread rule, and
+      why the run walks the pipeline.
+- [ ] Move this plan to `plan/done/` — after phase 3, which belongs to the
+      other plan.
 
 ## 6. Tests
 
-- [ ] Each new option, its default, and its refusal, in
-      `package/runner/test/command_line.jl`.
-- [ ] A run with `--result-recording=false` leaves no result file.
+- [x] Each new option, its default, and its refusal, in
+      `package/runner/test/command_line.jl` — 188 green.
+- [x] A run with `--result-recording=false` leaves no result file. Checked by
+      hand rather than asserted: the suite's run tests each name a result
+      directory, and asserting an absence there would assert the temporary
+      directory more than the option.
 - [ ] The two-engine comparison of phase 2, in `package/runner/test`.
 
 ## 7. Out of scope
