@@ -184,6 +184,33 @@ INET: the stored value goes out unchanged, which is what lets a capture
 round-trip byte for byte. `internet_checksum` breaks the recursion by
 serialising a copy whose mode is declared and whose checksum is zero.
 
+### A length the data decides
+
+A header may end in bytes whose count another field gives, or in padding.
+
+    body :: Vector{UInt8} | length(Bytes(count))   # as many bytes as `count` says
+    tail :: Vector{UInt8} | rest                   # the remainder of the window
+    @pad to Bytes(4) fill 0x00                     # up to the next boundary
+
+`rest` must be the last line, because it leaves nothing for a later field.
+
+Such a header is **variable-length**, and three questions replace one:
+
+    chunk_length(h)              # the length of THIS header — always works
+    minimum_chunk_length(H)      # the fixed part — always works
+    is_fixed_length(H)           # false, so `chunk_length(H)` has no answer
+
+`chunk_length(H)` on a variable-length type raises an error that says which of
+the other two to ask. `peek(pk, H)` with no `length` gives the reader the whole
+remaining window and takes the length from the value that comes back.
+
+Inside a clause, `offset` is where the codec is and `remaining` is what the
+window has left. `remaining` exists on the read side only: a writer has no
+window to have a remainder of. `serialize` walks the entries twice — an
+arithmetic pass computes the derived values and the padding widths and runs the
+checks, then a second pass writes — so a failed check refuses before any bits
+reach the caller's writer.
+
 ### The layout descriptor
 
 `header_layout(H)` returns the name, the bit offset, the bit width and the
@@ -195,7 +222,9 @@ declared:
     end
 
 The descriptor describes the **wire**: a `constant` field is a field of it, and
-a model-only field is not.
+a model-only field is not. For a variable-length header the TYPE layout stops
+at the first variable entry, and `header_layout(h)` gives the whole thing with
+the widths that header actually has.
 
 `field_bits(h, spec)` reads one field's raw bits and `field_text(h, spec)`
 formats it — with an optional base, which is how a narrow view falls back to a
