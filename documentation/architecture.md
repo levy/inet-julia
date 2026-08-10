@@ -5,6 +5,10 @@ kernel: the packet representation and the protocol models you build networks
 *with*. This document is the map — which package owns what, how they depend on
 each other, and how the environments are arranged.
 
+The **kinds** of package (main, example, test, repl), what each may depend on,
+and why `InetRepl` is the only thing the `ji` alias loads, are in
+[packages.md](packages.md).
+
 ## The packages
 
 Every component is a Julia package under `package/<component>/`, and every
@@ -23,6 +27,7 @@ when it earns one.
 | `linklayer/` | `InetLinkLayer` | 10BASE-T1S / PLCA and `T1sModel` | `InetPacket` |
 | `inet/` | `Inet` | the umbrella: re-exports, `inet_simulation_catalog`, the packet diagram | all of the above, `ProjecturedVisual` |
 | `runner/` | `InetRunner` | the command line, the run, the result files — what the `inet-julia` executable is built from | `InetQueuing`, `OmnetppSimulator` |
+| `repl/` | `InetRepl` | the leaf the `ji` alias loads; nothing may depend on it | `Inet`, `InetExample`, `InetTest`, `ProjecturedSdl` |
 
 ```
 InetPacket ──┬─────────────► InetQueuing ──┬──────────────► Inet

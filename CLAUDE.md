@@ -19,7 +19,10 @@ the campaign that drives it is
 
 Read [README.md](README.md) for what the library is, and
 [documentation/architecture.md](documentation/architecture.md) for the package
-graph and the rule for where new material belongs.
+graph and the rule for where new material belongs;
+[documentation/packages.md](documentation/packages.md) for what a package may
+depend on — a `@compile_workload` belongs only in a leaf, and nothing may
+depend on `InetRepl`.
 [documentation/requirements.md](documentation/requirements.md) (`IR-…`) states
 what the library promises;
 [documentation/architecture-requirements.md](documentation/architecture-requirements.md)
