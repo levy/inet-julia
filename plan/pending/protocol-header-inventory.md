@@ -10,7 +10,7 @@ INET declares as a `FieldsChunk`, and it says which ones `@header` can already
 express. Second, it names every capability that is missing, groups the missing
 capabilities into seven categories, and designs each one.
 
-Status: **PENDING**. No phase is implemented.
+Status: **IN PROGRESS**. Phase 0 is done. §7 marks each phase as it lands.
 
 ## 1. What the plan delivers
 
@@ -37,18 +37,24 @@ Method: parse the 231 `.msg` files for the class graph, walk the graph down from
 `FieldsChunk`, and read the 69 `*Serializer.cc` files for the bit layout and the
 control flow of each codec.
 
-The numbers below come from that parse. Reproduce them with the tool of Phase 0.
+[`tool/inventory_headers.jl`](../../tool/inventory_headers.jl) does that parse
+and writes [`package/packet/doc/inventory.md`](../../package/packet/doc/inventory.md).
+The generated file holds the per-family and the per-format tables; this plan
+states only the headline figures, so the two cannot drift.
 
 | fact | count |
 | --- | --- |
-| `.msg` files on the branch | 231 |
-| classes that derive from `FieldsChunk` | 309 |
-| … of them in `src/`, not in a doc snippet or a test fixture | 300 |
-| … of them with a registered serializer | 205 |
+| `.msg` files under `src/inet/` | 229 |
+| classes that derive from `FieldsChunk` | 301 |
+| … of them with a registered serializer | 206 |
 | … of them with no wire format at all | 95 |
 | `Register_Serializer` declarations | 214 |
 | serializer classes that carry them | 95 |
 | lines of hand-written serializer code | 12408 |
+
+The generator reads `src/inet/` alone. A doc snippet and a unit-test fixture
+each declare a `TcpHeader` and a `UdpHeader` of their own, so a parse that reads
+them too cannot say which declaration it kept.
 
 The 95 classes with no serializer are model-only: QUIC (23), EIGRP (13),
 RSVP-TE (9), LDP (7), IPsec (3) and the abstract bases of the families that do
@@ -74,41 +80,41 @@ The `.msg` file still carries three things the serializer does not:
 - the field names and the model types;
 - the sub-byte widths, as `@bit(N)`. The branch added 32 of these to
   `FieldsChunk` classes so that its round-trip test would stop overflowing them;
-- the fixed `chunkLength`, declared by 135 of the 300 classes.
+- the fixed `chunkLength`, declared by 135 of the 301 classes.
 
 ### 3.2 The five tiers
 
-Group the 205 classes that have a serializer by what their codec needs. The tier
+Group the 206 classes that have a serializer by what their codec needs. The tier
 is a property of the serializer class, so a family that shares one codec shares
-one tier.
+one tier. The generated inventory lists the tier of every format and the tier
+mix of every family.
 
 | tier | what the codec needs | classes |
 | --- | --- | --- |
 | T0 | fixed widths, big-endian, nothing else | 16 |
-| T1 | plus padding, byte order, validation or a derived value | 13 |
+| T1 | plus padding, byte order or validation | 14 |
 | T2 | plus a length that depends on the data | 10 |
-| T3 | plus repetition: arrays, option lists, nested lists | 101 |
-| T4 | plus a variant: one wire format, many concrete types | 65 |
+| T3 | plus repetition: arrays or option lists | 89 |
+| T4 | plus a variant: one wire format, many concrete types | 77 |
 
 `@header` today covers **T0 only**, and only when every field is 64 bits or
 narrower and unsigned.
 
 ### 3.3 Capability demand
 
-Count how many of the 205 classes need each construct. A class needs a construct
-when the serializer that serves it uses that construct.
+How many of the 206 classes need each construct. A class needs a construct when
+the serializer that serves it uses that construct.
 
 | construct in the C++ codec | classes | category below |
 | --- | --- | --- |
-| a branch (`if` / `switch`) | 169 | B3, E2, E3 |
 | a concrete-subtype cast or dispatch | 158 | E2 |
-| a throw on malformed input | 153 | B3 |
+| a branch (`if`) | 140 | B3, E3 |
 | a quality mark (`markIncorrect`, …) | 116 | B3 |
 | a cursor query (`getPosition`, `getRemainingLength`) | 105 | C1, C4 |
 | a sub-byte field | 86 | have it |
 | a loop | 85 | D1, D2 |
-| a call to a shared codec helper | 53 | D2, F1 |
 | padding (`writeByteRepeatedly`) | 51 | C3 |
+| a call to a shared codec helper | 41 | D2, F1 |
 | a little-endian field | 23 | A2 |
 | a raw byte range | 15 | C2 |
 
@@ -116,34 +122,12 @@ The 23 little-endian classes are the whole of IEEE 802.11 plus
 `Ieee802154MacHeader`. The 15 raw-byte classes are the option-carrying headers:
 IPv4, TCP, SCTP, DHCP, CFM and the eight 802.11 management frames.
 
-### 3.4 The families
+The four largest families are `linklayer/ieee80211` (36 formats, 31 with a
+codec), `transportlayer/quic` (23, none), `physicallayer/wireless` (21, 11) and
+`networklayer/icmpv6` (19, 18). The generated inventory has the other 63
+families.
 
-The 300 classes, by INET package. The tier column shows the tier of each class
-that has a serializer.
-
-| family | classes | with a serializer | tiers |
-| --- | --- | --- | --- |
-| `linklayer/ieee80211` | 36 | 31 | T3:28, T4:3 |
-| `transportlayer/quic` | 23 | 0 | — |
-| `physicallayer/wireless` | 21 | 11 | T4:8, T2:3 |
-| `networklayer/icmpv6` | 19 | 18 | T3:18 |
-| `linklayer/mrp` | 17 | 16 | T4:14, T2:1, T0:1 |
-| `networklayer/ipv4` | 15 | 15 | T3:11, T4:4 |
-| `routing/eigrp` | 13 | 0 | — |
-| `networklayer/mipv6` | 9 | 9 | T4:9 |
-| `networklayer/rsvpte` | 9 | 0 | — |
-| `linklayer/ethernet` | 8 | 8 | T1:3, T0:3, T4:2 |
-| `networklayer/ipv6` | 8 | 7 | T1:3, T3:3, T0:1 |
-| `routing/pim` | 8 | 8 | T3:8 |
-| `linklayer/ieee8021as` | 7 | 7 | T4:7 |
-| `networklayer/ldp` | 7 | 0 | — |
-| `transportlayer/rtp` | 7 | 7 | T3:6, T0:1 |
-| `routing/ospfv2` | 6 | 6 | T3:6 |
-| `routing/ospfv3` | 6 | 6 | T3:6 |
-| `routing/aodv` | 5 | 5 | T3:5 |
-| 47 more families | 96 | 61 | mixed |
-
-### 3.5 The four waves
+### 3.4 The four waves
 
 Port the inventory in four waves. Each wave is a set of formats a user of
 `inet-julia` can actually run.
@@ -731,7 +715,7 @@ Each phase ends with a green test and a commit. The test command is
 
 | phase | delivers | gate |
 | --- | --- | --- |
-| 0 | `tool/inventory_headers.jl`, and the generated inventory it writes | the inventory reproduces the numbers of §2 |
+| 0 ✅ | `tool/inventory_headers.jl`, and the generated inventory it writes | the inventory reproduces the numbers of §2 |
 | 1 | A2 to A6: the value protocol, byte order, signed, wide, model-only, wire-only | the five headers of today round-trip unchanged; `Ipv6Header` is declarable |
 | 2 | B1 to B3: `derive`, `checksum`, `check`, real `quality` | a malformed IPv4 version marks incorrect and does not throw |
 | 3 | C1 to C4: instance length, byte tail, padding, cursor | every fixed header behaves as before; `peek` finds a variable header |
@@ -739,7 +723,7 @@ Each phase ends with a green test and a commit. The test command is
 | 5 | D2: TLV families | IPv4 options, TCP options and IPv6 options round-trip, in order, with an unknown code preserved |
 | 6 | E1 to E3: inheritance, variants, conditions | an ICMP echo request deserializes from an `IcmpHeader` window |
 | 7 | F1: embedded headers | `EthernetMacHeader` declares as two embedded parts and gives the same bytes |
-| 8 | G2, and Wave 1 and Wave 2 of §3.5 | the round-trip corpus is green over about 85 formats |
+| 8 | G2, and Wave 1 and Wave 2 of §3.4 | the round-trip corpus is green over about 85 formats |
 | 9 | Wave 3 and Wave 4 | the corpus is green over the inventory |
 | 10 | G1: the protocol dispatch table, and a pcap reader | optional; do it only if a capture must be read |
 
