@@ -19,7 +19,7 @@ using Dates: now
 import OmnetppSimulator
 using OmnetppSimulator: Recorder, attach_sink!, close_sinks!,
     OmnetppTextSink, total_event_count, stop_reason_text, fmt_time,
-    prebuilt_network_instance, prepare_simulation_execution,
+    make_prebuilt_network_instance, prepare_simulation_execution,
     run_simulation!, finish_simulation!, simulation_engine, simulation_time,
     simulation_stop_reason,
     simulation_limit, NO_LIMIT,
@@ -192,7 +192,7 @@ function run_options(options::Options; io::IO = stdout)
     # network before it starts.
     OmnetppSimulator.NetworkModule.initialize_network!(network)
     check_packet_connections(network)
-    execution = prepare_simulation_execution(prebuilt_network_instance(network);
+    execution = prepare_simulation_execution(make_prebuilt_network_instance(network);
         engine = spec,
         record = recording, recorder = recorder,
         limit = run_limit(options, configuration, io))

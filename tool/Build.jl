@@ -359,13 +359,20 @@ function _compile!(spec::BuildSpec, project, output, force)
     output
 end
 
-# PackageCompiler is imported by the one step that compiles, and not at the top
-# of this module. A spec is also read where no compiler is installed — the test
+# PackageCompiler is loaded by the one step that compiles, and not at the top of
+# this module. A spec is also read where no compiler is installed — the test
 # package includes this file to assert what a spec turns into, and a test must
 # not drag a compiler in to do it.
+#
+# Loaded by its identity rather than with `@eval import`: an import at run time
+# creates a binding in this module in a later world than the code that reads
+# it, which Julia 1.12 warns about and a later Julia will refuse.
+const PACKAGE_COMPILER =
+    Base.PkgId(Base.UUID("9b87118b-4619-50d2-8e1e-99f35a4d4d9d"), "PackageCompiler")
+
 function _create_app(args...; kwargs...)
-    @eval import PackageCompiler
-    Base.invokelatest(PackageCompiler.create_app, args...; kwargs...)
+    Base.invokelatest(getfield(Base.require(PACKAGE_COMPILER), :create_app),
+                      args...; kwargs...)
 end
 
 """
