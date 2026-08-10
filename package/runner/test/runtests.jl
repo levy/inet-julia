@@ -9,6 +9,7 @@ using Test
     # The guard runs first. It is the cheapest test here and the one whose
     # failure makes every other result beside the point.
     include("closure.jl")
+    include("build_spec.jl")
     include("command_line.jl")
     include("run.jl")
     include("result_files.jl")

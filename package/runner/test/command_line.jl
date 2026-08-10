@@ -8,7 +8,8 @@
 using Test
 using InetRunner
 using InetRunner.CommandLineModule: Options, CommandLineError, parse_command_line,
-    ned_directories, help_text, version_text
+    ned_directories, help_text, version_text, build_info_text, check_interface,
+    interface_symbol, interface_name, PROGRAM_NAME, PROGRAM_VERSION
 
 @testset "the command line" begin
 
@@ -47,9 +48,46 @@ using InetRunner.CommandLineModule: Options, CommandLineError, parse_command_lin
         @test ned_directories(options) == ["/elsewhere"]
     end
 
-    @testset "only Cmdenv" begin
+    @testset "the user interface" begin
+        # `-u` reads a name. Which names a build holds is the entry package's
+        # business, and it is asked after the whole command line is read.
         @test parse_command_line(["-u", "Cmdenv"]).config == "General"
+        @test parse_command_line(String[]).user_interface === :cmdenv
+        @test parse_command_line(["-u", "Editor"]).user_interface === :editor
+        @test parse_command_line(String[];
+                                 default_interface = :editor).user_interface === :editor
+
+        # Qtenv is a C++ program built on Qt. This is neither, so it does not
+        # answer to that name.
         @test_throws CommandLineError parse_command_line(["-u", "Qtenv"])
+        @test_throws CommandLineError parse_command_line(["-u", "Tkenv"])
+
+        # The command-line build holds one interface and refuses the other, and
+        # it says which build draws.
+        @test check_interface(:cmdenv, InetRunner.INTERFACES) === nothing
+        @test_throws CommandLineError check_interface(:editor, InetRunner.INTERFACES)
+        @test occursin("inet-julia-editor",
+                       try; check_interface(:editor, InetRunner.INTERFACES); ""
+                       catch exception; exception.message; end)
+
+        # The help offers what the build holds, and nothing else.
+        @test occursin("Cmdenv", help_text((:cmdenv,)))
+        @test !occursin("Editor", help_text((:cmdenv,)))
+        @test occursin("Editor", help_text((:cmdenv, :editor)))
+        @test occursin("--backend", help_text((:cmdenv,); extra = "\n  --backend <name>"))
+    end
+
+    @testset "what the build was made with" begin
+        @test parse_command_line(["--build-info"]) === :build_info
+        text = build_info_text(InetRunner.INTERFACES)
+        @test occursin("name", text)
+        @test occursin(PROGRAM_NAME, text)
+        @test occursin("workload", text)
+        @test occursin("sdl", build_info_text((:cmdenv, :editor);
+                                              extra = ["backends" => "sdl"]))
+        # `--version` keeps its shape: two words, because a run prints it as
+        # its banner and the reference test compares run output line for line.
+        @test version_text() == "$PROGRAM_NAME $PROGRAM_VERSION"
     end
 
     @testset "a text is asked for, not a run" begin

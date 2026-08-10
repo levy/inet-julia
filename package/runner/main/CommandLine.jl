@@ -20,10 +20,15 @@ produces a run that is wrong in a way no output shows.
 """
 module CommandLineModule
 
+using ..BuildConfigModule: APP_NAME, APP_WORKLOAD, APP_CPU_TARGET
+
 export Options, CommandLineError, parse_command_line, help_text, version_text,
+    build_info_text, check_interface, interface_symbol, interface_name,
     ned_directories, PROGRAM_NAME, PROGRAM_VERSION
 
-const PROGRAM_NAME = "inet-julia"
+# What the build named this program. Every message starts with it, so the two
+# executables this repository builds cannot be confused in a log.
+const PROGRAM_NAME = APP_NAME
 const PROGRAM_VERSION = "0.1.0"
 
 """
@@ -51,6 +56,10 @@ An empty `ned_path` means the default, which depends on the INI file and is
 therefore resolved by [`ned_directories`](@ref) rather than here.
 """
 struct Options
+    # Which user interface runs this: `:cmdenv` writes result files and draws
+    # nothing, `:editor` opens a window. What a build holds is the build's
+    # business, not this reader's — see [`check_interface`](@ref).
+    user_interface::Symbol
     ini_files::Vector{String}
     config::String
     run::Int
@@ -68,9 +77,91 @@ ned_directories(options::Options) =
     isempty(options.ned_path) ? [dirname(abspath(first(options.ini_files)))] :
                                 options.ned_path
 
+"""
+    interface_symbol(name) -> Symbol
+
+The `-u` name a person writes, as the symbol everything below uses: `Cmdenv`
+answers `:cmdenv`, and `Editor` answers `:editor`.
+
+`Qtenv` is refused by name rather than accepted as a second spelling. Qtenv is
+a C++ program built on Qt. The editor here is neither, and a script that asks
+for one and gets the other has been told something untrue.
+"""
+function interface_symbol(name::AbstractString)
+    name == "Cmdenv" && return :cmdenv
+    name == "Editor" && return :editor
+    name == "Qtenv" &&
+        throw(CommandLineError("there is no Qtenv here — the names are Cmdenv " *
+                               "and Editor, and the one that draws is Editor"))
+    throw(CommandLineError("unknown user interface '$name' — the names are " *
+                           "Cmdenv and Editor"))
+end
+
+"""
+    interface_name(interface) -> String
+
+The `-u` name of a symbol, for a help text and for an error message.
+"""
+interface_name(interface::Symbol) = interface === :cmdenv ? "Cmdenv" : "Editor"
+
+"""
+    check_interface(interface, held) -> nothing
+
+Refuse a user interface this build does not hold.
+
+`held` is the entry package's own list. `InetRunner` holds `(:cmdenv,)` and
+cannot hold more: it depends on nothing that draws, and
+`InetRunnerTest.test_runner_closure()` is what keeps that true.
+"""
+function check_interface(interface::Symbol, held)
+    interface in held && return nothing
+    throw(CommandLineError("$(interface_name(interface)) is not in this build — " *
+                           "$PROGRAM_NAME holds " *
+                           "$(join(interface_name.(held), " and ")) and draws " *
+                           "nothing. The build that draws is inet-julia-editor, " *
+                           "from `tool/build_binary.jl --editor`."))
+end
+
 version_text() = "$PROGRAM_NAME $PROGRAM_VERSION"
 
-help_text() = """
+"""
+    build_info_text(held; extra = []) -> String
+
+What the build chose, as a block of `name value` lines. `--build-info` prints
+it.
+
+`--version` says which program this is, and this says what went into it. The
+two are separate because a run prints the version line as its banner, and a
+reference test compares run output line for line.
+
+`extra` is where an entry package that holds more than the command line does —
+the backends it compiled in, the entry it opens — adds its own rows.
+"""
+function build_info_text(held; extra = Pair{String,String}[])
+    rows = Pair{String,String}[
+        "name" => PROGRAM_NAME,
+        "version" => PROGRAM_VERSION,
+        "interfaces" => join(interface_name.(held), ", "),
+    ]
+    append!(rows, extra)
+    append!(rows, [
+        "workload" => String(APP_WORKLOAD),
+        "cpu target" => isempty(APP_CPU_TARGET) ? "portable" : APP_CPU_TARGET,
+        "julia" => string(VERSION),
+    ])
+    width = maximum(length(first(row)) for row in rows)
+    join(("$(rpad(first(row), width))  $(last(row))" for row in rows), "\n") * "\n"
+end
+
+"""
+    help_text(held = (:cmdenv,); extra = "") -> String
+
+The help this build prints. `held` decides which `-u` names it offers, and
+`extra` is where an entry package that has options of its own puts them — a
+build that draws accepts `--backend` and `--catalog`, and one that does not
+must not offer them.
+"""
+help_text(held = (:cmdenv,); extra::AbstractString = "") = """
 Usage: $PROGRAM_NAME [options]
 
 Runs one configuration of one simulation and writes its result files.
@@ -80,10 +171,11 @@ Runs one configuration of one simulation and writes its result files.
   -r <n>               the run number, counted from 0 (default: 0)
   -n <path>            NED directories, separated by ':'
                        (default: the directory of the INI file)
-  -u <name>            the user interface; only Cmdenv is accepted
+  -u <name>            the user interface: $(join(interface_name.(held), " or "))
   --result-dir=<dir>   where the result files go (default: results)
   -h, --help           print this text and exit
   -v, --version        print the version and exit
+  --build-info         print what this build was made with and exit$extra
 
 Exit codes: 0 the run finished, 1 the command line is wrong, 2 the run failed.
 """
@@ -102,7 +194,9 @@ end
 Read the arguments. Answers `:help` or `:version` when the command line asks
 only for a text, and throws [`CommandLineError`](@ref) when it cannot be read.
 """
-function parse_command_line(arguments::AbstractVector{<:AbstractString})
+function parse_command_line(arguments::AbstractVector{<:AbstractString};
+                            default_interface::Symbol = :cmdenv)
+    user_interface = default_interface
     ini_files = String[]
     config = "General"
     run_number = 0
@@ -116,6 +210,8 @@ function parse_command_line(arguments::AbstractVector{<:AbstractString})
             return :help
         elseif argument == "-v" || argument == "--version"
             return :version
+        elseif argument == "--build-info"
+            return :build_info
         elseif argument == "-f"
             push!(ini_files, _value_of(arguments, index, "-f"))
             index += 2
@@ -135,10 +231,7 @@ function parse_command_line(arguments::AbstractVector{<:AbstractString})
             append!(ned_path, split(_value_of(arguments, index, "-n"), ':'; keepempty = false))
             index += 2
         elseif argument == "-u"
-            name = _value_of(arguments, index, "-u")
-            name == "Cmdenv" ||
-                throw(CommandLineError("only Cmdenv is available, not '$name' — " *
-                                       "$PROGRAM_NAME draws nothing"))
+            user_interface = interface_symbol(_value_of(arguments, index, "-u"))
             index += 2
         elseif startswith(argument, "--result-dir=")
             result_dir = argument[length("--result-dir=") + 1:end]
@@ -159,7 +252,7 @@ function parse_command_line(arguments::AbstractVector{<:AbstractString})
     isempty(ini_files) && push!(ini_files, "omnetpp.ini")
     # The command line counts runs from 0 and everything below it counts from
     # 1. This is the one line where that is true.
-    Options(ini_files, config, run_number + 1, ned_path, result_dir)
+    Options(user_interface, ini_files, config, run_number + 1, ned_path, result_dir)
 end
 
 end # module CommandLineModule

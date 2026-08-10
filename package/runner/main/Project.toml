@@ -26,6 +26,11 @@ OmnetppDescription = "0e66750a-b7dd-4ea1-aa12-f1d16f19c855"
 OmnetppFormat = "029ac688-3079-4530-b344-ec3e77fcc7cf"
 OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
 OmnetppUnits = "9affc4b9-111a-4929-bbfb-901be4983719"
+# `Preferences` is how a build hands its parameters to the program it builds:
+# the name, the workload level and the processor target, read at module scope
+# by `BuildConfig.jl` and therefore compiled into the image. It is a small TOML
+# reader and it draws nothing.
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 
 [sources]
 InetPacket = {path = "../../packet/main"}

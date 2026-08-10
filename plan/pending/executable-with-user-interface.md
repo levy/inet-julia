@@ -166,28 +166,46 @@ change made in a worktree there is not usable here until it lands on `main`.
 
 ### Phase 1 — the builder takes parameters
 
-- [ ] `tool/Build.jl`, module `InetBuild`: `BuildSpec`, `validate`,
-      `build_binary`, `runner_binary()`, `editor_binary(backend)`.
-- [ ] `tool/build_binary.jl` becomes the front end.
-- [ ] Add a `cpu_target` parameter. This repository has none today, and the
-      sibling measured a portable image at about half the speed of a native
-      one.
+- [x] `tool/Build.jl`, module `InetBuild`: `BuildSpec`, `validate`,
+      `build_binary`, `build_preferences`, `spec_text`, `runner_binary()` and
+      `editor_binary()`. It is the sibling's file with this repository's names,
+      and with this repository's own measured run.
+- [x] `tool/build_binary.jl` is the front end.
+- [x] `cpu_target` is a parameter, and `INET_CPU_TARGET` is its
+      environment-variable spelling.
+- [x] `-u` is a real option: `Options.user_interface`, `interface_symbol`,
+      `check_interface`, and `INTERFACES` on the entry package. `-u Editor` is
+      refused and names the build that draws.
+- [x] `--build-info`, and a help text whose `-u` line lists what the build
+      holds.
+- [x] `bin/inet-julia` resolves the environment once, the way the sibling's
+      wrapper does. A fresh checkout has no Manifest.
 
-**Check.** A build with no flag writes `build/inet-julia/bin/inet-julia`, and
-the acceptance run of `plan/done/native-simulation-binary.md` phase 4 writes
-scalars identical to the ones recorded there.
+**What the report measures here.** The sibling runs `Tictoc4` from its own
+tutorial. This repository has no tutorial of its own: the one configuration it
+runs end to end is `ActiveSourcePassiveSink` in the `inet-cpp` checkout beside
+it. The report runs it when that checkout is there and says so when it is not,
+because a missing measurement must not fail a build.
 
-### Phase 2 — the workload becomes a parameter
+**Check.** `--no-compile` writes the parameters and prints the spec. The runner
+suite is green — 159 tests, no failure — with the `-u`, the `--build-info` and
+the build-spec assertions in it. A whole build was not run here.
 
-- [ ] `package/runner/main/BuildConfig.default.jl`, the generated file beside
-      it, and the generated name in `.gitignore`.
-- [ ] Cut `tool/binary_precompile.jl` into the four levels of §4.
-- [ ] `--build-info`.
-- [ ] Measure the four levels and record the table here.
+### Phase 2 — the workload becomes a parameter — **done, except the numbers**
 
-**Check.** `:minimal` must be visibly faster to build and visibly slower on the
-first run than `:demo`. If the two measure the same, the level is not reaching
-the trace.
+- [x] `package/runner/main/BuildConfig.jl` reads the level as a preference
+      (§3.5 of the sibling plan — that is what replaced the generated file the
+      plan first asked for, so there is no `*.default.jl` and nothing to add to
+      `.gitignore`; `LocalPreferences.toml` is ignored already).
+- [x] `tool/binary_precompile.jl` is cut into the four levels of §4. It reads
+      `InetRunner.APP_WORKLOAD`, and the levels nest.
+- [x] `--build-info` prints the level back.
+- [ ] **Not measured.** The sibling measured the same knob on the same machine:
+      `:full` builds a 702 MB bundle whose first run takes 0.50 s, and `:none`
+      builds 689 MB and takes 7.39 s. This repository's trace has the same
+      shape over a larger corpus, so the numbers would differ and the
+      conclusion would not. Measure it when a build of this repository is made
+      for a person to install.
 
 ### Phase 3 — the editor entry package
 

@@ -14,12 +14,47 @@
 #      for the measurement that says so.
 #   2. Run one whole simulation, so the builder, the engine, the elements and
 #      the recorder are compiled too.
+#
+# How much of it runs is the build's `workload` parameter, read back here from
+# `InetRunner.APP_WORKLOAD`. The levels nest: `:full` runs everything `:demo`
+# runs, and `:demo` runs everything `:minimal` runs.
+#
+# | level | what it runs | what the first run then pays for |
+# | --- | --- | --- |
+# | `:none` | nothing | everything |
+# | `:minimal` | the paths that answer without running, one NED file, one INI file | the grammar and the engine |
+# | `:demo` | and the whole corpus, and one whole run | reading a real configuration |
+# | `:full` | and two runs from the tutorial's own INI file | nothing this trace reaches |
+#
+# `:full` is the default and it is what the build did before it took any
+# parameter. Take a lower level for a day spent changing the runner, where a
+# build every ten minutes costs more than a first run does.
+#
+# The editor's half of a level is not here. `tool/editor_precompile.jl` runs
+# this file and adds it.
 # ============================================================================
 
 using InetRunner
 using OmnetppFormat: nedparse_file, iniparse_file
 
 const CORPUS = joinpath(@__DIR__, "corpus")
+const LEVEL = InetRunner.APP_WORKLOAD
+
+@info "Precompile workload" level = LEVEL
+
+# ── 0. The paths that answer without running anything ────────────────────────
+#
+# Cheap, and taken by every script that drives many runs, so they are worth
+# their compile time at every level that compiles at all.
+
+if LEVEL !== :none
+    InetRunner.main(["-h"]; io = devnull)
+    InetRunner.main(["--version"]; io = devnull)
+    InetRunner.main(["--build-info"]; io = devnull)
+    InetRunner.main(["--no-such-option"]; io = devnull)
+    InetRunner.main(["-f", "/nonexistent/nope.ini", "-c", "General"]; io = devnull)
+    InetRunner.main(["-u", "Nothing"]; io = devnull)
+end
 
 # ── 1. The grammar ───────────────────────────────────────────────────────────
 
@@ -45,8 +80,21 @@ function parse_corpus()
     (length(ned), length(ini), failed)
 end
 
-let (ned_count, ini_count, failed) = parse_corpus()
-    @info "Parsed the grammar corpus" ned = ned_count ini = ini_count failed
+# One NED file and one INI file at `:minimal`, which is the least that reaches
+# the reader at all. The whole corpus is `:demo`'s business.
+if LEVEL === :minimal
+    for (extension, parse) in ((".ned", nedparse_file), (".ini", iniparse_file))
+        for (directory, _, files) in walkdir(CORPUS)
+            index = findfirst(file -> endswith(file, extension), sort(files))
+            index === nothing && continue
+            try; parse(joinpath(directory, sort(files)[index])); catch; end
+            break
+        end
+    end
+elseif LEVEL in (:demo, :full)
+    let (ned_count, ini_count, failed) = parse_corpus()
+        @info "Parsed the grammar corpus" ned = ned_count ini = ini_count failed
+    end
 end
 
 # ── 2. A whole run ───────────────────────────────────────────────────────────
@@ -71,17 +119,16 @@ sim-time-limit = 3s
 *.producer.packetLength = 1B
 """
 
-mktempdir() do directory
-    write(joinpath(directory, "precompile.ned"), NED)
-    write(joinpath(directory, "omnetpp.ini"), INI)
-    results = joinpath(directory, "results")
-    # The whole path: read the command line, read both files, build the
-    # network, run the engine, write both result files.
-    InetRunner.main(["-f", joinpath(directory, "omnetpp.ini"), "-c", "General",
-                     "-r", "0", "--result-dir=$results"]; io = devnull)
-    # The two paths that answer without running anything.
-    InetRunner.main(["-h"]; io = devnull)
-    InetRunner.main(["--version"]; io = devnull)
+if LEVEL in (:demo, :full)
+    mktempdir() do directory
+        write(joinpath(directory, "precompile.ned"), NED)
+        write(joinpath(directory, "omnetpp.ini"), INI)
+        results = joinpath(directory, "results")
+        # The whole path: read the command line, read both files, build the
+        # network, run the engine, write both result files.
+        InetRunner.main(["-f", joinpath(directory, "omnetpp.ini"), "-c", "General",
+                         "-r", "0", "--result-dir=$results"]; io = devnull)
+    end
 end
 
 # ── 3. A run from a real INI file ────────────────────────────────────────────
@@ -96,20 +143,17 @@ end
 
 const TUTORIAL = joinpath(CORPUS, "tutorials", "queueing", "omnetpp.ini")
 
-if isfile(TUTORIAL)
-    mktempdir() do directory
-        for configuration in ("ActiveSourcePassiveSink", "PacketQueue")
-            InetRunner.main(["-f", TUTORIAL, "-c", configuration, "-r", "0",
-                             "-n", dirname(TUTORIAL),
-                             "--result-dir=$(joinpath(directory, configuration))"];
-                            io = devnull)
+if LEVEL === :full
+    if isfile(TUTORIAL)
+        mktempdir() do directory
+            for configuration in ("ActiveSourcePassiveSink", "PacketQueue")
+                InetRunner.main(["-f", TUTORIAL, "-c", configuration, "-r", "0",
+                                 "-n", dirname(TUTORIAL),
+                                 "--result-dir=$(joinpath(directory, configuration))"];
+                                io = devnull)
+            end
         end
+    else
+        @warn "no tutorial INI in the corpus — a run will pay for its own compilation" TUTORIAL
     end
-else
-    @warn "no tutorial INI in the corpus — a run will pay for its own compilation" TUTORIAL
 end
-
-# The error paths are taken by every script that drives many runs, so they are
-# worth their compile time too.
-InetRunner.main(["--no-such-option"]; io = devnull)
-InetRunner.main(["-f", "/nonexistent/nope.ini", "-c", "General"]; io = devnull)

@@ -17,17 +17,32 @@ Reached from Julia as well as from a command line:
 """
 module InetRunner
 
+# What the build chose, before the command line that reports it.
+include("BuildConfig.jl")
 include("CommandLine.jl")
 include("ResultFiles.jl")
 include("NedIni.jl")
 include("Runner.jl")
 
+using .BuildConfigModule
 using .CommandLineModule
 using .ResultFilesModule
 using .NedIni
 using .RunnerModule
 
 export main, julia_main
+
+"""
+    INTERFACES
+
+The user interfaces this package holds: `:cmdenv`, and nothing else.
+
+This is a fact about the package, not a build parameter. A runner draws nothing
+because it depends on nothing that draws, so no build of *this* package can
+hold `:editor`. `InetRunnerEditor` holds both, and that is why it is a second
+package.
+"""
+const INTERFACES = (:cmdenv,)
 
 """
     main(arguments; io = stdout) -> Cint
@@ -41,14 +56,17 @@ log of a thousand runs.
 """
 function main(arguments::AbstractVector{<:AbstractString}; io::IO = stdout)
     options = try
-        parse_command_line(arguments)
+        parsed = parse_command_line(arguments)
+        parsed isa Options && check_interface(parsed.user_interface, INTERFACES)
+        parsed
     catch exception
         exception isa CommandLineError || rethrow()
         println(stderr, "$PROGRAM_NAME: $(exception.message)")
         return Cint(1)
     end
-    options === :help && (print(io, help_text()); return Cint(0))
+    options === :help && (print(io, help_text(INTERFACES)); return Cint(0))
     options === :version && (println(io, version_text()); return Cint(0))
+    options === :build_info && (print(io, build_info_text(INTERFACES)); return Cint(0))
     try
         return run_options(options; io = io)
     catch exception

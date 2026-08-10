@@ -11,5 +11,15 @@
 #     julia --project=tool tool/build_binary.jl
 #
 root=$(cd "$(dirname "$0")/.." && pwd)
-exec julia --project="$root/package/runner/main" \
+project="$root/package/runner/main"
+
+# A Manifest is gitignored, so a fresh checkout has none and the run would fail
+# on the first `using`. Resolve once, and say so, because it is slow and the
+# next run is not.
+if [ ! -f "$project/Manifest.toml" ]; then
+    echo "inet-julia: resolving $project (once)" >&2
+    julia --project="$project" -e 'using Pkg; Pkg.instantiate()' >&2 || exit 2
+fi
+
+exec julia --project="$project" \
      -e 'using InetRunner; exit(InetRunner.julia_main())' -- "$@"

@@ -16,10 +16,11 @@ inet-julia -f omnetpp.ini -c TestNetwork -r 0
 | `-c <name>` | the configuration name | `General` |
 | `-r <n>` | the run number, counted from 0 | `0` |
 | `-n <path>` | NED directories, separated by `:`, searched recursively | the directory of the INI file |
-| `-u <name>` | the user interface; only `Cmdenv` is accepted | `Cmdenv` |
+| `-u <name>` | the user interface: `Cmdenv`, or `Editor` in the build that draws | `Cmdenv`, and `Editor` in the build that draws |
 | `--result-dir=<dir>` | where the result files go | `results` |
 | `-h`, `--help` | print the options and exit | — |
 | `-v`, `--version` | print the version and exit | — |
+| `--build-info` | print what this build was made with and exit | — |
 
 **An option outside this set is an error.** It is not accepted and ignored. A
 dropped `--sim-time-limit` would produce a run that is wrong in a way no output
@@ -89,29 +90,68 @@ thing that holds the rule.
 `package/runner/test/` is free to depend on whatever it needs. A test is not
 shipped.
 
-## Building the executable
+## Building an executable
 
 ```
-julia --project=tool tool/build_binary.jl
+julia --project=tool tool/build_binary.jl            # inet-julia
 ```
 
-The output is `build/inet-julia/`: an executable, a system image, and the
-shared libraries they need. Copy the directory to a machine with no Julia and
-run `bin/inet-julia`.
+The output is `build/<name>/`: an executable, a system image, and the shared
+libraries they need. The name follows the interfaces the build holds, so two
+builds never write into each other's directory. Copy the directory to a machine
+with no Julia and run `bin/<name>`.
+
+`tool/build_binary.jl` is a front end. `tool/Build.jl` is the builder, and
+every flag is one of its keywords:
+
+```julia
+include("tool/Build.jl")        # julia --project=tool
+using .InetBuild
+build_binary(runner_binary(; workload = :demo, cpu_target = "native"))
+```
+
+`--help` lists the flags. `--no-compile` writes the parameters, prints the
+spec, and stops, which is how a spec is checked without a build of several
+minutes.
+
+| flag | default | meaning |
+|---|---|---|
+| `--name=<name>` | from the interfaces | the executable name and the directory |
+| `--workload=<level>` | `full` | how much the build compiles ahead of time |
+| `--cpu-target=<target>` | portable | which processor the image is for |
+| `--output=<dir>` | `build/<name>` | where the bundle goes |
+
+The parameters travel to the program as preferences, in the entry project's
+`LocalPreferences.toml`, and the entry package reads them at module scope. So
+the value is compiled into the image, the bundle needs no file beside it, and a
+build under other parameters rebuilds rather than reuses. `--build-info` prints
+them back.
 
 `bin/inet-julia` in the checkout runs the same entry point through
 `julia --project=package/runner/main`, for a change you want to try without a
-build.
+build. A `Manifest.toml` is gitignored, so the first run in a fresh checkout
+resolves that environment and says it is doing so.
+
+### How much the build compiles ahead of time
 
 A run costs about **0.5 s**, of which 0.3 s is starting the image at all. The
 simulation itself is around 10 ms of it; the rest is reading the two files and
 building the network.
 
-That number depends on `tool/binary_precompile.jl`, which parses every NED and
-INI file in `tool/corpus/` and runs two real configurations out of it. A
-Lerche transformer callback compiles the first time a grammar production
-reaches it, so a build that parses little makes a program that compiles inside
-the user's run — 5.1 s of it, before the corpus existed. If you shrink what the
+That number depends on `tool/binary_precompile.jl`. A Lerche transformer
+callback compiles the first time a grammar production reaches it, so a build
+that parses little makes a program that compiles inside the user's run — 5.1 s
+of it, before the corpus existed.
+
+| `--workload` | what the build runs |
+|---|---|
+| `none` | nothing |
+| `minimal` | the paths that answer without running, one NED file, one INI file |
+| `demo` | and every NED and INI file in `tool/corpus/`, and one whole run |
+| `full` | and two real configurations out of the corpus |
+
+`full` is the default and it is what the build did before it took a parameter.
+Take a lower level for a day spent changing the runner. If you shrink what the
 build parses, time a run before and after.
 
 The parse tables are the other half. They are built at precompile time in

@@ -4,9 +4,12 @@ authors = []
 # The build environment. It is not the executable's closure: `build_binary.jl`
 # resolves `package/runner/main` separately, and that project is the one bound
 # by plan/done/native-simulation-binary.md §2.1. Projectured is here for the
-# FSM generators, PackageCompiler for the executable.
+# FSM generators, PackageCompiler for the executable, and Preferences because
+# `tool/Build.jl` writes the build parameters into the entry project's
+# `LocalPreferences.toml`.
 [deps]
 PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
+Preferences = "21216c6a-2e73-6563-6e65-726566657250"
 Projectured = "92922de3-b970-4d9a-8b2a-9d6f361397b5"
 
 [sources]
