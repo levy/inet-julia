@@ -109,7 +109,7 @@ the reason; this list states only what the name is in this repository.
 | 3.2 | `-u` chooses the interface | `Options.user_interface`, `:cmdenv` or `:editor`; `-u Qtenv` refused, and the refusal names `Editor` |
 | 3.3 | the editor binary runs the runner | `InetRunnerEditor.main` branches to `InetRunner.run_options` |
 | 3.4 | what the editor opens | a configuration when the command line names one; the catalog when it names none |
-| 3.5 | the parameters are baked as generated constants | `package/runner/main/BuildConfig.jl` and `package/runner/editor/BackendConfig.jl`, each with a checked-in `*.default.jl` |
+| 3.5 | the parameters are baked as preferences | `[InetRunner]` and `[InetRunnerEditor]` in the entry project's `LocalPreferences.toml`, read by `package/runner/main/BuildConfig.jl` and by the editor package |
 | 3.6 | the workload reaches both halves | the trace reads `InetRunner.APP_WORKLOAD` |
 | 3.7 | one binary, one name, one directory | `build/inet-julia` and `build/inet-julia-editor` |
 | 3.8 | `--version` keeps its shape | the parameters go into `--build-info` |
@@ -138,24 +138,29 @@ corpus is the way to reach them all.
 ## 5. The parameters
 
 ```julia
-using ProjecturedSdl, InetBuild            # julia --project=tool
+include("tool/Build.jl")                   # julia --project=tool
+using .InetBuild
 
-build_binary(editor_binary(SdlBackend; workload = :full))
+build_binary(editor_binary(; workload = :full))
 build_binary(runner_binary())              # what the build makes today
 ```
 
 The keyword set is the sibling plan's §4, with `inet-julia` and
 `inet-julia-editor` as the derived names and `InetExample`'s demo directory as
-the default catalog. `tool/Project.toml` already holds `Projectured` for the
-FSM generators, so the builder's own environment needs only `PackageCompiler`,
-which is there.
+the default catalog. A backend is a symbol here rather than a type, for the
+reason the sibling's §3.5.1 gives: a build environment must not hold the stack
+it builds.
+
+`tool/Project.toml` held `Projectured` for the FSM generators and
+`PackageCompiler` for the executable. It gained `Preferences`, which is how the
+builder writes the parameters.
 
 ## 6. Phases
 
 The phases are the sibling plan's, in the same order, so the two repositories
 can be compared step by step.
 
-### Phase 0 — wait for the seams
+### Phase 0 — wait for the seams — **partly answered, and not the way this plan asked**
 
 - [ ] `ned_network_model` sits in `OmnetppDescription` (§3.1).
 - [ ] The window sits in `OmnetppPresentation` (§3.2).
@@ -163,6 +168,29 @@ can be compared step by step.
 Both are changes in `omnetpp-julia`. Note the memory of this workspace: the
 `[sources]` of this repository reach that repository's **main checkout**, so a
 change made in a worktree there is not usable here until it lands on `main`.
+
+**What landed on `omnetpp-julia` main instead.** That repository's own phase 3
+built its editor package without either promotion, and moved three smaller
+seams that are on `main` now and usable from here:
+
+| seam | where it is |
+| --- | --- |
+| `ned_run_configuration(; ini_path, config, run_number)` | `OmnetppRunner`, public — the run of one configuration, read out of the INI file with no NED file opened |
+| `run_limit(options, configuration, io)` | `OmnetppRunner`, public — what `--sim-time-limit` and the configuration together mean |
+| `session_example_document(; limit, title, …)` | `OmnetppPresentationExample` — the window takes a `SimulationLimit` and a title now, not only an event count |
+
+So phase 3 here can start, and it has a choice to make that this plan did not
+have when it was written:
+
+1. Take the same road the sibling took — depend on `OmnetppPresentationExample`
+   for the window, and write this repository's own model seam beside
+   `InetRunner.run_options`, which does not have one (§3.1).
+2. Do the two promotions first, and let both editor packages be honest.
+
+The sibling took road 1 and recorded the debt in its §6. Two callers now exist,
+which is the condition its plan named for the promotion, so road 2 has become
+the cheaper one to justify. Decide before writing `InetRunnerEditor`, not
+after.
 
 ### Phase 1 — the builder takes parameters
 
