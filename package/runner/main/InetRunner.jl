@@ -57,7 +57,10 @@ log of a thousand runs.
 function main(arguments::AbstractVector{<:AbstractString}; io::IO = stdout)
     options = try
         parsed = parse_command_line(arguments)
-        parsed isa Options && check_interface(parsed.user_interface, INTERFACES)
+        if parsed isa Options
+            check_interface(parsed.user_interface, INTERFACES)
+            check_engine(parsed)
+        end
         parsed
     catch exception
         exception isa CommandLineError || rethrow()

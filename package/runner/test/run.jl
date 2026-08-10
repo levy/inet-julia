@@ -40,7 +40,10 @@ _tutorial() = joinpath(_inet_root(), "tutorials", "queueing")
     end
 
     @testset "a wrong command line exits 1" begin
-        @test first(_run(["--sim-time-limit=100s"])) == 1
+        # `--sim-time-limit` is honoured now, so the wrong command line here is
+        # an option that still does not exist.
+        @test first(_run(["--fast-forward=3"])) == 1
+        @test first(_run(["--workers=4"])) == 1          # without --engine=parallel
         @test first(_run(["-u", "Qtenv"])) == 1
         @test first(_run(["-r", "-2"])) == 1
     end

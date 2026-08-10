@@ -12,15 +12,42 @@ inet-julia -f omnetpp.ini -c TestNetwork -r 0
 
 | option | meaning | default |
 |---|---|---|
-| `-f <file>` | the INI file; repeatable, and the first one is read | `omnetpp.ini` |
+| `-f <file>` | the INI file; a second one is refused, not dropped | `omnetpp.ini` |
 | `-c <name>` | the configuration name | `General` |
 | `-r <n>` | the run number, counted from 0 | `0` |
 | `-n <path>` | NED directories, separated by `:`, searched recursively | the directory of the INI file |
 | `-u <name>` | the user interface: `Cmdenv`, or `Editor` in the build that draws | `Cmdenv`, and `Editor` in the build that draws |
 | `--result-dir=<dir>` | where the result files go | `results` |
+| `--sim-time-limit=<t>` | stop at this simulation time; wins over the configuration's own | the configuration's |
+| `--cpu-time-limit=<t>` | stop after this much wall-clock time | none |
+| `--result-recording=<b>` | `false` turns off every recorder, and writes no file | `true` |
+| `--cmdenv-express-mode=<b>` | accepted; this runner is always express | `true` |
+| `--record-eventlog=<b>` | accepted only as `false`; no event log is written | `false` |
+| `--engine=<name>` | `sequential` or `parallel` | `sequential` |
+| `--workers=<n>` | worker threads for the parallel engine | one per thread but the colorizer's |
 | `-h`, `--help` | print the options and exit | — |
 | `-v`, `--version` | print the version and exit | — |
 | `--build-info` | print what this build was made with and exit | — |
+
+## The engine, and the threads it needs
+
+```
+JULIA_NUM_THREADS=8 inet-julia -c ActiveSourcePassiveSink --engine=parallel --workers=4
+```
+
+The option set and the refusals are `omnetpp-julia`'s, and
+[its runner document](../../../../omnetpp-julia/package/runner/doc/runner.md)
+explains what the engine does and why a thread count cannot be an option. The
+short of it: this program hands its whole command line to `julia_main`, so
+Julia's own option reader never sees a `--threads`, and the count comes from
+the environment. `--build-info` prints how many threads the process got.
+
+Measured here on `ActiveSourcePassiveSink`: the two engines write result files
+that are identical line for line.
+
+**The run walks the pipeline, not `run_network!`.** The shorthand takes a
+simulation time, and this runner has to carry a wall-clock limit as well, which
+only a whole `SimulationLimit` expresses. The six steps are the same either way.
 
 **An option outside this set is an error.** It is not accepted and ignored. A
 dropped `--sim-time-limit` would produce a run that is wrong in a way no output

@@ -23,15 +23,75 @@ using InetRunner.CommandLineModule: Options, CommandLineError, parse_command_lin
     end
 
     @testset "the options that take a value" begin
-        options = parse_command_line(["-f", "a.ini", "-f", "b.ini",
+        options = parse_command_line(["-f", "a.ini",
                                       "-c", "TestNetwork", "-r", "3",
                                       "-n", "ned:more/ned", "-u", "Cmdenv",
-                                      "--result-dir=out"])
-        @test options.ini_files == ["a.ini", "b.ini"]
+                                      "--result-dir=out",
+                                      "--sim-time-limit=100s",
+                                      "--cpu-time-limit=20s",
+                                      "--cmdenv-express-mode=true"])
+        @test options.ini_files == ["a.ini"]
         @test options.config == "TestNetwork"
         @test options.run == 4                  # the command line said 3
         @test options.ned_path == ["ned", "more/ned"]
         @test options.result_dir == "out"
+        @test options.sim_time_limit == 100.0
+        @test options.cpu_time_limit == 20.0
+        @test options.express_mode
+        @test options.result_recording
+    end
+
+    @testset "a second INI file is refused, not dropped" begin
+        # `opp_run` layers several. This runner reads one, and a rule from a
+        # file that was accepted and never read is the failure the option set
+        # exists to prevent. `omnetpp-julia` refuses it the same way.
+        @test_throws CommandLineError parse_command_line(["-f", "a.ini", "-f", "b.ini"])
+    end
+
+    @testset "the limits and the recording switches" begin
+        # The spellings an INI file uses, so one option and one file cannot
+        # mean two different things.
+        @test parse_command_line(["--sim-time-limit=1000ms"]).sim_time_limit == 1.0
+        @test parse_command_line(["--sim-time-limit=250000s"]).sim_time_limit == 250000.0
+        @test parse_command_line(["--sim-time-limit=5"]).sim_time_limit == 5.0
+        @test_throws CommandLineError parse_command_line(["--sim-time-limit=soon"])
+        @test_throws CommandLineError parse_command_line(["--sim-time-limit"])
+
+        @test !parse_command_line(["--result-recording=false"]).result_recording
+        @test parse_command_line(["--result-recording=true"]).result_recording
+        @test_throws CommandLineError parse_command_line(["--result-recording=maybe"])
+
+        @test !parse_command_line(["--cmdenv-express-mode=false"]).express_mode
+
+        # There is no event log to turn off, so the only answer this runner can
+        # honour is the one that asks for none.
+        @test parse_command_line(["--record-eventlog=false"]) isa Options
+        @test_throws CommandLineError parse_command_line(["--record-eventlog=true"])
+    end
+
+    @testset "the engine" begin
+        # An execution degree of freedom: it decides how the answer is computed
+        # and never what the answer is.
+        @test parse_command_line(String[]).engine === :sequential
+        @test parse_command_line(String[]).workers === nothing
+        @test parse_command_line(["--engine=parallel"]).engine === :parallel
+        @test parse_command_line(["--engine=parallel", "--workers=3"]).workers == 3
+
+        @test_throws CommandLineError parse_command_line(["--engine=nosuch"])
+        @test_throws CommandLineError parse_command_line(["--engine=parsim"])
+        @test_throws CommandLineError parse_command_line(["--engine=parallel", "--workers=0"])
+        # A worker count the sequential engine cannot use is refused.
+        @test_throws CommandLineError parse_command_line(["--workers=4"])
+
+        # The parallel engine needs one thread per worker plus one, and a
+        # process with fewer is told before the run rather than during it.
+        too_many = parse_command_line(["--engine=parallel",
+                                       "--workers=$(Threads.nthreads() + 4)"])
+        @test_throws CommandLineError InetRunner.RunnerModule.check_engine(too_many)
+        @test occursin("JULIA_NUM_THREADS",
+                       try; InetRunner.RunnerModule.check_engine(too_many); ""
+                       catch exception; exception.message; end)
+        @test InetRunner.RunnerModule.check_engine(parse_command_line(String[])) === nothing
     end
 
     @testset "the run number counts from 0 outside and 1 inside" begin
@@ -103,8 +163,10 @@ using InetRunner.CommandLineModule: Options, CommandLineError, parse_command_lin
 
     @testset "what is refused" begin
         # The one that matters: an option this build does not honour must not
-        # be quietly dropped.
-        @test_throws CommandLineError parse_command_line(["--sim-time-limit=100s"])
+        # be quietly dropped. `--sim-time-limit` used to be one of these and is
+        # honoured now, so the example is an option that is still not.
+        @test_throws CommandLineError parse_command_line(["--fast-forward=3"])
+        @test_throws CommandLineError parse_command_line(["--parsim-communications-class=x"])
         @test_throws CommandLineError parse_command_line(["-x"])
         @test_throws CommandLineError parse_command_line(["omnetpp.ini"])
         @test_throws CommandLineError parse_command_line(["-f"])

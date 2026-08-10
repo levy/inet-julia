@@ -16,19 +16,28 @@ module RunnerModule
 
 using Dates: now
 
-using OmnetppSimulator: run_network!, Recorder, attach_sink!, close_sinks!,
-    OmnetppTextSink, total_event_count, stop_reason_text, fmt_time
+import OmnetppSimulator
+using OmnetppSimulator: Recorder, attach_sink!, close_sinks!,
+    OmnetppTextSink, total_event_count, stop_reason_text, fmt_time,
+    prebuilt_network_instance, prepare_simulation_execution,
+    run_simulation!, finish_simulation!, simulation_engine, simulation_time,
+    simulation_stop_reason,
+    simulation_limit, NO_LIMIT,
+    EngineSpec, SequentialEngineSpec, ParallelEngineSpec, engine_min_threads,
+    engine_startable
 using OmnetppFormat: nedparse_file, NedCompoundModule
 using OmnetppDescription: read_ini_configuration, ParameterResolution,
     build_ned_network, unused_rules
 using InetQueuing.PacketProtocolModule: check_packet_connections
 
-using ..CommandLineModule: Options, PROGRAM_NAME, version_text, ned_directories
+using ..CommandLineModule: Options, CommandLineError, PROGRAM_NAME, version_text,
+    ned_directories
 using ..ResultFilesModule: scalar_file_path, vector_file_path, result_run_name,
     result_run_attributes
 using ..NedIni: register_queuing_ned_types!
 
-export run_options, RunFailure, ned_file_declaring
+export run_options, RunFailure, ned_file_declaring, engine_spec, check_engine,
+    engine_text, run_limit
 
 """
     RunFailure(message)
@@ -136,40 +145,138 @@ function run_options(options::Options; io::IO = stdout)
         println(io, "Warning: no parameter matched $(rule.key).")
     end
 
-    # The moment and the process id go into the run name, so two runs of one
-    # configuration are told apart by their header and not only by their path.
+    # `--result-recording=false` means no recorder at all, and therefore no
+    # scalars, no vectors and no files. It is the cheapest a run gets.
+    recording = options.result_recording
     moment = now()
     process_id = getpid()
-    mkpath(options.result_dir)
-    scalar_path = scalar_file_path(options.result_dir, options.config, run_number)
-    vector_path = vector_file_path(options.result_dir, options.config, run_number)
+    scalar_path = ""
+    vector_path = ""
+    recorder = nothing
+    if recording
+        # The moment and the process id go into the run name, so two runs of one
+        # configuration are told apart by their header and not only by their path.
+        mkpath(options.result_dir)
+        scalar_path = scalar_file_path(options.result_dir, options.config, run_number)
+        vector_path = vector_file_path(options.result_dir, options.config, run_number)
 
-    recorder = Recorder()
-    attach_sink!(recorder,
-        OmnetppTextSink(vector_path;
-            sca_path = scalar_path,
-            run_name = result_run_name(options.config, run_number, moment, process_id),
-            run_attributes = result_run_attributes(
-                config = options.config, run_number = run_number,
-                network = configuration.network,
-                moment = moment, process_id = process_id, ini_file = ini_path),
-            # A recorder keeps scalars in one flat namespace, so an element
-            # writes its module path into the name. OMNeT++ keeps the two in
-            # separate columns, and this reads the name back into them.
-            split_module_path = true))
+        recorder = Recorder()
+        attach_sink!(recorder,
+            OmnetppTextSink(vector_path;
+                sca_path = scalar_path,
+                run_name = result_run_name(options.config, run_number, moment, process_id),
+                run_attributes = result_run_attributes(
+                    config = options.config, run_number = run_number,
+                    network = configuration.network,
+                    moment = moment, process_id = process_id, ini_file = ini_path),
+                # A recorder keeps scalars in one flat namespace, so an element
+                # writes its module path into the name. OMNeT++ keeps the two in
+                # separate columns, and this reads the name back into them.
+                split_module_path = true))
+    end
+
+    # Which engine, before "Running the simulation", because it is a fact about
+    # the run that follows. The sequential engine says nothing, so the output of
+    # a run that names no engine is the output it always was.
+    spec = engine_spec(options)
+    text = engine_text(spec)
+    isempty(text) || println(io, text)
 
     println(io, "Running the simulation.")
-    engine = run_network!(network; until = configuration.sim_time_limit,
-                          recorder = recorder, check = check_packet_connections)
+    # The pipeline and not `run_network!`. The shorthand takes a simulation time
+    # and this runner has to carry a wall-clock limit as well, which only a
+    # whole `SimulationLimit` expresses — and the two verbs are the same six
+    # steps either way.
+    # Initializing here rather than leaving it to a builder: this model is made
+    # from a tree that already exists, and the check wants an initialized
+    # network before it starts.
+    OmnetppSimulator.NetworkModule.initialize_network!(network)
+    check_packet_connections(network)
+    execution = prepare_simulation_execution(prebuilt_network_instance(network);
+        engine = spec,
+        record = recording, recorder = recorder,
+        limit = run_limit(options, configuration, io))
+    run_simulation!(execution)
+    finish_simulation!(execution)
+    engine = simulation_engine(execution)
     # Nothing above is a lifecycle execution, so nothing closes the sinks on
     # our behalf. The files are written here or not at all.
-    close_sinks!(recorder; at = engine.time)
+    recorder === nothing || close_sinks!(recorder; at = simulation_time(execution))
 
-    println(io, "Finished: t=$(fmt_time(engine.time)), $(total_event_count(engine)) events, " *
-                "$(stop_reason_text(engine.stop_reason)).")
-    println(io, "Results: $scalar_path")
-    println(io, "         $vector_path")
+    # The execution's clock and stop reason, not the engine's own fields: a
+    # parallel engine keeps its frontier under another name, and a report must
+    # read the same way whichever engine ran.
+    println(io, "Finished: t=$(fmt_time(simulation_time(execution))), " *
+                "$(total_event_count(engine)) events, " *
+                "$(stop_reason_text(simulation_stop_reason(execution))).")
+    if recording
+        println(io, "Results: $scalar_path")
+        println(io, "         $vector_path")
+    else
+        println(io, "Results: none — recording is off.")
+    end
     Cint(0)
 end
+
+"""
+    run_limit(options, configuration, io) -> SimulationLimit
+
+How far the run goes: what `--sim-time-limit` said, else what the configuration
+says, plus whatever `--cpu-time-limit` said. A user interface needs the same
+answer a run needs, so the rule lives here and not in each of them.
+"""
+function run_limit(options::Options, configuration, io::IO)
+    sim_time = options.sim_time_limit === nothing ? configuration.sim_time_limit :
+                                                    options.sim_time_limit
+    if sim_time === nothing && options.cpu_time_limit === nothing
+        println(io, "Warning: no simulation time limit and no CPU time limit — " *
+                    "this run ends when its events run out, which may be never.")
+        return NO_LIMIT
+    end
+    simulation_limit(sim_time = sim_time, wall_clock = options.cpu_time_limit)
+end
+
+"""
+    engine_spec(options) -> EngineSpec
+
+The engine `--engine` and `--workers` describe.
+
+Throws [`CommandLineError`](@ref) when the process cannot start it. The parallel
+engine runs its colorizer on the main thread and each worker as a task that does
+not yield, so it needs one Julia thread per worker plus one.
+
+A thread count cannot be asked for here: this program hands its whole command
+line to `julia_main`, so Julia's own option reader never sees a `--threads`, and
+the count is read from `JULIA_NUM_THREADS` before any of this runs.
+"""
+function engine_spec(options::Options)
+    options.engine === :sequential && return SequentialEngineSpec()
+    spec = options.workers === nothing ? ParallelEngineSpec() :
+                                         ParallelEngineSpec(options.workers)
+    engine_startable(spec) ||
+        throw(CommandLineError("the parallel engine needs $(engine_min_threads(spec)) " *
+                               "Julia threads and this process has " *
+                               "$(Threads.nthreads()) — start it with " *
+                               "`JULIA_NUM_THREADS=$(engine_min_threads(spec)) $PROGRAM_NAME …`, " *
+                               "or ask for fewer workers"))
+    spec
+end
+
+"""
+    check_engine(options) -> nothing
+
+Refuse an engine this process cannot start, before anything is read or built.
+"""
+check_engine(options::Options) = (engine_spec(options); nothing)
+
+"""
+    engine_text(spec) -> String
+
+What the run says it is running on. The sequential engine is the default and
+says nothing, so the line appears only when there is something to say.
+"""
+engine_text(::SequentialEngineSpec) = ""
+engine_text(spec::ParallelEngineSpec) =
+    "Engine: parallel, $(spec.n_workers) worker(s) on $(Threads.nthreads()) thread(s)."
 
 end # module RunnerModule

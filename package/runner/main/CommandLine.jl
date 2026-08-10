@@ -20,10 +20,13 @@ produces a run that is wrong in a way no output shows.
 """
 module CommandLineModule
 
+using OmnetppFormat: parse_omnetpp_quantity, omnetpp_quantity_seconds
+
 using ..BuildConfigModule: APP_NAME, APP_WORKLOAD, APP_CPU_TARGET
 
 export Options, CommandLineError, parse_command_line, help_text, version_text,
     build_info_text, check_interface, interface_symbol, interface_name,
+    engine_symbol, engine_name, ENGINES,
     ned_directories, PROGRAM_NAME, PROGRAM_VERSION
 
 # What the build named this program. Every message starts with it, so the two
@@ -60,11 +63,29 @@ struct Options
     # nothing, `:editor` opens a window. What a build holds is the build's
     # business, not this reader's — see [`check_interface`](@ref).
     user_interface::Symbol
+    # Which engine runs it: `:sequential` or `:parallel`. An execution degree of
+    # freedom — it decides how the answer is computed and never what the answer
+    # is, which is the invariant the two engines' equal hashes assert.
+    engine::Symbol
+    # How many worker threads the parallel engine runs, or `nothing` for its
+    # own default. Meaningless for the sequential engine, which is why naming
+    # it there is refused.
+    workers::Union{Nothing,Int}
     ini_files::Vector{String}
     config::String
     run::Int
     ned_path::Vector{String}
     result_dir::String
+    # In seconds, and `nothing` means the command line named none. A
+    # `sim_time_limit` given here wins over the one the configuration states; a
+    # configuration states no CPU limit at all.
+    sim_time_limit::Union{Nothing,Float64}
+    cpu_time_limit::Union{Nothing,Float64}
+    express_mode::Bool
+    # false ⇒ no recorder at all, and therefore no scalars, no vectors, no
+    # statistics and no result files. It is the cheapest a run gets, and it is
+    # what a speed measurement wants.
+    result_recording::Bool
 end
 
 """
@@ -122,6 +143,43 @@ function check_interface(interface::Symbol, held)
                            "from `tool/build_binary.jl --editor`."))
 end
 
+"""
+    ENGINES
+
+The engines a command line can name. `sequential` runs the events in order on
+one thread. `parallel` colours the event horizon and runs the green events on
+worker threads, which needs a process started with threads.
+"""
+const ENGINES = (:sequential, :parallel)
+
+"""
+    engine_symbol(name) -> Symbol
+
+The `--engine` name a person writes, as the symbol everything below uses.
+
+`parsim` is refused by name. OMNeT++ parallelises by partitioning a network
+across processes that exchange null messages; this engine runs one process and
+colours the event horizon. They are different mechanisms with different failure
+modes.
+"""
+function engine_symbol(name::AbstractString)
+    name == "sequential" && return :sequential
+    name == "parallel" && return :parallel
+    name in ("parsim", "parsim-mpi", "parsim-namedpipe") &&
+        throw(CommandLineError("there is no parsim here — this engine runs one " *
+                               "process and colours the event horizon. The names " *
+                               "are $(join(ENGINES, " and "))"))
+    throw(CommandLineError("unknown engine '$name' — the names are " *
+                           "$(join(ENGINES, " and "))"))
+end
+
+"""
+    engine_name(engine) -> String
+
+The `--engine` name of a symbol, for a help text and for a report.
+"""
+engine_name(engine::Symbol) = String(engine)
+
 version_text() = "$PROGRAM_NAME $PROGRAM_VERSION"
 
 """
@@ -148,6 +206,12 @@ function build_info_text(held; extra = Pair{String,String}[])
         "workload" => String(APP_WORKLOAD),
         "cpu target" => isempty(APP_CPU_TARGET) ? "portable" : APP_CPU_TARGET,
         "julia" => string(VERSION),
+        # What the parallel engine has to work with. A thread count cannot be
+        # asked for on the command line — this program's arguments never reach
+        # Julia's own option reader — so it is read from JULIA_NUM_THREADS
+        # before any of this runs, and this is the only place that says what it
+        # got.
+        "threads" => string(Threads.nthreads()),
     ])
     width = maximum(length(first(row)) for row in rows)
     join(("$(rpad(first(row), width))  $(last(row))" for row in rows), "\n") * "\n"
@@ -172,13 +236,49 @@ Runs one configuration of one simulation and writes its result files.
   -n <path>            NED directories, separated by ':'
                        (default: the directory of the INI file)
   -u <name>            the user interface: $(join(interface_name.(held), " or "))
+  --engine=<name>      the engine: $(join(ENGINES, " or ")) (default: sequential)
+  --workers=<n>        worker threads for the parallel engine
   --result-dir=<dir>   where the result files go (default: results)
+  --sim-time-limit=<t> stop at this simulation time; overrides the
+                       configuration's own limit
+  --cpu-time-limit=<t> stop after this much wall-clock time
+  --cmdenv-express-mode=<b>  accepted; this runner is always express
+  --result-recording=<b>     false turns off every recorder: no scalars, no
+                             vectors, no statistics, no result files
+  --record-eventlog=<b>      accepted only as false; no event log is written
   -h, --help           print this text and exit
   -v, --version        print the version and exit
   --build-info         print what this build was made with and exit$extra
 
 Exit codes: 0 the run finished, 1 the command line is wrong, 2 the run failed.
 """
+
+# The text after the `=` of a `--name=value` argument.
+_assigned(argument, name) = argument[length(name) + 2:end]
+
+# A time an option states: `100s`, `250000s`, `1000ms`, or a bare number of
+# seconds. The reader of the INI file understands the same spellings, which is
+# the point — one option and one file must not mean two different things.
+function _time_value(text, option)
+    isempty(text) && throw(CommandLineError("$option needs a time"))
+    quantity = parse_omnetpp_quantity(text)
+    if quantity !== nothing
+        seconds = omnetpp_quantity_seconds(text)
+        seconds === nothing &&
+            throw(CommandLineError("$option needs a time, got '$text'"))
+        return seconds
+    end
+    number = tryparse(Float64, text)
+    number === nothing &&
+        throw(CommandLineError("$option needs a time, got '$text'"))
+    number
+end
+
+function _boolean_value(text, option)
+    text == "true" && return true
+    text == "false" && return false
+    throw(CommandLineError("$option needs true or false, got '$text'"))
+end
 
 # The argument of an option that takes one. `index` points at the option
 # itself, so the value is the argument after it.
@@ -197,11 +297,17 @@ only for a text, and throws [`CommandLineError`](@ref) when it cannot be read.
 function parse_command_line(arguments::AbstractVector{<:AbstractString};
                             default_interface::Symbol = :cmdenv)
     user_interface = default_interface
+    engine = :sequential
+    workers = nothing
     ini_files = String[]
     config = "General"
     run_number = 0
     ned_path = String[]
     result_dir = "results"
+    sim_time_limit = nothing
+    cpu_time_limit = nothing
+    express_mode = true
+    result_recording = true
 
     index = 1
     while index <= length(arguments)
@@ -213,6 +319,14 @@ function parse_command_line(arguments::AbstractVector{<:AbstractString};
         elseif argument == "--build-info"
             return :build_info
         elseif argument == "-f"
+            # `opp_run` layers several INI files over one another. This runner
+            # reads one, so a second is refused rather than dropped — a rule
+            # from a file that was accepted and never read is the failure this
+            # option set exists to prevent. `omnetpp-julia` refuses it too.
+            isempty(ini_files) ||
+                throw(CommandLineError("only one INI file is read, and " *
+                                       "'$(first(ini_files))' is already it — " *
+                                       "layering several is not implemented"))
             push!(ini_files, _value_of(arguments, index, "-f"))
             index += 2
         elseif argument == "-c"
@@ -233,13 +347,54 @@ function parse_command_line(arguments::AbstractVector{<:AbstractString};
         elseif argument == "-u"
             user_interface = interface_symbol(_value_of(arguments, index, "-u"))
             index += 2
+        # Neither `--engine` nor `--workers` is recorded anywhere a result reads.
+        # An execution degree of freedom must not change what the run recorded,
+        # and a header line is part of what the run recorded.
+        elseif startswith(argument, "--engine=")
+            engine = engine_symbol(_assigned(argument, "--engine"))
+            index += 1
+        elseif startswith(argument, "--workers=")
+            text = _assigned(argument, "--workers")
+            number = tryparse(Int, text)
+            number === nothing &&
+                throw(CommandLineError("--workers needs a whole number, got '$text'"))
+            number >= 1 ||
+                throw(CommandLineError("--workers counts from 1, got $number"))
+            workers = number
+            index += 1
+        elseif startswith(argument, "--sim-time-limit=")
+            sim_time_limit = _time_value(_assigned(argument, "--sim-time-limit"),
+                                         "--sim-time-limit")
+            index += 1
+        elseif startswith(argument, "--cpu-time-limit=")
+            cpu_time_limit = _time_value(_assigned(argument, "--cpu-time-limit"),
+                                         "--cpu-time-limit")
+            index += 1
+        elseif startswith(argument, "--cmdenv-express-mode=")
+            express_mode = _boolean_value(_assigned(argument, "--cmdenv-express-mode"),
+                                          "--cmdenv-express-mode")
+            index += 1
+        elseif startswith(argument, "--result-recording=")
+            result_recording = _boolean_value(_assigned(argument, "--result-recording"),
+                                              "--result-recording")
+            index += 1
+        elseif startswith(argument, "--record-eventlog=")
+            # There is no event log to turn off, so the only answer this runner
+            # can honour is the one that asks for none.
+            _boolean_value(_assigned(argument, "--record-eventlog"),
+                           "--record-eventlog") &&
+                throw(CommandLineError("--record-eventlog=true is not available — " *
+                                       "$PROGRAM_NAME writes no event log"))
+            index += 1
         elseif startswith(argument, "--result-dir=")
             result_dir = argument[length("--result-dir=") + 1:end]
             isempty(result_dir) &&
                 throw(CommandLineError("--result-dir= needs a directory"))
             index += 1
-        elseif argument == "--result-dir"
-            throw(CommandLineError("write --result-dir=<dir>, with the '='"))
+        elseif argument in ("--result-dir", "--sim-time-limit", "--cpu-time-limit",
+                            "--cmdenv-express-mode", "--result-recording",
+                            "--record-eventlog", "--engine", "--workers")
+            throw(CommandLineError("write $argument=<value>, with the '='"))
         elseif startswith(argument, "-")
             throw(CommandLineError("unknown option '$argument' — " *
                                    "run $PROGRAM_NAME -h for the ones that exist"))
@@ -252,7 +407,16 @@ function parse_command_line(arguments::AbstractVector{<:AbstractString};
     isempty(ini_files) && push!(ini_files, "omnetpp.ini")
     # The command line counts runs from 0 and everything below it counts from
     # 1. This is the one line where that is true.
-    Options(user_interface, ini_files, config, run_number + 1, ned_path, result_dir)
+    # A worker count the engine cannot use is refused rather than dropped: the
+    # sequential engine has no workers, so a number that does nothing here
+    # would be a lie no output shows.
+    engine === :sequential && workers !== nothing &&
+        throw(CommandLineError("--workers is for the parallel engine, and this " *
+                               "run is sequential — write --engine=parallel too"))
+
+    Options(user_interface, engine, workers, ini_files, config, run_number + 1,
+            ned_path, result_dir, sim_time_limit, cpu_time_limit, express_mode,
+            result_recording)
 end
 
 end # module CommandLineModule

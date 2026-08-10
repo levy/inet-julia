@@ -88,32 +88,58 @@ Both are changes in `omnetpp-julia`, and the `[sources]` of this repository
 reach that repository's **main checkout**, so neither is usable here until it
 lands on `main`.
 
-### Phase 1 — the five options
+### Phase 1 — the five options — **done**
 
-- [ ] `Options` gains `sim_time_limit`, `cpu_time_limit`, `express_mode` and
+- [x] `Options` gains `sim_time_limit`, `cpu_time_limit`, `express_mode` and
       `result_recording`, with the sibling's types and defaults.
-- [ ] `parse_command_line` reads all five, refuses `--record-eventlog=true`,
-      and refuses a second `-f` (§3.1).
-- [ ] `run_options` honours them: the limit wins over the configuration's, the
-      recorder is not attached when recording is off, and no result file is
-      written then.
-- [ ] The help text lists them.
+- [x] `parse_command_line` reads all five, refuses `--record-eventlog=true`,
+      and refuses a second `-f` (§3.1). The value helpers are the sibling's,
+      including `parse_omnetpp_quantity`, so `100s`, `1000ms` and a bare number
+      mean here what they mean in an INI file.
+- [x] `run_options` honours them: the limit wins over the configuration's, no
+      recorder is built when recording is off, and the run then says
+      `Results: none — recording is off.` rather than naming files it did not
+      write.
+- [x] The help text lists them.
 
-**Check.** The reference run of `plan/done/native-simulation-binary.md` phase 6
-writes the same scalars it recorded, and `--result-recording=false` writes no
-file at all.
+**Check — done.** `--sim-time-limit=3s` cuts `ActiveSourcePassiveSink` from
+t=10.0 to t=3.0. `--result-recording=false` creates no result directory at all.
+`--record-eventlog=true` and a second `-f` are refused by name.
 
-### Phase 2 — the engine
+**Two assertions had to change, and both were the plan's own point.**
+`command_line.jl` and `run.jl` each asserted that `--sim-time-limit=100s` is
+refused — the exact drift this plan removes. They now assert the refusal of an
+option that still does not exist, which keeps the intent the comment states:
+an option this build does not honour must not be quietly dropped.
 
-- [ ] `--engine=` and `--workers=`, read by the same code the sibling uses.
-- [ ] `check_engine` — the thread refusal.
-- [ ] `run_options` passes the spec to `run_network!`.
-- [ ] `--build-info` prints the thread count and the default engine.
+### Phase 2 — the engine — **done**
 
-**Check.** One queueing configuration run on each engine, and the two scalar
-files compared. They must differ only in the moment, the process id and the
-result directory. If they differ anywhere else, the engine moved the answer and
-that is a defect in the engine, not in this plan.
+- [x] `--engine=` and `--workers=`, with the sibling's names and refusals.
+- [x] `check_engine` — the thread refusal, naming `JULIA_NUM_THREADS`.
+- [x] `--build-info` prints the thread count.
+- [x] `run_options` passes the spec to the **pipeline** — see below.
+
+**§4 chose the wrong road, and `--cpu-time-limit` is why.** That section said to
+give `run_network!` an `engine` keyword and leave the pipeline to whoever needs
+the statistic overrides. The keyword landed on `omnetpp-julia` main and is worth
+having for its other callers, but this runner did not end up using it: the
+shorthand takes a **simulation time**, and phase 1 has to carry a wall-clock
+limit as well, which only a whole `SimulationLimit` expresses. So `run_options`
+walks `initialize → check → prepare → run → finish` like the sibling's runner,
+which is eight lines and gets the engine, both limits and the recording switch
+at once.
+
+**One defect the switch surfaced.** The report read `engine.time` and
+`engine.stop_reason` — fields of the sequential engine. A parallel engine keeps
+its clock as `frontier_time`, so the first parallel run finished the simulation
+and then threw on the report. It reads `simulation_time(execution)` and
+`simulation_stop_reason(execution)` now, which answer the same way whichever
+engine ran.
+
+**Check — done.** `ActiveSourcePassiveSink` run on each engine writes scalar
+files that are identical line for line, apart from the moment, the process id
+and the result directory. The suite is 188 tests green, with threads and
+without.
 
 ### Phase 3 — the editor executable
 
