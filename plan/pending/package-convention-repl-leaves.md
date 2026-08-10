@@ -35,18 +35,19 @@ with 0.000 s of recompilation.
 - [x] 2. New `package/repl/` (loaded by an environment under `env/`) → `InetRepl`, depending on `InetTest` and
       `ProjecturedSdl`, with the Preferences-driven level and `set_workload!`.
       No `@compile_workload` anywhere else in this repository.
-- [ ] 3. The layering test: nothing depends on `InetRepl`; no `Example` is a
-      dependency of a non-`Example`; each package's external dependencies match
-      a written list.
-- [ ] 4. The `ji` alias becomes `using Revise, InetRepl`. Revise stays first and
+- [ ] 3. The layering test. **Still owed here** — `documentation/packages.md`
+      states the rules, but nothing asserts them in this repository yet. The
+      counterparts are `test_package_graph()` in projectured-julia and
+      omnetpp-julia.
+- [x] 4. The `ji` alias becomes `using Revise, InetRepl`. Revise stays first and
       stays out of the package's dependencies.
 - [ ] 5. `InetQueuingExample` stops depending on `Test`. An example package does
       not need the test standard library; move what uses it into
       `InetQueuingTest`.
-- [ ] 6. `documentation/packages.md`: the five kinds, the dependency table, and
-      the leaf the `ji` alias loads.
-- [ ] 7. Measure the first click at each level, so this repository has a
-      baseline of its own.
+- [x] 6. `documentation/packages.md`, with `architecture.md` and `CLAUDE.md`
+      pointing at it.
+- [x] 7. Measured at `:demo`: `using InetRepl` 2.77 s, the catalog's first paint
+      0.162 s with 0.000 s of recompilation.
 
 ## The dependency map this repository should hold
 
