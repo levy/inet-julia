@@ -42,6 +42,35 @@ and a model builds a `Network` by hand with `add_module!` and `connect!`.
 `InetCommon` holds the interface lookup that replaces INET's protocol
 registration.
 
+### What upstream has, so this plan does not invent a third path
+
+`omnetpp-julia` settled the question of what a NED-built network *is*
+(`plan/done/ned-models-are-models.md`): **a built `Network` is a model.**
+`NetworkModel` implements the engine's four questions over a module tree, so a
+network read out of NED is instantiated, prepared, run, held, stepped and
+watched by the same pipeline a hand-written model is. Registering one is two
+calls — `register_network_model!(name; build, space, description, statistics)`
+and `network_model_type(name)` — where `build` wires a tree from resolved
+parameters and must be repeatable, because a reset is a fresh tree.
+`OmnetppTictoc`'s `Catalog.jl` is eight lines of exactly that, and
+`documentation/model-migration.md` §5.6 is the written procedure.
+
+There is also `OmnetppRunner`'s `ned_network_model(; ini_path, config,
+ned_directories, run_number)` — the same registration with the paths as
+arguments instead of as constants. Its own docstring says it belongs one layer
+down, in `OmnetppDescription`, once a second caller has proved the shape. **This
+plan is that second caller.** Use it, and if it fits, move it down rather than
+copying it.
+
+**Land on that.** A migration that ends in a network only `run_network!` can
+drive is not finished — it has no execution to start, hold, step or watch, so
+nothing in the editor can show it.
+
+`run_network!` itself is unchanged and is not going away: this repository's 54
+call sites keep working. It is now the one-call shorthand over that same
+pipeline rather than a second way of running a network, so a run started here
+and a run started from a window are the same run.
+
 ## 3. The element inventory
 
 The tutorial names 49 concrete types and 6 contract interfaces. The table
