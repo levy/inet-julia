@@ -137,10 +137,26 @@ and then threw on the report. It reads `simulation_time(execution)` and
 `simulation_stop_reason(execution)` now, which answer the same way whichever
 engine ran.
 
-**Check — done.** `ActiveSourcePassiveSink` run on each engine writes scalar
-files that are identical line for line, apart from the moment, the process id
-and the result directory. The suite is 188 tests green, with threads and
-without.
+**Check — the plan asked for the wrong check, and it is withdrawn.** This phase
+first compared `ActiveSourcePassiveSink` on the two engines and reported them
+identical. A later run of the same comparison, through the built executable,
+gave 11 packets on the sequential engine and 12 on the parallel one.
+
+**The comparison does not belong in this repository at all.** A queuing element
+pushes and pulls a packet by calling its peer directly, and it may find that
+peer through a lookup rather than through a gate. The parallel engine colours
+an event green when nothing can still produce something that must precede it,
+and it learns what "anything" is from the wiring — so a call that never becomes
+an edge is an interaction the colourer cannot see. The engine's assumption does
+not hold for these models, and a disagreement is that assumption breaking
+rather than a defect in either engine.
+
+`omnetpp-julia`'s `EngineInvarianceTest.jl` is where the invariance is asserted,
+on a NED network whose channels carry delays. **This repository asserts
+nothing about it**, and `package/runner/doc/runner.md` says why.
+
+The suite is 188 tests green, with threads and without. `--engine` stays: it is
+the runner's option and this runner accepts the whole set.
 
 ### Phase 3 — the editor executable
 

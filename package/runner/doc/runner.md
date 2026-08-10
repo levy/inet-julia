@@ -42,8 +42,25 @@ short of it: this program hands its whole command line to `julia_main`, so
 Julia's own option reader never sees a `--threads`, and the count comes from
 the environment. `--build-info` prints how many threads the process got.
 
-Measured here on `ActiveSourcePassiveSink`: the two engines write result files
-that are identical line for line.
+**Do not expect the two engines to agree on a queuing model.** The parallel
+engine's safety rests on every interaction between modules being visible to it
+as a connection with a delay: it colours an event green when nothing anywhere
+can still produce something that must precede it, and it learns "anywhere" from
+the wiring. A queuing element pushes and pulls a packet by **calling its peer
+directly**, and it may find that peer through a lookup rather than through a
+gate, so the interaction never becomes an edge and the colourer never knows it
+happened.
+
+Measured on `ActiveSourcePassiveSink`, which states `sim-time-limit = 10s`: the
+sequential engine records 11 packets and the parallel one 12. That is the
+assumption not holding, and not a defect to report.
+
+So `--engine=parallel` is here because it is the runner's option and this
+runner accepts the whole set — not because this repository's models suit it.
+The models it suits are the ones whose modules only ever reach each other
+through a connection that costs time, which is what a NED channel delay
+declares. `omnetpp-julia` tests the engines against each other on one of those,
+and this repository does not test it at all.
 
 **The run walks the pipeline, not `run_network!`.** The shorthand takes a
 simulation time, and this runner has to carry a wall-clock limit as well, which
