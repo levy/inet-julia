@@ -75,6 +75,14 @@ runner draws nothing. That rule is checked, not stated — see below.
   `[sources]` and asserts it. See
   [native-simulation-binary.md](../plan/done/native-simulation-binary.md).
 
+  The build takes parameters. `tool/Build.jl` is the builder and
+  `tool/build_binary.jl` is a front end over it: the name, how much the build
+  compiles ahead of time, and which processor the image is for. They reach the
+  program as preferences, and `--build-info` prints them back. A second
+  executable that also draws is planned in
+  [executable-with-user-interface.md](../plan/pending/executable-with-user-interface.md);
+  `-u Editor` is already a name the command line reads and this build refuses.
+
 New material goes into the *lowest* package where it makes sense. A second
 protocol is a slice inside `linklayer`, not a package of its own; a package is
 earned by a genuinely different dependency set or consumer set, because it costs
