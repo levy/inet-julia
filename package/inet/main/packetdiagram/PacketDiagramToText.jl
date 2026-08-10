@@ -207,8 +207,10 @@ function _cell_value(bands, cell::DiagramCell, width::Int, legend)
 end
 
 # In the order a reader loses the least: what the field means, then the same
-# number in hexadecimal, then in decimal.
+# number in hexadecimal, then in decimal. A field wider than 64 bits has no
+# number — `value` is zero for it — so it offers what it means and nothing else.
 _value_forms(field) =
+    field.width > 64 ? String[field.text] :
     unique(String[field.text,
                   "0x" * string(field.value, base = 16, pad = cld(field.width, 4)),
                   string(field.value)])

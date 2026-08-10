@@ -10,7 +10,16 @@ INET declares as a `FieldsChunk`, and it says which ones `@header` can already
 express. Second, it names every capability that is missing, groups the missing
 capabilities into seven categories, and designs each one.
 
-Status: **IN PROGRESS**. Phase 0 is done. §7 marks each phase as it lands.
+Status: **IN PROGRESS**. Phases 0 and 1 are done. §7 marks each phase as it
+lands, and the gate each one passed.
+
+Phase 1 delivered A2 to A6 and the value types the rest of the plan builds on:
+a byte order for each field, signed fields over the declared width, a field
+wider than 64 bits (`Ipv6Address`), a model-only field and a wire-only field.
+`Ipv6Header` is the proof, and it is declared from the serializer's field
+order, not the message file's. The A5 value types the later waves need —
+`ClockTime`, `FixedString`, `VariableLengthInteger`, `PortIdentity` — land with
+the wave that first declares one; the protocol that admits them is in place.
 
 ## 1. What the plan delivers
 
@@ -219,10 +228,15 @@ field_read(io, ::Type{T}, w, order)     = field_decode(T, read_bits!(io, w, orde
 
 `Ipv6Address` then defines the new pair directly and writes two 64-bit halves.
 
-The layout descriptor has the same 64-bit limit in `field_bits`. Add
-`field_text(::Type{T}, value, base)::String`, which the descriptor calls when
-the width is above 64. `field_bits` keeps its meaning for narrow fields, which
-is what the packet diagram uses.
+The layout descriptor has the same 64-bit limit in `field_bits`. `field_bits`
+keeps its meaning for a narrow field and throws for a wide one, and
+`field_text(h, spec)` answers for both — a wide value prints itself. A reader
+asks `has_bits(spec)` first.
+
+Phase 1 found one more thing the descriptor needs. A wire-only field (A6) has
+no struct field, so `field_bits` looked for one that is not there and every
+view of such a header crashed. `FieldSpec` therefore carries `constant`, and
+`field_value(h, spec)` reads the struct or the constant as the spec says.
 
 #### A5. A field that is not a number
 
@@ -246,9 +260,13 @@ fields) and `FcsMode` say whether a checksum is declared, computed or disabled.
 
 **Design.** Two rules, both about width.
 
-- `reserved :: UInt8 | 4 | const(0x00)` — a **wire-only** line. It takes width
-  on the wire, the macro emits no struct field, and the reader discards the
-  bits. `const` names the value the writer emits.
+- `reserved :: UInt8 | 4 | constant(0x00)` — a **wire-only** line. It takes
+  width on the wire, the macro emits no struct field, and the reader discards
+  the bits. `constant` names the value the writer emits.
+
+  The clause is `constant`, not `const`, because `const` is a reserved word:
+  `a :: UInt8 | 4 | const(0x00)` is a syntax error before the macro ever sees
+  it. Found in Phase 1.
 - `checksum_mode :: ChecksumMode | 0 = CHECKSUM_DECLARED` — a **model-only**
   field. A zero width means the field is in the struct and not on the wire. One
   rule covers `ChecksumMode`, `FcsMode` and every other piece of model state.
@@ -621,7 +639,7 @@ name :: Type | width | base | order | clause(expr) … = default
 
 | clause | category | meaning |
 | --- | --- | --- |
-| `const(v)` | A6 | wire-only; write `v`, discard on read |
+| `constant(v)` | A6 | wire-only; write `v`, discard on read |
 | `derive(expr)` | B1 | write the computed value, read and keep the wire value |
 | `checksum(f)` | B2 | a `derive` that obeys `checksum_mode` |
 | `check(expr)` | B3 | mark incorrect on read, throw on write |
@@ -716,7 +734,7 @@ Each phase ends with a green test and a commit. The test command is
 | phase | delivers | gate |
 | --- | --- | --- |
 | 0 ✅ | `tool/inventory_headers.jl`, and the generated inventory it writes | the inventory reproduces the numbers of §2 |
-| 1 | A2 to A6: the value protocol, byte order, signed, wide, model-only, wire-only | the five headers of today round-trip unchanged; `Ipv6Header` is declarable |
+| 1 ✅ | A2 to A6: the value protocol, byte order, signed, wide, model-only, wire-only | the five headers of today round-trip unchanged; `Ipv6Header` is declarable |
 | 2 | B1 to B3: `derive`, `checksum`, `check`, real `quality` | a malformed IPv4 version marks incorrect and does not throw |
 | 3 | C1 to C4: instance length, byte tail, padding, cursor | every fixed header behaves as before; `peek` finds a variable header |
 | 4 | D1: vector fields | an IGMPv3 report round-trips |

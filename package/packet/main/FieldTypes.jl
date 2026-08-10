@@ -9,6 +9,14 @@
 #
 # The integer types answer all four by default, so a header that declares only
 # `UInt8` and `UInt16` fields needs nothing from this file.
+#
+# `field_encode` and `field_decode` carry the bits through a `UInt64`, which
+# stops at 64 bits. An `Ipv6Address` is 128 bits wide, so a second pair,
+# `field_write` and `field_read`, owns the stream instead of a number. That
+# pair is what the macro calls. A type that answers only the `UInt64` pair
+# still works, because the default `field_write` is `write_bits!` of
+# `field_encode`. Sign extension also belongs to the wide pair: it needs the
+# declared width, which `field_decode` never sees.
 # ============================================================================
 
 # ---------- the protocol ----------------------------------------------------
@@ -38,9 +46,34 @@ function field_decode end
     field_base(::Type{T}, width::Int)::Symbol
 
 How a reader wants to see a `T` field of `width` bits: `:bin`, `:dec`, `:hex`,
-`:mac`, `:ipv4` or `:enum`. A declaration overrides this with a third segment.
+`:mac`, `:ipv4`, `:ipv6` or `:enum`. A declaration overrides this with a
+display-base segment.
 """
 function field_base end
+
+"""
+    field_write(io::BitWriter, ::Type{T}, value, width::Int, order::Symbol)
+
+Write `value` as a `T` field of `width` bits, in byte order `order`. This is
+what `@header` calls. Define it for a type that is wider than 64 bits or that
+needs the width to encode; every other type inherits the default below.
+"""
+function field_write end
+
+"""
+    field_read(io::BitReader, ::Type{T}, width::Int, order::Symbol)::T
+
+Read a `T` field of `width` bits, in byte order `order`. The inverse of
+`field_write`.
+"""
+function field_read end
+
+# The default: carry the bits through a `UInt64`, which is what a field of 64
+# bits or fewer needs.
+field_write(io::BitWriter, ::Type{T}, value, width::Int, order::Symbol) where {T} =
+    write_bits!(io, field_encode(T, value), width, order)
+field_read(io::BitReader, ::Type{T}, width::Int, order::Symbol) where {T} =
+    field_decode(T, read_bits!(io, width, order))
 
 # ---------- the integer types -----------------------------------------------
 
@@ -52,6 +85,25 @@ field_decode(::Type{T}, bits::UInt64) where {T <: Unsigned} = T(bits)
 # bytes reads as a number. Everything else is a per-field override.
 field_base(::Type{T}, width::Int) where {T <: Unsigned} =
     width % 8 == 0 ? :dec : :bin
+
+# A signed field is two's complement over its DECLARED width, not over the
+# width of its Julia type. `Int16(-1)` in a 12-bit field is `0xfff` on the wire
+# and must read back as `-1`, so the decode needs the width and therefore lives
+# in `field_read`. `field_decode` keeps the natural width, for the descriptor.
+field_width(::Type{T}) where {T <: Signed} = sizeof(T) * 8
+field_encode(::Type{T}, value::Signed) where {T <: Signed} = UInt64(unsigned(value))
+field_decode(::Type{T}, bits::UInt64) where {T <: Signed} = T(sign_extend(bits, sizeof(T) * 8))
+field_base(::Type{T}, ::Int) where {T <: Signed} = :dec
+
+field_read(io::BitReader, ::Type{T}, width::Int, order::Symbol) where {T <: Signed} =
+    T(sign_extend(read_bits!(io, width, order), width))
+
+"The value of `width` two's complement bits, as a signed number."
+function sign_extend(bits::UInt64, width::Int)
+    width >= 64 && return reinterpret(Int64, bits)
+    sign = UInt64(1) << (width - 1)
+    return iszero(bits & sign) ? Int64(bits) : Int64(bits) - (Int64(1) << width)
+end
 
 field_width(::Type{Bool}) = 1
 field_encode(::Type{Bool}, value::Bool) = UInt64(value)
@@ -147,6 +199,114 @@ field_width(::Type{Ipv4Address}) = 32
 field_encode(::Type{Ipv4Address}, a::Ipv4Address) = UInt64(a.value)
 field_decode(::Type{Ipv4Address}, bits::UInt64) = Ipv4Address(UInt32(bits))
 field_base(::Type{Ipv4Address}, ::Int) = :ipv4
+
+# ---------- Ipv6Address -----------------------------------------------------
+
+"""
+    Ipv6Address(high, low)
+    Ipv6Address(text)
+
+A 128-bit IPv6 address, as two 64-bit halves. It prints in the form RFC 5952
+asks for: lower-case hex, no leading zero in a group, and `::` over the longest
+run of zero groups.
+
+This is the type that the `UInt64` of `field_encode` cannot carry, so it
+defines `field_write` and `field_read` instead.
+"""
+struct Ipv6Address
+    high::UInt64
+    low::UInt64
+end
+
+Ipv6Address(groups::NTuple{8, <:Integer}) =
+    Ipv6Address(foldl((a, g) -> (a << 16) | UInt64(g), groups[1:4]; init = UInt64(0)),
+                foldl((a, g) -> (a << 16) | UInt64(g), groups[5:8]; init = UInt64(0)))
+
+# An identity constructor, so a value that is already an `Ipv6Address` may be
+# passed wherever one is built from text.
+Ipv6Address(v::Ipv6Address) = v
+
+"The eight 16-bit groups of an address, most significant first."
+ipv6_groups(a::Ipv6Address) =
+    ntuple(i -> UInt16(((i <= 4 ? a.high : a.low) >> (16 * (4 - mod1(i, 4)))) & 0xffff), 8)
+
+function Ipv6Address(text::AbstractString)
+    left, _, right = partition_once(text, "::")
+    head = isempty(left) ? UInt16[] : [parse(UInt16, p, base = 16) for p in split(left, ':')]
+    tail = isempty(right) ? UInt16[] : [parse(UInt16, p, base = 16) for p in split(right, ':')]
+    if occursin("::", text)
+        Base.length(head) + Base.length(tail) <= 7 ||
+            error("Ipv6Address: `::` needs a run of at least one zero group in $(repr(text))")
+        groups = vcat(head, zeros(UInt16, 8 - Base.length(head) - Base.length(tail)), tail)
+    else
+        groups = head
+        Base.length(groups) == 8 ||
+            error("Ipv6Address: expected eight groups, got $(repr(text))")
+    end
+    return Ipv6Address(NTuple{8, UInt16}(groups))
+end
+
+"Split `text` at the first `separator`, into the part before, the separator and the part after."
+function partition_once(text::AbstractString, separator::AbstractString)
+    at = findfirst(separator, text)
+    at === nothing && return (text, "", "")
+    return (text[begin:prevind(text, first(at))], separator, text[nextind(text, last(at)):end])
+end
+
+# The longest run of zero groups, as a range, or `nothing` when there is none.
+# RFC 5952 shortens only a run of two or more, and takes the leftmost longest.
+function longest_zero_run(groups::NTuple{8, UInt16})
+    best = nothing
+    start = nothing
+    for i in 1:9
+        zero = i <= 8 && iszero(groups[i])
+        if zero && start === nothing
+            start = i
+        elseif !zero && start !== nothing
+            run = start:(i - 1)
+            if Base.length(run) >= 2 && (best === nothing || Base.length(run) > Base.length(best))
+                best = run
+            end
+            start = nothing
+        end
+    end
+    return best
+end
+
+function Base.show(io::IO, a::Ipv6Address)
+    groups = ipv6_groups(a)
+    text(i) = string(groups[i], base = 16)
+    run = longest_zero_run(groups)
+    if run === nothing
+        print(io, join((text(i) for i in 1:8), ":"))
+    else
+        print(io, join((text(i) for i in 1:(first(run) - 1)), ":"), "::",
+                  join((text(i) for i in (last(run) + 1):8), ":"))
+    end
+end
+
+Base.convert(::Type{Ipv6Address}, text::AbstractString) = Ipv6Address(text)
+
+const IPV6_UNSPECIFIED = Ipv6Address(0, 0)
+const IPV6_LOOPBACK    = Ipv6Address(0, 1)
+
+field_width(::Type{Ipv6Address}) = 128
+field_base(::Type{Ipv6Address}, ::Int) = :ipv6
+
+function field_write(io::BitWriter, ::Type{Ipv6Address}, a::Ipv6Address,
+                     width::Int, order::Symbol)
+    width == 128 || error("Ipv6Address: expected a 128-bit field, got $width")
+    order === :be || error("Ipv6Address: an address is written in network order")
+    write_bits!(io, a.high, 64)
+    write_bits!(io, a.low, 64)
+end
+
+function field_read(io::BitReader, ::Type{Ipv6Address}, width::Int, order::Symbol)
+    width == 128 || error("Ipv6Address: expected a 128-bit field, got $width")
+    order === :be || error("Ipv6Address: an address is read in network order")
+    high = read_bits!(io, 64)
+    return Ipv6Address(high, read_bits!(io, 64))
+end
 
 # ---------- EtherType -------------------------------------------------------
 

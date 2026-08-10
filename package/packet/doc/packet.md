@@ -99,15 +99,50 @@ A field's type answers four questions, and any type may answer them:
     field_decode(::Type{T}, bits::UInt64)::T # the value that comes back
     field_base(::Type{T}, width::Int)        # how a reader wants to see it
 
-`FieldTypes.jl` answers them for the unsigned integers, `Bool` and any `Enum`,
-and declares five types of its own: `MacAddress` (48 bits, prints as
-`0a:00:00:00:00:01`), `Ipv4Address` (32, `10.0.0.1`), `EtherType` (16,
-`IPv4 (0x0800)`), `IpProtocol` (8, `UDP (17)`) and `PortNumber` (16). An
-`Integer` converts into any of them, so a call site may still pass a number.
+A `UInt64` stops at 64 bits, and an `Ipv6Address` is 128. A second pair owns
+the stream instead of a number, and it is the pair the macro calls:
+
+    field_write(io::BitWriter, ::Type{T}, value, width::Int, order::Symbol)
+    field_read(io::BitReader, ::Type{T}, width::Int, order::Symbol)::T
+
+A type that answers only the first four still works: the default `field_write`
+is `write_bits!` of `field_encode`. Define the wide pair when the type is wider
+than 64 bits, or when the decode needs the declared width — which is why the
+signed integers define it. `Int16(-1)` in a 12-bit field is `0xfff` on the
+wire, and it must read back as `-1`.
+
+`FieldTypes.jl` answers them for the unsigned and the signed integers, `Bool`
+and any `Enum`, and declares six types of its own: `MacAddress` (48 bits,
+prints as `0a:00:00:00:00:01`), `Ipv4Address` (32, `10.0.0.1`), `Ipv6Address`
+(128, `2001:db8::1`), `EtherType` (16, `IPv4 (0x0800)`), `IpProtocol` (8,
+`UDP (17)`) and `PortNumber` (16). An `Integer` converts into any of the narrow
+ones, so a call site may still pass a number.
 
 The default display base depends on the declared width, not the type alone: a
 field that is not a whole number of bytes reads as bits, and a whole number of
 bytes reads as a number. `| hex`, `| dec` and the rest override it per field.
+
+### Byte order, wire-only and model-only fields
+
+Three more segments make a declaration say things it could not before.
+
+    duration      :: UInt16 | 16 | le             # least significant byte first
+    signature     :: UInt8  | 8  | constant(0x4E) # on the wire, not in the struct
+    checksum_mode :: ChecksumMode | 0 = DECLARED  # in the struct, not on the wire
+
+`| le` is what IEEE 802.11 needs: it writes its Duration, Sequence Control and
+BA Control fields least significant byte first. A little-endian field must be a
+whole number of bytes, because the byte is the unit the order applies to.
+
+`constant(v)` makes a **wire-only** field. It takes width, writes `v`, discards
+what it reads, and no struct field holds it. That is a reserved field and a
+fixed delimiter. The clause is `constant` and not `const`, because `const` is a
+reserved word and the line would not parse.
+
+Width `0` makes a **model-only** field: in the struct, never on the wire. That
+is how a header carries state its protocol needs and its format does not, which
+is what INET's `ChecksumMode` and `FcsMode` are. It must have a default,
+because a reader has no bits to fill it with.
 
 ### The layout descriptor
 
@@ -119,10 +154,19 @@ declared:
         println(spec.name, " @", spec.offset, " +", spec.width, " ", spec.base)
     end
 
+The descriptor describes the **wire**: a `constant` field is a field of it, and
+a model-only field is not.
+
 `field_bits(h, spec)` reads one field's raw bits and `field_text(h, spec)`
 formats it — with an optional base, which is how a narrow view falls back to a
 shorter form. This is the only reflection a view of a packet needs, and it is
 computed from the same declaration the codec is, so the two cannot disagree.
+
+Three accessors go with it. `field_value(h, spec)` reads the struct, or the
+constant when the field is wire-only. `is_constant(spec)` says which of the
+two. `has_bits(spec)` says whether one `UInt64` describes the field at all — it
+is `false` for an `Ipv6Address`, and a view that asks `field_bits` for one gets
+an error rather than a wrong number.
 `Inet`'s packet diagram is drawn from it.
 
 ## The protocol headers
@@ -138,12 +182,19 @@ on nothing.
 | `Ieee8021qTag` | 4 | `protocol/Ethernet.jl` |
 | `EthernetFcs` | 4 | `protocol/Ethernet.jl` |
 | `Ipv4Header` | 20 | `protocol/Ipv4.jl` |
+| `Ipv6Header` | 40 | `protocol/Ipv6.jl` |
 | `UdpHeader` | 8 | `protocol/Udp.jl` |
 | `TcpHeader` | 20 | `protocol/Tcp.jl` |
 
 Every one of them is fixed-size: `ihl` is 5 and `data_offset` is 5, so no
 header here carries options. A variable-length tail needs a width that depends
-on a field the reader already read, which the macro does not express.
+on a field the reader already read, which the macro does not yet express —
+`plan/*/protocol-header-inventory.md` §C designs it.
+
+`Ipv6Header` is declared in the order `Ipv6HeaderSerializer.cc` writes, which
+is **not** the order `Ipv6Header.msg` declares. The two disagree about where
+the addresses go. The serializer is the wire format; a port that reads the
+message file alone gets the header wrong.
 
 ## R2 duality + R9 guard
 

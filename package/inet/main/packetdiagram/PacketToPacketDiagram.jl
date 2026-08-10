@@ -141,10 +141,13 @@ end
 
 function _header_band(header::Fields, offset::Int, quality::String)
     layout = header_layout(typeof(header))
+    # A field wider than 64 bits — an IPv6 address is 128 — has no `UInt64`, so
+    # `value` stays zero and the figure prints `text` alone. `_value_forms` in
+    # the printer reads `width` and offers a numeric form only when there is one.
     fields = Any[DiagramField(name   = String(spec.name),
                               offset = spec.offset,
                               width  = spec.width,
-                              value  = field_bits(header, spec),
+                              value  = has_bits(spec) ? field_bits(header, spec) : UInt64(0),
                               text   = field_text(header, spec),
                               base   = spec.base)
                  for spec in layout.fields]
