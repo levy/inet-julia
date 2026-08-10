@@ -79,6 +79,35 @@ BitReader(bytes::Vector{UInt8}, total_bits::Int) = BitReader(bytes, 0, total_bit
 
 remaining(r::BitReader) = r.total - r.bit_pos
 
+"Write a run of bytes. The writer need not be byte-aligned."
+function write_bytes!(w::BitWriter, data::AbstractVector{UInt8})
+    for byte in data
+        write_bits_be!(w, byte, 8)
+    end
+    return w
+end
+
+"Write `count` copies of `byte`."
+function write_byte_repeatedly!(w::BitWriter, byte::UInt8, count::Int)
+    for _ in 1:count
+        write_bits_be!(w, byte, 8)
+    end
+    return w
+end
+
+"""
+    pad_bits(offset::Int, boundary::BitLength)::Int
+
+The number of bits that take `offset` up to the next multiple of `boundary`.
+Zero when `offset` already sits on one.
+"""
+function pad_bits(offset::Int, boundary::BitLength)
+    unit = boundary.bits
+    unit > 0 || error("@pad: the boundary must be positive, got $boundary")
+    over = offset % unit
+    return over == 0 ? 0 : unit - over
+end
+
 "Read `n` bits as a `UInt64`, MSB-first inside each byte."
 function read_bits_be!(r::BitReader, n::Int)::UInt64
     r.bit_pos + n <= r.total ||
@@ -103,4 +132,23 @@ function read_bits!(r::BitReader, n::Int, order::Symbol = :be)::UInt64
         value |= read_bits_be!(r, 8) << (8 * i)
     end
     return value
+end
+
+"Read `count` bytes. The reader need not be byte-aligned."
+function read_bytes!(r::BitReader, count::Int)
+    count >= 0 ||
+        error("BitReader: a byte field cannot be $count bytes long")
+    data = Vector{UInt8}(undef, count)
+    for index in 1:count
+        data[index] = UInt8(read_bits_be!(r, 8))
+    end
+    return data
+end
+
+"Skip `n` bits, and refuse to run past the end."
+function skip_bits!(r::BitReader, n::Int)
+    r.bit_pos + n <= r.total ||
+        error("BitReader: skip of $n bits past end (have $(r.total - r.bit_pos))")
+    r.bit_pos += n
+    return r
 end

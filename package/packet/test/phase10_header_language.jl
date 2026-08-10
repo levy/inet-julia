@@ -421,3 +421,163 @@ end
           CHECKSUM_DECLARED
     @test_throws ErrorException with_field(computed, :nonesuch, 1)
 end
+
+# ============================================================================
+# Phase 3 of the plan — a length that the data decides.
+#
+#   cursor    `offset` and `remaining` are bound inside every clause, which is
+#             INET's `stream.getPosition()` and `getRemainingLength()`
+#   byte tail `length(expr)` and `rest`, which is how the option-carrying
+#             headers keep bytes they do not model
+#   padding   `@pad to Bytes(4)`, which is IPv4's and TCP's option padding
+#   length    `chunk_length` becomes a property of the value, so `peek` finds
+#             a header whose size it could not know in advance
+# ============================================================================
+
+@header TailProbe begin
+    kind  :: UInt8  | 8
+    count :: UInt16 | 16 | derive(UInt16(Base.length(body)))
+    body  :: Vector{UInt8} | length(Bytes(count))
+end
+
+@testset "a byte field takes its length from another field" begin
+    probe = TailProbe(0x01, 0x0000, UInt8[0xaa, 0xbb, 0xcc])
+    @test !is_fixed_length(TailProbe)
+    @test minimum_chunk_length(TailProbe) == Bytes(3)
+    @test chunk_length(probe) == Bytes(6)
+    @test hex10(to_bytes(probe)) == "01 00 03 aa bb cc"
+    # The bytes round-trip. The STRUCT does not compare equal, because `count`
+    # is derived: the writer computed 3 and the reader kept the 3 it read,
+    # while the struct above still says 0. That is the derive rule working.
+    @test to_bytes(from_bytes(TailProbe, to_bytes(probe))) == to_bytes(probe)
+    @test from_bytes(TailProbe, to_bytes(probe)).body == probe.body
+    @test from_bytes(TailProbe, to_bytes(probe)).count == 0x0003
+
+    # A different length is a different header, from the same declaration.
+    empty = TailProbe(0x01, 0x0000, UInt8[])
+    @test chunk_length(empty) == Bytes(3)
+    @test hex10(to_bytes(empty)) == "01 00 00"
+    @test from_bytes(TailProbe, to_bytes(empty)) == empty
+end
+
+@testset "a variable-length header has no length until it has a value" begin
+    # Asking the TYPE is a question with no answer, and the error says so.
+    @test_throws ErrorException chunk_length(TailProbe)
+    @test is_fixed_length(UdpHeader)
+    @test chunk_length(UdpHeader) == Bytes(8)
+    @test minimum_chunk_length(UdpHeader) == Bytes(8)
+end
+
+@testset "peek finds a variable-length header without being told its size" begin
+    probe = TailProbe(0x02, 0x0000, UInt8[0x01, 0x02, 0x03, 0x04])
+    source = Raw(to_bytes(probe))
+    @test peek(source, TailProbe).body == probe.body
+    # And it reports afterwards how much of the window it used.
+    @test chunk_length(peek(source, TailProbe)) == Bytes(7)
+    # A window too short for even the fixed part is incomplete.
+    @test_throws ErrorException peek(Raw(UInt8[0x02, 0x00]), TailProbe)
+end
+
+@header RestProbe begin
+    kind :: UInt8 | 8
+    tail :: Vector{UInt8} | rest
+end
+
+@testset "rest takes the remainder of the window" begin
+    @test hex10(to_bytes(RestProbe(0x09, UInt8[0xde, 0xad]))) == "09 de ad"
+    @test from_bytes(RestProbe, UInt8[0x09, 0xde, 0xad, 0xbe, 0xef]) ==
+          RestProbe(0x09, UInt8[0xde, 0xad, 0xbe, 0xef])
+    @test from_bytes(RestProbe, UInt8[0x09]) == RestProbe(0x09, UInt8[])
+    # Nothing may follow it, because there is nothing left for anything to read.
+    @test_throws LoadError @eval @header BadRestNotLast begin
+        tail  :: Vector{UInt8} | rest
+        after :: UInt8 | 8
+    end
+end
+
+@header PadProbe begin
+    kind  :: UInt8  | 8
+    count :: UInt8  | 8 | derive(UInt8(Base.length(body)))
+    body  :: Vector{UInt8} | length(Bytes(count))
+    @pad to Bytes(4) fill 0xff
+end
+
+@testset "padding takes the header up to a boundary" begin
+    # 2 fixed bytes + 1 body byte = 3, so one pad byte reaches 4.
+    one = PadProbe(0x01, 0x00, UInt8[0xaa])
+    @test chunk_length(one) == Bytes(4)
+    @test hex10(to_bytes(one)) == "01 01 aa ff"
+
+    # 2 + 2 = 4 already sits on the boundary, so no padding at all.
+    two = PadProbe(0x01, 0x00, UInt8[0xaa, 0xbb])
+    @test chunk_length(two) == Bytes(4)
+    @test hex10(to_bytes(two)) == "01 02 aa bb"
+
+    # 2 + 3 = 5 needs three more.
+    three = PadProbe(0x01, 0x00, UInt8[0xaa, 0xbb, 0xcc])
+    @test chunk_length(three) == Bytes(8)
+    @test hex10(to_bytes(three)) == "01 03 aa bb cc ff ff ff"
+
+    # The reader skips exactly what the writer wrote, so the bytes round-trip.
+    for probe in (one, two, three)
+        @test to_bytes(from_bytes(PadProbe, to_bytes(probe))) == to_bytes(probe)
+        @test from_bytes(PadProbe, to_bytes(probe)).body == probe.body
+    end
+end
+
+@testset "pad_bits is the rule both codecs use" begin
+    @test pad_bits(0, Bytes(4)) == 0
+    @test pad_bits(8, Bytes(4)) == 24
+    @test pad_bits(24, Bytes(4)) == 8
+    @test pad_bits(32, Bytes(4)) == 0
+    @test_throws ErrorException pad_bits(8, Bits(0))
+end
+
+# --- the cursor --------------------------------------------------------------
+
+@header CursorProbe begin
+    kind :: UInt8 | 8
+    here :: UInt8 | 8 | derive(UInt8(bytes(offset)))
+    also :: UInt8 | 8 | derive(UInt8(bytes(offset)))
+end
+
+@testset "offset is where the codec is, not where it started" begin
+    # Each field sees its own position, so the two derives disagree by one.
+    @test hex10(to_bytes(CursorProbe(0x00, 0x00, 0x00))) == "00 01 02"
+end
+
+# --- the layout under a variable length --------------------------------------
+
+@testset "the TYPE layout stops at the first variable entry" begin
+    layout = header_layout(TailProbe)
+    @test [f.name for f in layout.fields] == [:kind, :count]
+    @test layout.length == Bytes(3)
+end
+
+@testset "the INSTANCE layout has the widths this header actually has" begin
+    probe = TailProbe(0x01, 0x0000, UInt8[0xaa, 0xbb, 0xcc])
+    layout = header_layout(probe)
+    @test [f.name for f in layout.fields] == [:kind, :count, :body]
+    @test [f.offset for f in layout.fields] == [0, 8, 24]
+    @test [f.width for f in layout.fields] == [8, 16, 24]
+    @test layout.length == Bytes(6)
+
+    # A byte field is never a number, however short it is.
+    body = layout.fields[3]
+    @test !has_bits(body)
+    @test field_text(probe, body) == "aa bb cc"
+    @test_throws ErrorException field_bits(probe, body)
+
+    # Padding is in the instance layout too: the diagram must draw the bytes
+    # that are there.
+    padded = header_layout(PadProbe(0x01, 0x00, UInt8[0xaa]))
+    @test [f.name for f in padded.fields] == [:kind, :count, :body, :pad]
+    @test [f.width for f in padded.fields] == [8, 8, 8, 8]
+    @test padded.length == Bytes(4)
+end
+
+@testset "a fixed header keeps the layout it always had" begin
+    @test header_layout(UdpHeader) === header_layout(UdpHeader(src_port = 1, dst_port = 2,
+                                                               length = 8))
+    @test header_layout(Ipv6Header).length == Bytes(40)
+end

@@ -98,6 +98,22 @@ field_base(::Type{T}, ::Int) where {T <: Signed} = :dec
 field_read(io::BitReader, ::Type{T}, width::Int, order::Symbol) where {T <: Signed} =
     T(sign_extend(read_bits!(io, width, order), width))
 
+# ---------- a run of bytes --------------------------------------------------
+
+# A byte field carries its own length, so `field_width` has no answer and the
+# declaration must give one through `length(…)` or `rest`. It is never a
+# number, however short it is, which is what `field_has_bits` says.
+field_base(::Type{Vector{UInt8}}, ::Int) = :hex
+field_has_bits(::Type{<:AbstractVector}) = false
+
+"""
+    field_has_bits(::Type{T})::Bool
+
+Whether a `T` field is a number that one `UInt64` can hold. `false` for a run
+of bytes: a three-byte field would fit, and still is not a number.
+"""
+field_has_bits(::Type) = true
+
 "The value of `width` two's complement bits, as a signed number."
 function sign_extend(bits::UInt64, width::Int)
     width >= 64 && return reinterpret(Int64, bits)

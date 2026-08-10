@@ -10,7 +10,7 @@ INET declares as a `FieldsChunk`, and it says which ones `@header` can already
 express. Second, it names every capability that is missing, groups the missing
 capabilities into seven categories, and designs each one.
 
-Status: **IN PROGRESS**. Phases 0, 1 and 2 are done. §7 marks each phase as it
+Status: **IN PROGRESS**. Phases 0 to 3 are done. §7 marks each phase as it
 lands, and the gate each one passed.
 
 Phase 1 delivered A2 to A6 and the value types the rest of the plan builds on:
@@ -404,7 +404,7 @@ elements :: Vector{UInt8} | rest              # to the end of the window
 ```
 
 `rest` is only legal as the last line of a header, and it makes the header
-variable-length.
+variable-length. `length(expr)` may sit anywhere.
 
 #### C3. Padding and alignment
 
@@ -431,6 +431,15 @@ there.
 consumed or produced since the start of **this** header, and `remaining`, the
 bits left in the window. Both are `BitLength`. A clause may name either. This
 is what makes `until(offset == Bytes(4) * ihl)` readable in D2.
+
+Phase 3 found that the write side cannot walk the writer. A `check` must be
+able to refuse before any bits reach the caller's writer, and a `derive` must
+see the offset at its OWN field. So `serialize` walks twice: an arithmetic
+pass binds `offset`, computes every derived value and every padding width, and
+then the checks run; only then does the second pass write. `deserialize` walks
+once, because reading genuinely advances. `remaining` therefore exists on the
+read side alone — on the write side there is no window to have a remainder
+of.
 
 ### Category D — repetition
 
@@ -745,7 +754,7 @@ Each phase ends with a green test and a commit. The test command is
 | 0 ✅ | `tool/inventory_headers.jl`, and the generated inventory it writes | the inventory reproduces the numbers of §2 |
 | 1 ✅ | A2 to A6: the value protocol, byte order, signed, wide, model-only, wire-only | the five headers of today round-trip unchanged; `Ipv6Header` is declarable |
 | 2 ✅ | B1 to B3: `derive`, `check`, real `quality` (no `checksum` clause) | a malformed IPv4 version marks incorrect and does not throw |
-| 3 | C1 to C4: instance length, byte tail, padding, cursor | every fixed header behaves as before; `peek` finds a variable header |
+| 3 ✅ | C1 to C4: instance length, byte tail, padding, cursor | every fixed header behaves as before; `peek` finds a variable header |
 | 4 | D1: vector fields | an IGMPv3 report round-trips |
 | 5 | D2: TLV families | IPv4 options, TCP options and IPv6 options round-trip, in order, with an unknown code preserved |
 | 6 | E1 to E3: inheritance, variants, conditions | an ICMP echo request deserializes from an `IcmpHeader` window |

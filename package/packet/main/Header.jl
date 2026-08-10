@@ -69,7 +69,7 @@ function deserialize end
 
 const _FIELD_BASES  = (:bin, :dec, :hex, :mac, :ipv4, :ipv6, :enum)
 const _FIELD_ORDERS = (:be, :le)
-const _FIELD_CLAUSES = (:constant, :derive, :check)
+const _FIELD_CLAUSES = (:constant, :derive, :check, :length)
 
 # One field of a declaration, after the parse.
 #
@@ -82,6 +82,12 @@ const _FIELD_CLAUSES = (:constant, :derive, :check)
 #   value     the constant a `:constant` field writes
 #   derive    an expression the writer computes instead of reading the struct
 #   check     an expression that must hold, or `nothing`
+#   extent    for a byte field: `:rest`, or an expression giving its length;
+#             for a `:pad` entry: the boundary it aligns to
+#   fill      the byte a `:pad` entry writes
+#
+# `kind` also takes `:bytes` — a `Vector{UInt8}` whose length the data decides —
+# and `:pad`, which is a wire-only entry with no name of its own.
 struct FieldDecl
     name::Symbol
     type::Any
@@ -93,7 +99,12 @@ struct FieldDecl
     value::Any
     derive::Any
     check::Any
+    extent::Any
+    fill::Any
 end
+
+"Whether the entry's width depends on the instance rather than the declaration."
+is_variable(f::FieldDecl) = f.kind === :bytes || f.kind === :pad
 
 "What a failed check says. The expression is the message: it is what the
 declaration wrote, and a reader of the error wants to see exactly that."
@@ -138,6 +149,7 @@ function _parse_field(expr)
     value = nothing
     derive = nothing
     check = nothing
+    extent = nothing
     kind = :wire
     for segment in segments
         if segment isa Symbol
@@ -145,9 +157,13 @@ function _parse_field(expr)
                 base = segment
             elseif segment in _FIELD_ORDERS
                 order = segment
+            elseif segment === :rest
+                kind = :bytes
+                extent = :rest
             else
                 error("@header $name: unknown segment `$segment`; a display base is one of " *
-                      "$(_FIELD_BASES) and a byte order is one of $(_FIELD_ORDERS)")
+                      "$(_FIELD_BASES), a byte order is one of $(_FIELD_ORDERS), " *
+                      "and `rest` takes the remainder of the window")
             end
         elseif Meta.isexpr(segment, :call) && segment.args[1] in _FIELD_CLAUSES
             clause = segment.args[1]
@@ -159,6 +175,9 @@ function _parse_field(expr)
                 value = argument
             elseif clause === :derive
                 derive = argument
+            elseif clause === :length
+                kind = :bytes
+                extent = argument
             else
                 check = argument
             end
@@ -190,8 +209,35 @@ function _parse_field(expr)
         error("@header $name: a `constant` field already states its value, so it cannot `derive` one")
     kind === :model && derive !== nothing &&
         error("@header $name: a model-only field is not on the wire, so `derive` has nothing to write")
+    if kind === :bytes
+        width === nothing ||
+            error("@header $name: a byte field takes its width from `length` or `rest`, not from `| n`")
+        derive === nothing ||
+            error("@header $name: a byte field is its own value, so `derive` has nothing to compute")
+    end
 
-    return FieldDecl(name, type, kind, width, base, order, default, value, derive, check)
+    return FieldDecl(name, type, kind, width, base, order, default, value,
+                     derive, check, extent, nothing)
+end
+
+"Parse a `@pad to <boundary> fill <byte>` line into a wire-only entry."
+function _parse_pad(header, arguments)
+    boundary = nothing
+    fill = :(0x00)
+    index = 1
+    while index <= Base.length(arguments)
+        keyword = arguments[index]
+        keyword isa Symbol && keyword in (:to, :fill) ||
+            error("@header $header: `@pad` reads `to <boundary>` and `fill <byte>`, got $keyword")
+        index + 1 <= Base.length(arguments) ||
+            error("@header $header: `@pad $keyword` needs a value")
+        keyword === :to ? (boundary = arguments[index + 1]) : (fill = arguments[index + 1])
+        index += 2
+    end
+    boundary === nothing &&
+        error("@header $header: `@pad` needs `to <boundary>`")
+    return FieldDecl(:pad, :UInt8, :pad, nothing, nothing, :be, nothing, nothing,
+                     nothing, nothing, boundary, fill)
 end
 
 macro header(name, block)
@@ -209,16 +255,29 @@ macro header(name, block)
             push!(header_checks, arguments[1])
             continue
         end
+        if Meta.isexpr(line, :macrocall) && line.args[1] === Symbol("@pad")
+            push!(fields, _parse_pad(name, filter(a -> !(a isa LineNumberNode),
+                                                  line.args[2:end])))
+            continue
+        end
         push!(fields, _parse_field(line))
     end
     isempty(fields) && error("@header $name: no fields")
 
-    # The struct holds what the model has: the wire fields and the model-only
-    # fields, in declaration order. The wire holds what the format has: the
-    # wire fields and the constants.
-    stored = filter(f -> f.kind !== :constant, fields)
+    # The struct holds what the model has: the wire fields, the byte fields and
+    # the model-only fields, in declaration order. The wire holds what the
+    # format has: those, plus the constants and the padding.
+    stored = filter(f -> f.kind !== :constant && f.kind !== :pad, fields)
     isempty(stored) && error("@header $name: every field is `constant`, so the struct is empty")
     on_wire = filter(f -> f.kind !== :model, fields)
+
+    # A `rest` field eats what is left, so nothing can follow it.
+    for (index, f) in enumerate(fields)
+        f.kind === :bytes && f.extent === :rest && index != Base.length(fields) &&
+            error("@header $name.$(f.name): `rest` takes the whole remainder, " *
+                  "so it must be the last line")
+    end
+    fixed_length = !any(is_variable, on_wire)
 
     struct_fields = [Expr(:(::), esc(f.name), esc(f.type)) for f in stored]
 
@@ -226,7 +285,10 @@ macro header(name, block)
     # an integer and 48 for a `MacAddress`.
     M = @__MODULE__
     width_of(f) = f.width === nothing ? :($(M).field_width($(esc(f.type)))) : esc(f.width)
-    total_expr = isempty(on_wire) ? 0 : Expr(:call, :+, (width_of(f) for f in on_wire)...)
+    fixed_entries = filter(f -> !is_variable(f), on_wire)
+    minimum_expr = isempty(fixed_entries) ? 0 :
+                   Expr(:call, :+, (width_of(f) for f in fixed_entries)...)
+    total_expr = minimum_expr
 
     # Both codecs bind every field as a local of its own name, so a `derive` or
     # a `check` reads `ihl` rather than `h.ihl`. The header itself is `h`, and
@@ -235,11 +297,6 @@ macro header(name, block)
     # cannot have a field named `h`.
     header_var = esc(:h)
     bind_locals = [:($(esc(f.name)) = $(header_var).$(f.name)) for f in stored]
-    # A derive is arithmetic, and arithmetic in Julia widens to `Int`. Convert
-    # to the field's own type, so `derive(cld(bits(chunk_length(h)), 32))` on a
-    # `UInt8` field is a `UInt8` and not an `Int64` the codec cannot encode.
-    derive_locals = [:($(esc(f.name)) = convert($(esc(f.type)), $(esc(f.derive))))
-                     for f in on_wire if f.derive !== nothing]
     constant_locals = [:($(esc(f.name)) = $(esc(f.value)))
                        for f in on_wire if f.kind === :constant]
 
@@ -251,13 +308,58 @@ macro header(name, block)
                       error($(_check_message(name, field, expr, "refusing to serialize"))))
                     for (field, expr) in checks]
 
-    # serialize: bind, derive, check, write. `M.field_write` so the generated
-    # code doesn't rely on the caller having imported it.
+    # The cursor. `offset` is what this header has written or read so far, and
+    # `remaining` is what its window has left. Both are re-bound before every
+    # entry, because a clause reads them where it sits, not where the codec
+    # started. Both are escaped, for the same reason `h` is.
+    offset_var = esc(:offset)
+    remaining_var = esc(:remaining)
+    start_var = gensym(:start)
+    read_cursor = quote
+        $(offset_var) = $(M).Bits(io.bit_pos - $(start_var))
+        $(remaining_var) = $(M).Bits(io.total - io.bit_pos)
+    end
+
+    # serialize walks the entries TWICE. The first walk is arithmetic: it binds
+    # `offset` at each entry and computes the derived values and the padding
+    # widths there, without writing anything. The second walk writes.
+    #
+    # Two walks and not one, because a check must be able to refuse before any
+    # bits reach the caller's writer, and a derive must see the offset at its
+    # own position — `derive(UInt8(bytes(offset)))` is the position of THAT
+    # field, not of the header.
+    pad_widths = Dict{Int, Symbol}()
+    plan_steps = Expr[]
+    push!(plan_steps, :($(start_var) = 0))
+    for (index, f) in enumerate(on_wire)
+        push!(plan_steps, :($(offset_var) = $(M).Bits($(start_var))))
+        f.derive === nothing ||
+            push!(plan_steps, :($(esc(f.name)) = convert($(esc(f.type)), $(esc(f.derive)))))
+        if f.kind === :bytes
+            push!(plan_steps, :($(start_var) += 8 * Base.length($(esc(f.name)))))
+        elseif f.kind === :pad
+            local_width = gensym(:pad)
+            pad_widths[index] = local_width
+            push!(plan_steps, :($(local_width) = $(M).pad_bits($(start_var), $(esc(f.extent)))))
+            push!(plan_steps, :($(start_var) += $(local_width)))
+        else
+            push!(plan_steps, :($(start_var) += $(width_of(f))))
+        end
+    end
+
     write_calls = Expr[]
-    for f in on_wire
-        push!(write_calls,
-              :($(M).field_write(io, $(esc(f.type)), $(esc(f.name)),
-                                 $(width_of(f)), $(QuoteNode(f.order)))))
+    for (index, f) in enumerate(on_wire)
+        if f.kind === :bytes
+            push!(write_calls, :($(M).write_bytes!(io, $(esc(f.name)))))
+        elseif f.kind === :pad
+            push!(write_calls,
+                  :($(M).write_byte_repeatedly!(io, UInt8($(esc(f.fill))),
+                                                $(pad_widths[index]) >> 3)))
+        else
+            push!(write_calls,
+                  :($(M).field_write(io, $(esc(f.type)), $(esc(f.name)),
+                                     $(width_of(f)), $(QuoteNode(f.order)))))
+        end
     end
 
     # deserialize: read each field, then call the ctor. A constant is not in the
@@ -266,11 +368,37 @@ macro header(name, block)
     # default, because no bits carried it.
     read_body = Expr[]
     for f in on_wire
-        call = :($(M).field_read(io, $(esc(f.type)), $(width_of(f)), $(QuoteNode(f.order))))
-        push!(read_body, :($(esc(f.name)) = $call))
+        push!(read_body, read_cursor)
+        if f.kind === :bytes
+            count = f.extent === :rest ? :($(M).bits($(remaining_var)) >> 3) :
+                    :($(M).bits(convert($(M).BitLength, $(esc(f.extent)))) >> 3)
+            push!(read_body, :($(esc(f.name)) = $(M).read_bytes!(io, $count)))
+        elseif f.kind === :pad
+            push!(read_body,
+                  :($(M).skip_bits!(io,
+                      $(M).pad_bits($(M).bits($(offset_var)), $(esc(f.extent))))))
+        else
+            call = :($(M).field_read(io, $(esc(f.type)), $(width_of(f)), $(QuoteNode(f.order))))
+            push!(read_body, :($(esc(f.name)) = $call))
+        end
     end
     ctor_args = [f.kind === :model ? esc(f.default) : esc(f.name) for f in stored]
     ctor_call = Expr(:call, esc(name), ctor_args...)
+
+    # `chunk_length` of an INSTANCE walks the entries: a fixed one contributes
+    # its declared width, a byte field the length of its vector, and a pad
+    # whatever takes the running total to its boundary. For a header with no
+    # variable entry the walk folds to the same constant the type answers.
+    length_steps = Expr[]
+    for f in on_wire
+        if f.kind === :bytes
+            push!(length_steps, :(total += 8 * Base.length($(header_var).$(f.name))))
+        elseif f.kind === :pad
+            push!(length_steps, :(total += $(M).pad_bits(total, $(esc(f.extent)))))
+        else
+            push!(length_steps, :(total += $(width_of(f))))
+        end
+    end
 
     # A failed check on read gives the header back, marked incorrect. A packet
     # that arrived malformed is data, not a program error: the caller decides,
@@ -282,14 +410,38 @@ macro header(name, block)
     # method on the type. The const lives in the caller's module, beside the
     # struct it describes. It describes the WIRE, so a model-only field is
     # absent and a constant is present.
+    #
+    # A variable entry has no width until there is an instance, so the TYPE
+    # layout stops at the first one. `header_layout(h)` gives the whole thing.
+    described = Base.something(findfirst(is_variable, on_wire),
+                               Base.length(on_wire) + 1) - 1
+    fixed_prefix = on_wire[1:described]
     layout_const = esc(Symbol("_HEADER_LAYOUT_", name))
-    names_expr  = :(Symbol[$([QuoteNode(f.name) for f in on_wire]...)])
-    types_expr  = :(Type[$((esc(f.type) for f in on_wire)...)])
-    widths_expr = :(Int[$((width_of(f) for f in on_wire)...)])
+    names_expr  = :(Symbol[$([QuoteNode(f.name) for f in fixed_prefix]...)])
+    types_expr  = :(Type[$((esc(f.type) for f in fixed_prefix)...)])
+    widths_expr = :(Int[$((width_of(f) for f in fixed_prefix)...)])
     bases_expr  = :(Union{Symbol, Nothing}[$([f.base === nothing ? :nothing : QuoteNode(f.base)
-                                              for f in on_wire]...)])
+                                              for f in fixed_prefix]...)])
     constants_expr = :(Any[$((f.kind === :constant ? esc(f.value) : :nothing
-                              for f in on_wire)...)])
+                              for f in fixed_prefix)...)])
+
+    # The instance layout adds the variable entries, with the widths this
+    # header actually has. It is what a view of a real packet reads.
+    instance_steps = Expr[]
+    for f in on_wire[(described + 1):end]
+        width = f.kind === :bytes ? :(8 * Base.length($(header_var).$(f.name))) :
+                f.kind === :pad ? :($(M).pad_bits(at, $(esc(f.extent)))) :
+                width_of(f)
+        value = f.kind === :constant ? esc(f.value) :
+                f.kind === :pad ? :(UInt8($(esc(f.fill)))) : :nothing
+        push!(instance_steps, quote
+            let width = $width
+                push!(specs, $(M).FieldSpec($(QuoteNode(f.name)), $(esc(f.type)), at, width,
+                                            $(M).field_base($(esc(f.type)), width), $value))
+                at += width
+            end
+        end)
+    end
 
     # A field with a default earns the header a keyword constructor. A field
     # without one stays a required keyword, so a header with two defaults out of
@@ -313,17 +465,33 @@ macro header(name, block)
         Base.@__doc__ struct $(esc(name)) <: $(M).Fields
             $(struct_fields...)
         end
-        $(M).chunk_length(::$(esc(name))) = $(M).Bits($total_expr)
-        $(M).chunk_length(::Type{$(esc(name))}) = $(M).Bits($total_expr)
+        function $(M).chunk_length($(header_var)::$(esc(name)))
+            total = 0
+            $(length_steps...)
+            return $(M).Bits(total)
+        end
+        $(M).minimum_chunk_length(::Type{$(esc(name))}) = $(M).Bits($minimum_expr)
+        $(M).is_fixed_length(::Type{$(esc(name))}) = $(fixed_length)
+        # A variable-length header has no length until there is an instance, so
+        # the type-level method says which question to ask instead.
+        $(if fixed_length
+              :($(M).chunk_length(::Type{$(esc(name))}) = $(M).Bits($total_expr))
+          else
+              :($(M).chunk_length(::Type{$(esc(name))}) =
+                    error($(string("chunk_length(", name, "): the length depends on the ",
+                                   "instance; ask minimum_chunk_length, or chunk_length of a ",
+                                   "header you have"))))
+          end)
         function $(M).serialize(io::$(M).BitWriter, $(header_var)::$(esc(name)))
             $(bind_locals...)
             $(constant_locals...)
-            $(derive_locals...)
+            $(plan_steps...)
             $(write_checks...)
             $(write_calls...)
             return io
         end
         function $(M).deserialize(::Type{$(esc(name))}, io::$(M).BitReader)
+            $(start_var) = io.bit_pos
             $(read_body...)
             $(header_var) = $ctor_call
             $(if has_checks
@@ -341,10 +509,37 @@ macro header(name, block)
             $(QuoteNode(name)), $names_expr, $types_expr, $widths_expr, $bases_expr,
             $constants_expr)
         $(M).header_layout(::Type{$(esc(name))}) = $(layout_const)
+        $(if fixed_length
+              :()
+          else
+              quote
+                  function $(M).header_layout($(header_var)::$(esc(name)))
+                      specs = copy($(layout_const).fields)
+                      at = $(M).bits($(layout_const).length)
+                      $(instance_steps...)
+                      return $(M).HeaderLayout($(QuoteNode(name)), $(M).Bits(at), specs)
+                  end
+              end
+          end)
         $(kw_ctor === nothing ? :() : kw_ctor)
         # A quality accessor covering headers built by hand vs deserialised —
         # Phase 4 fills the misrepresented bit here.
         $(M).quality(::$(esc(name))) = $(M).Q_COMPLETE
+        # Field-wise equality. Julia's default `==` on an immutable struct is
+        # `===` once a field is not `isbits`, so a header with a byte field
+        # would never equal an identical one read back off the wire.
+        function Base.:(==)(a::$(esc(name)), b::$(esc(name)))
+            for field in fieldnames($(esc(name)))
+                getfield(a, field) == getfield(b, field) || return false
+            end
+            return true
+        end
+        function Base.hash(value::$(esc(name)), seed::UInt)
+            for field in fieldnames($(esc(name)))
+                seed = hash(getfield(value, field), seed)
+            end
+            return hash($(QuoteNode(name)), seed)
+        end
         function Base.show(io::IO, h::$(esc(name)))
             print(io, $(string(name)), "(")
             fs = fieldnames(typeof(h))

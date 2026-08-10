@@ -21,15 +21,25 @@ function peek(c::Chunk, ::Type{T}; at = nothing, length = nothing,
               misrepresented::Bool = false,
               kwargs...) where {T<:Fields}
     off = at === nothing ? ZERO_LENGTH : at::BitLength
-    len = length === nothing ? chunk_length(T) : length::BitLength
+    # A variable-length header has no length until it has been read, so with no
+    # window named it takes what is left and reports afterwards how much it
+    # used. A fixed-length header keeps the behaviour it always had.
+    len = if length !== nothing
+        length::BitLength
+    elseif is_fixed_length(T)
+        chunk_length(T)
+    else
+        chunk_length(c) - off
+    end
     off + len <= chunk_length(c) ||
         error("peek($T): [$off, $(off+len)) out of bounds of $(chunk_length(c))")
     # A window narrower than T's full wire length is a prefix peek — that's
     # how "have I received the full header yet" works (FieldsChunk.cc:100-106).
     # Rather than deserialise partial bytes, we mark the source incomplete
-    # and route through the standard gate.
+    # and route through the standard gate. For a variable-length header the
+    # fixed part is the most that can be demanded.
     src_q = quality(peek(c, Chunk; at = off, length = len))
-    if len < chunk_length(T)
+    if len < minimum_chunk_length(T)
         src_q = src_q ⊔ Q_INCOMPLETE
     end
     _check_quality(src_q, T;
@@ -75,9 +85,17 @@ function _to_fields(::Type{T}, c::Chunk, off::BitLength, len::BitLength,
 
     # Raw: the primary deserialise path.
     if c isa Raw
-        need = chunk_length(T).bits
-        len.bits == need ||
-            error("peek($T): asked for $len bits, need $need for a full $(T)")
+        if is_fixed_length(T)
+            need = chunk_length(T).bits
+            len.bits == need ||
+                error("peek($T): asked for $len bits, need $need for a full $(T)")
+        else
+            # A variable-length header decides its own size out of the window.
+            # The window must hold at least the fixed part.
+            need = minimum_chunk_length(T).bits
+            len.bits >= need ||
+                error("peek($T): asked for $len bits, need at least $need for a $(T)")
+        end
         # Bit-slice: build a BitReader positioned at `off`.
         return _deserialize_from_raw(T, c, off, len)
     end
@@ -86,11 +104,11 @@ function _to_fields(::Type{T}, c::Chunk, off::BitLength, len::BitLength,
     # a T deserialised from zeros; otherwise it's an incomplete-header shape
     # that Phase 4 will formalise. For now, refuse partial.
     if c isa Filler
-        need = chunk_length(T).bits
+        need = is_fixed_length(T) ? chunk_length(T).bits : len.bits
         len.bits == need ||
             error("peek($T): a Filler window of $len is not a full $(T) ($(need) bits)")
         bs = fill(c.fill, (need + 7) >> 3)
-        return deserialize(T, BitReader(bs))
+        return deserialize(T, BitReader(bs, need))
     end
 
     error("peek($T): no conversion from $(typeof(c))")

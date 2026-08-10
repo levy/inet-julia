@@ -48,7 +48,7 @@ Whether one `UInt64` holds the field, which is what `field_bits` needs. An
 `Ipv6Address` field is 128 bits, so the answer is `false` and only
 `field_text` describes it.
 """
-has_bits(spec::FieldSpec) = spec.width <= 64
+has_bits(spec::FieldSpec) = spec.width <= 64 && field_has_bits(spec.type)
 
 """
     HeaderLayout(name, length, fields)
@@ -70,6 +70,28 @@ The layout of a declared header. `@header` defines the method on the type.
 function header_layout end
 
 header_layout(h::Fields) = header_layout(typeof(h))
+
+"""
+    minimum_chunk_length(::Type{H})::BitLength
+
+The width of the fixed part of a header — the whole of it when the header is
+fixed-length. This is always known, which is what a reader needs before any
+bytes arrive.
+"""
+function minimum_chunk_length end
+
+minimum_chunk_length(::Type{H}) where {H <: Fields} = chunk_length(H)
+
+"""
+    is_fixed_length(::Type{H})::Bool
+
+Whether every instance of `H` is the same width. `false` when the header ends
+in a byte tail or in padding, so its length is a property of the value and not
+of the type.
+"""
+function is_fixed_length end
+
+is_fixed_length(::Type{H}) where {H <: Fields} = true
 
 """
     build_header_layout(name, names, types, widths, bases, constants) -> HeaderLayout
@@ -128,7 +150,12 @@ because there is no `UInt64` for the other two forms to take.
 """
 field_text(h::Fields, spec::FieldSpec) =
     has_bits(spec) ? field_text(field_bits(h, spec), spec) :
-                     string(field_value(h, spec))
+                     field_text_wide(field_value(h, spec))
+
+"One value that no `UInt64` describes, as text. A run of bytes reads as hex."
+field_text_wide(value) = string(value)
+field_text_wide(value::AbstractVector{UInt8}) =
+    join((string(byte, base = 16, pad = 2) for byte in value), " ")
 field_text(bits::UInt64, spec::FieldSpec) = field_text(bits, spec, spec.base)
 
 function field_text(bits::UInt64, spec::FieldSpec, base::Symbol)
