@@ -5,6 +5,9 @@
 using Test
 
 @testset "umbrella" begin
+    # The package shape the whole repository rests on, asserted where the
+    # components are already assembled. See documentation/packages.md.
+    include("packagegraph.jl")
     include("catalog.jl")
     # The demo catalog spans packet, queuing and link layer, so it is only
     # walkable once the components are assembled — which makes it the

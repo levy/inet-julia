@@ -35,10 +35,13 @@ with 0.000 s of recompilation.
 - [x] 2. New `package/repl/` (loaded by an environment under `env/`) → `InetRepl`, depending on `InetTest` and
       `ProjecturedSdl`, with the Preferences-driven level and `set_workload!`.
       No `@compile_workload` anywhere else in this repository.
-- [ ] 3. The layering test. **Still owed here** — `documentation/packages.md`
-      states the rules, but nothing asserts them in this repository yet. The
-      counterparts are `test_package_graph()` in projectured-julia and
-      omnetpp-julia.
+- [x] 3. `package/inet/test/packagegraph.jl`, run by `test_inet()`: nothing
+      depends on a leaf, an example package is a dependency only of a leaf or an
+      example or a test, a compile workload lives only in a leaf, and a
+      third-party dependency is one that was named in `packages.md`. 319 pass.
+      The last rule caught two the document had missed — `InetRunner` and its
+      test declare `Preferences` for the binary's build parameters — so the
+      document was wrong the day it was written, and is now right.
 - [x] 4. The `ji` alias becomes `using Revise, InetRepl`. Revise stays first and
       stays out of the package's dependencies.
 - [ ] 5. `InetQueuingExample` stops depending on `Test`. An example package does

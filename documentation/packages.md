@@ -80,17 +80,26 @@ recompilation.
 | `InetCommon` | OmnetppSimulator, ProjecturedKernel | — |
 | `InetLinkLayer` | Packet, OmnetppSimulator, ProjecturedKernel | — |
 | `InetQueuing` | Common, Packet, OmnetppSimulator, ProjecturedKernel | — |
-| `InetRunner` | Packet, Queuing, OmnetppDescription, OmnetppFormat, OmnetppSimulator, OmnetppUnits | — |
+| `InetRunner` | Packet, Queuing, OmnetppDescription, OmnetppFormat, OmnetppSimulator, OmnetppUnits | Preferences |
 | `Inet` (umbrella) | Common, LinkLayer, Packet, Queuing, OmnetppSimulator, ProjecturedVisual | — |
 | `<Stem>Example` | `<Stem>`, the Examples below it | — |
 | `<Stem>Test` | `<Stem>`, `<Stem>Example`, the Tests below it | — |
 | `InetRepl` **(leaf)** | Inet, InetExample, InetTest, ProjecturedSdl | PrecompileTools, Preferences |
 
-**No package in this repository holds a third-party dependency**, and none
-should acquire one without being named here with its reason. That is worth
-keeping: in omnetpp-julia, DataFrames and CairoMakie between them accounted for
-most of 15286 invalidated method instances, and getting them out of a session
-took two package moves.
+Three third-party dependencies, and no more:
+
+- **Preferences** in `InetRunner` (and its test) — the build parameters a binary
+  answers to: `APP_NAME`, `APP_WORKLOAD`, `APP_CPU_TARGET`. A preference is part
+  of the precompile cache key, so changing one rebuilds; an environment variable
+  would leave a stale image.
+- **PrecompileTools**, **Preferences** in `InetRepl` — the workload mechanism
+  itself, and the level.
+
+Nothing else, and nothing should acquire one without being named here with its
+reason first — `test_inet()` asserts this list. That is worth keeping: in
+omnetpp-julia, DataFrames and CairoMakie between them accounted for most of
+15286 invalidated method instances, and getting them out of a session took two
+package moves.
 
 `[sources]` here reach the **main** checkouts of projectured-julia and
 omnetpp-julia, so a change in one of those is invisible until it lands there.
