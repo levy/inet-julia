@@ -10,10 +10,12 @@ InetExample = "36dabbcc-7d99-425e-af93-62d296f18444"
 InetTest = "2f44235d-4d1e-46a7-bad9-542c69a24442"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 Preferences = "21216c6a-2e73-6563-6e65-726566657250"
+ProjecturedExample = "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"
 ProjecturedSdl = "f0002b97-94ba-416c-b93c-86cdc095626f"
 
 [sources]
 Inet = {path = "../inet/main"}
 InetExample = {path = "../inet/example"}
 InetTest = {path = "../inet/test"}
+ProjecturedExample = {path = "../../../projectured-julia/package/projectured/example"}
 ProjecturedSdl = {path = "../../../projectured-julia/package/sdl/main"}

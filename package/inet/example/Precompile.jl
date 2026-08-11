@@ -15,17 +15,15 @@
 # ═══════════════════════════════════════════════════════════════════════════
 
 """
-    precompile_workload(level::Symbol = :minimal) -> Nothing
+    precompile_workload() -> Nothing
 
 The body a leaf package's `@compile_workload` calls — `InetRepl` for a session.
 An ordinary function, so it can be called and timed without a rebuild.
 
-| level | what it runs |
-| --- | --- |
-| `:none` | nothing |
-| `:minimal` | the upstream workload, redone in the caller's image |
-| `:demo` | and this repository's own catalog page |
-| `:full` | the same as `:demo` here |
+It runs the upstream workload and then this repository's own catalog page.
+There are no levels: they graded build time against the first click, and a
+recording settles that trade, so a build now either replays a recorded list or
+runs this. See `InetRepl.WORKLOAD`.
 
 The upstream call is `ProjecturedExample`'s, and it is not a duplicated effort.
 A workload can only cache inference that is still valid when the session has
@@ -34,13 +32,8 @@ in its own image, where the method set is complete. Measured in omnetpp-julia,
 loading its umbrella and its example and test packages voids 15286 method
 instances in the images below.
 """
-function precompile_workload(level::Symbol = :minimal)
-    level === :none && return nothing
-    level in (:minimal, :demo, :full) ||
-        error("precompile_workload: level must be :none, :minimal, :demo or :full, got ",
-              repr(level))
-    ProjecturedExample.precompile_workload(level === :minimal ? :minimal : :demo)
-    level === :minimal && return nothing
+function precompile_workload()
+    ProjecturedExample.precompile_workload()
     _precompile_catalog_page()
     nothing
 end
