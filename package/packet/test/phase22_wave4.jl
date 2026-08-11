@@ -87,6 +87,62 @@ end
     @test decode_header(DsdvHello, encode_header(hello)) == hello
 end
 
+@testset "PIM — three encoded address forms, and every message reuses them" begin
+    # RFC 7761 clause 4.9.1 defines the three forms once, so each is a header.
+    @test chunk_length(PimUnicastAddress) == Bytes(6)
+    @test chunk_length(PimGroupAddress) == Bytes(8)
+    @test chunk_length(PimSourceAddress) == Bytes(8)
+    @test chunk_length(PimCommon) == Bytes(4)
+    for (T, bytes) in ((PimRegister, 8), (PimRegisterStop, 18), (PimAssert, 26),
+                       (PimStateRefresh, 36))
+        @test chunk_length(T) == Bytes(bytes)
+    end
+
+    # A Hello's options run to the end of the message, so nothing counts them.
+    hello = PimHello(options = [PimHoldTime(hold_time = UInt16(105)),
+                                PimGenerationId(generation_id = UInt32(7))])
+    @test chunk_length(hello) == Bytes(4 + 6 + 8)
+    bytes = encode_header(hello)
+    # Version 2 over type 0 is the first octet.
+    @test bytes[1] == 0x20
+    @test hex22(bytes[5:10]) == "00 01 00 02 00 69"
+
+    back = decode_header(PimPacket, bytes)
+    @test back isa PimHello
+    @test back == hello
+    @test Base.length(back.options) == 2
+    @test back.options[1] isa PimHoldTime
+    @test back.options[1].hold_time == 105
+    @test back.options[2].generation_id == 7
+
+    # A Join/Prune group carries source lists of its own, so no two groups are
+    # the same width and the group list fills the message.
+    join_prune = PimJoinPrune(
+        upstream_neighbor = PimUnicastAddress(address = Ipv4Address("10.0.0.1")),
+        groups = [PimJoinPruneGroup(
+            group = PimGroupAddress(address = Ipv4Address("239.1.1.1")),
+            joined_sources = [PimSourceAddress(address = Ipv4Address("10.0.0.5"))])])
+    @test chunk_length(join_prune) == Bytes(4 + 6 + 1 + 1 + 2 + (8 + 2 + 2 + 8))
+    read_back = decode_header(PimPacket, encode_header(join_prune))
+    @test read_back isa PimJoinPrune
+    @test encode_header(read_back) == encode_header(join_prune)
+    @test read_back.group_count == 1
+    @test Base.length(read_back.groups[1].joined_sources) == 1
+    @test read_back.groups[1].joined_sources[1].address == Ipv4Address("10.0.0.5")
+
+    # A Graft carries the Join/Prune body, which is what RFC 3973 draws.
+    @test fieldnames(PimGraft) == fieldnames(PimJoinPrune)
+    @test decode_header(PimPacket, encode_header(PimGraft(
+        upstream_neighbor = PimUnicastAddress(address = Ipv4Address(0))))) isa PimGraft
+
+    # A Hello option nobody models keeps its octets.
+    raw = decode_header(PimHello, vcat(encode_header(PimCommon(type = PIM_HELLO)),
+                                       UInt8[0x00, 0x63, 0x00, 0x02, 0xde, 0xad]))
+    @test raw.options[1] isa PimOptionRaw
+    @test raw.options[1].type == 0x63
+    @test raw.options[1].data == Octets(UInt8[0xde, 0xad])
+end
+
 @testset "every declared wire format still round-trips" begin
     for T in filter(H -> parentmodule(H) === PacketModule, list_headers())
         @test check_round_trip(T)

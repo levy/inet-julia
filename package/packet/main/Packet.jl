@@ -231,6 +231,15 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        AodvUnreachableNode, AodvUnreachableNodeIpv6, DsdvHello,
        AODV_RREQ, AODV_RREP, AODV_RERR, AODV_RREP_ACK,
        AODV_RREQ_IPV6, AODV_RREP_IPV6, AODV_RERR_IPV6, AODV_RREP_ACK_IPV6,
+       PimPacket, PimCommon, PimHello, PimRegister, PimRegisterStop,
+       PimJoinPrune, PimJoinPruneGroup, PimGraft, PimGraftAck, PimAssert,
+       PimStateRefresh, PimUnicastAddress, PimGroupAddress, PimSourceAddress,
+       PimOption, PimHoldTime, PimLanPruneDelay, PimDrPriority, PimGenerationId,
+       PimOptionRaw,
+       PIM_HELLO, PIM_REGISTER, PIM_REGISTER_STOP, PIM_JOIN_PRUNE, PIM_BOOTSTRAP,
+       PIM_ASSERT, PIM_GRAFT, PIM_GRAFT_ACK, PIM_CANDIDATE_RP, PIM_STATE_REFRESH,
+       PIM_OPTION_HOLD_TIME, PIM_OPTION_LAN_PRUNE_DELAY, PIM_OPTION_DR_PRIORITY,
+       PIM_OPTION_GENERATION_ID, PIM_ADDRESS_FAMILY_INET, PIM_ENCODING_NATIVE,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -287,6 +296,7 @@ include("protocol/TcpOption.jl")
 include("protocol/Tcp.jl")
 include("protocol/Rip.jl")
 include("protocol/Aodv.jl")
+include("protocol/Pim.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")
