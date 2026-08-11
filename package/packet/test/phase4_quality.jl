@@ -7,9 +7,9 @@
 using Test
 using InetPacket.PacketModule
 
-@header PhaseFourHeader begin
-    a :: UInt8
-    b :: UInt16
+struct PhaseFourHeader <: Fields
+    a :: U8
+    b :: U16
 end
 
 # --- testComplete / testIncomplete ------------------------------------------
@@ -61,7 +61,7 @@ end
 # --- testCorruption + the strict-by-default peek gate -----------------------
 @testset "peek REFUSES an incorrect source unless opted in" begin
     hdr = PhaseFourHeader(UInt8(0x11), UInt16(0x2233))
-    bs = to_bytes(hdr)
+    bs = encode_header(hdr)
     # Simulate a bit error: flip a byte.
     bs_bad = copy(bs); bs_bad[1] = xor(bs_bad[1], UInt8(0xff))
     raw_bad = mark_incorrect(Raw(bs_bad))
@@ -88,7 +88,7 @@ end
 
 @testset "peek REFUSES a misrepresented source unless opted in" begin
     hdr = PhaseFourHeader(UInt8(1), UInt16(2))
-    bs = to_bytes(hdr)
+    bs = encode_header(hdr)
     raw = mark_misrepresented(Raw(bs))
     @test_throws ErrorException peek(raw, PhaseFourHeader)
     got = peek(raw, PhaseFourHeader; misrepresented = true)
@@ -98,7 +98,7 @@ end
 # --- multi-flag composition: one gate covers each --------------------------
 @testset "an ALL-BAD source requires ALL opt-ins" begin
     hdr = PhaseFourHeader(UInt8(9), UInt16(9))
-    bs = to_bytes(hdr)
+    bs = encode_header(hdr)
     src = mark_misrepresented(mark_incorrect(mark_incomplete(Raw(bs))))
     q = quality(src)
     @test is_incomplete(q) && is_incorrect(q) && is_improperly_represented(q)

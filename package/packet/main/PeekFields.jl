@@ -79,7 +79,7 @@ function _to_fields(::Type{T}, c::Chunk, off::BitLength, len::BitLength,
     if c isa Fields
         reinterpret || _throw_r9(typeof(c), T)
         # Round-trip through bytes.
-        bs = to_bytes(c)
+        bs = encode_header(c)
         return _to_fields(T, Raw(bs), off, len, true)
     end
 

@@ -18,19 +18,19 @@ using InetLinkLayer.T1sModule
     @test chunk_length(hdr) == Bytes(14)
 
     # Round-trip: to_bytes ↔ from_bytes preserves fields exactly.
-    bs = to_bytes(hdr)
+    bs = encode_header(hdr)
     @test Base.length(bs) == 14
     @test bs[1:6]   == UInt8[0x01, 0x02, 0x03, 0x04, 0x05, 0x06]  # dst MAC
     @test bs[7:12]  == UInt8[0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]  # src MAC
     @test bs[13:14] == UInt8[0x08, 0x00]                           # ethertype big-endian
 
-    back = from_bytes(EthernetMacHeader, bs)
+    back = decode_header(EthernetMacHeader, bs)
     @test back == hdr
 
     # FCS round-trip.
     fcs = EthernetFcs(0xDEADBEEF)
-    @test to_bytes(fcs) == UInt8[0xDE, 0xAD, 0xBE, 0xEF]
-    @test from_bytes(EthernetFcs, [0x11, 0x22, 0x33, 0x44]).fcs == 0x11223344
+    @test encode_header(fcs) == UInt8[0xDE, 0xAD, 0xBE, 0xEF]
+    @test decode_header(EthernetFcs, [0x11, 0x22, 0x33, 0x44]).fcs == 0x11223344
 end
 
 @testset "a model address is a UInt64, and converts both ways" begin

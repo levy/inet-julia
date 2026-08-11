@@ -19,17 +19,17 @@ struct SourceConfig
     interval_min::Float64           # seconds
     interval_max::Float64
     initial_offset::SimTime
-    ethertype::EtherType
+    ethertype::EtherTypeOrLength
 end
 
 function SourceConfig(; dst_address::UInt64,
                        packet_length::Int = 46,
                        interval::Float64,
                        initial_offset::Float64 = 0.0,
-                       ethertype::Union{Integer, EtherType} = ETHERTYPE_IPV4)
+                       ethertype::Union{Integer, EtherTypeOrLength} = ETHERTYPE_IPV4)
     SourceConfig(dst_address, packet_length, packet_length,
                  IA_FIXED, interval, interval,
-                 to_simtime(initial_offset), EtherType(ethertype))
+                 to_simtime(initial_offset), EtherTypeOrLength(ethertype))
 end
 
 mutable struct AppState

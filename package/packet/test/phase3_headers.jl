@@ -1,207 +1,150 @@
 # ============================================================================
-# Phase 3 conformance — declared headers, generated codecs, R2 duality, R9 guard.
+# Phase 3 — a header is a struct, and the codec is generic.
 #
-# Ports: testSerialization, testSequenceSerialization, testConversion,
-# testDuality, testPolymorphism.
-# Verify: testConversion case 1 — a header assembled from two halves
-# (raw + sliced) must REFUSE to yield the header back.
+# `fieldnames` and `fieldtypes` are the layout, so nothing below declares a
+# codec. `EthernetMacHeader` is the plainest case: three fields, three types,
+# no default, no macro. Everything the codec does, it does from the struct.
 # ============================================================================
 using Test
 using InetPacket.PacketModule
 
-# --- three real headers, per plan §9 Q1: decide the syntax against real cases.
-#
-# The names carry a `Test` prefix because this file tests the MACRO, not the
-# protocol. `InetPacket` declares `Ipv4Header` and `EthernetMacHeader` itself,
-# and a header declared here under those names would shadow the real ones.
+hex3(bytes) = join((string(b, base = 16, pad = 2) for b in bytes), " ")
 
-# IPv4 header (fixed 20 bytes; options ignored — that's the variable-length
-# tail that would ride on a hand-written serialize override).
-@header TestIpv4Header begin
-    version      :: UInt8  | 4
-    ihl          :: UInt8  | 4
-    dscp         :: UInt8  | 6
-    ecn          :: UInt8  | 2
-    total_length :: UInt16
-    identification :: UInt16
-    flags        :: UInt8  | 3
-    frag_offset  :: UInt16 | 13
-    ttl          :: UInt8
-    protocol     :: UInt8
-    checksum     :: UInt16
-    src_addr     :: UInt32
-    dst_addr     :: UInt32
+# --- the value types ---------------------------------------------------------
+
+@testset "U{N} — a width the value cannot exceed" begin
+    @test measure_field(U4) == 4
+    @test measure_field(U13) == 13
+    @test measure_field(U16) == 16
+    @test typemax(U4) == U4(15)
+    @test typemin(U4) == U4(0)
+
+    # The check the old width segment could not make: a 4-bit field refuses a
+    # value the wire would truncate to something else.
+    @test_throws InexactError U4(16)
+    @test_throws InexactError U13(8192)
+    @test U4(15) * 4 == 60          # a U is a number
+    @test U4(5) + U4(2) == 7
+    @test U4(5) < U4(6)
+
+    # The storage is the smallest standard unsigned that holds the width.
+    @test store_unsigned(4) === UInt8
+    @test store_unsigned(13) === UInt16
+    @test store_unsigned(20) === UInt32
+    @test store_unsigned(56) === UInt64
 end
 
-# Ethernet MAC header (fixed 14 bytes — no VLAN in this fixture).
-@header TestEthernetMacHeader begin
-    dst_mac_hi   :: UInt16
-    dst_mac_lo   :: UInt32
-    src_mac_hi   :: UInt16
-    src_mac_lo   :: UInt32
-    ethertype    :: UInt16
+@testset "I{N} — two's complement over the declared width" begin
+    @test measure_field(I12) == 12
+    @test typemax(I12) == I12(2047)
+    @test typemin(I12) == I12(-2048)
+    @test_throws InexactError I12(2048)
+    @test extend_sign(UInt64(0xfff), 12) == -1
+    @test extend_sign(UInt64(0x7ff), 12) == 2047
+    @test extend_sign(UInt64(0x800), 12) == -2048
 end
 
-# --- testSerialization -------------------------------------------------------
-@testset "@header — chunk_length, defaults, round-trip" begin
-    @test chunk_length(TestIpv4Header) == Bytes(20)
-    @test chunk_length(TestEthernetMacHeader) == Bytes(14)
-
-    ip = TestIpv4Header(4, 5, 0, 0, UInt16(1500), UInt16(0x1234), UInt8(0), UInt16(0),
-                    UInt8(64), UInt8(6), UInt16(0), UInt32(0x0a000001), UInt32(0x0a000002))
-    @test chunk_length(ip) == Bytes(20)
-
-    bs = to_bytes(ip)
-    @test Base.length(bs) == 20
-    # version|ihl → 0x45; dscp|ecn → 0x00
-    @test bs[1] == 0x45
-    @test bs[2] == 0x00
-    # total_length is 1500 big-endian
-    @test bs[3] == 0x05 && bs[4] == 0xdc
-    # src_addr 10.0.0.1
-    @test bs[13:16] == UInt8[10, 0, 0, 1]
-    @test bs[17:20] == UInt8[10, 0, 0, 2]
-
-    # deserialize → structurally equal
-    ip2 = from_bytes(TestIpv4Header, bs)
-    @test ip2.version == 4 && ip2.ihl == 5
-    @test ip2.total_length == 1500
-    @test ip2.ttl == 64 && ip2.protocol == 6
-    @test ip2.src_addr == 0x0a000001
-    @test ip2.dst_addr == 0x0a000002
+@testset "a flag is a Bool, because Bool already measures one bit" begin
+    @test measure_field(Bool) == 1
+    @test encode_field(Bool, true) == 1
+    @test decode_field(Bool, UInt64(0)) === false
 end
 
-@testset "@header — bit-packed straddling fields" begin
-    # flags (3 bits) + frag_offset (13 bits) share bytes 7..8.
-    ip = TestIpv4Header(4, 5, 0, 0, UInt16(20), UInt16(0), UInt8(0b010), UInt16(0x0100),
-                    UInt8(1), UInt8(0), UInt16(0), UInt32(0), UInt32(0))
-    bs = to_bytes(ip)
-    # flags=010, frag_offset=0x0100=0b0000_0001_0000_0000
-    # byte7 = 0b010_00000 | 0b000_00001 = 0b010_00001 = 0x41
-    # byte8 = 0b0000_0000 = 0x00
-    @test bs[7] == 0x41
-    @test bs[8] == 0x00
+# --- the plainest header there is --------------------------------------------
 
-    back = from_bytes(TestIpv4Header, bs)
-    @test back.flags == 0b010
-    @test back.frag_offset == 0x0100
+@testset "EthernetMacHeader — a struct, and nothing else" begin
+    mac = EthernetMacHeader("0a:00:00:00:00:02", "0a:00:00:00:00:01", ETHERTYPE_IPV4)
+
+    @test chunk_length(EthernetMacHeader) == Bytes(14)
+    @test chunk_length(mac) == Bytes(14)
+    @test hex3(encode_header(mac)) == "0a 00 00 00 00 02 0a 00 00 00 00 01 08 00"
+    @test decode_header(EthernetMacHeader, encode_header(mac)) == mac
+
+    # A string, an integer or a built value all reach the field type.
+    @test EthernetMacHeader(MAC_BROADCAST, MacAddress(1), 0x0800).destination ==
+          MAC_BROADCAST
+    @test mac.destination == MacAddress("0a:00:00:00:00:02")
+    @test is_type(mac.type_or_length)
+    @test !is_length(mac.type_or_length)
 end
 
-# --- testConversion (Raw ↔ Fields via peek) ----------------------------------
-@testset "peek(Raw, TestIpv4Header) — the deserialise duality" begin
-    ip = TestIpv4Header(4, 5, 0, 0, UInt16(1500), UInt16(0x1234), UInt8(0), UInt16(0),
-                    UInt8(64), UInt8(17), UInt16(0), UInt32(0x0a000001), UInt32(0x0a000002))
-    bs = to_bytes(ip)
-    raw = Raw(bs)
-
-    ip_from_raw = peek(raw, TestIpv4Header)
-    @test ip_from_raw.total_length == 1500
-    @test ip_from_raw.protocol == 17
-    @test ip_from_raw.src_addr == 0x0a000001
-
-    # A slice of exactly the header range also deserialises.
-    padded = vcat(UInt8[0xff, 0xff, 0xff], bs, UInt8[0xff, 0xff])
-    padded_raw = Raw(padded)
-    sl = slice(padded_raw, Bytes(3), Bytes(20))
-    ip2 = peek(sl, TestIpv4Header)
-    @test ip2.total_length == 1500
-    @test ip2.protocol == 17
+@testset "EtherTypeOrLength — one field, two readings" begin
+    # IEEE 802.3 clause 3.2.6, which INET splits into two chunk classes.
+    @test is_length(EtherTypeOrLength(1500))
+    @test !is_type(EtherTypeOrLength(1500))
+    @test is_type(EtherTypeOrLength(0x0800))
+    @test string(EtherTypeOrLength(1500)) == "1500 B"
+    @test string(EtherTypeOrLength(0x0800)) == "IPv4 (0x0800)"
+    @test string(EtherTypeOrLength(0x9999)) == "0x9999"
+    @test find_ether_type_name(ETHERTYPE_ARP) == "ARP"
 end
 
-# --- testDuality — a packet built field-wise reads back as bytes and vice versa
-@testset "testDuality — R2 by construction" begin
-    ip = TestIpv4Header(4, 5, 0, 0, UInt16(64), UInt16(0), UInt8(0), UInt16(0),
-                    UInt8(64), UInt8(6), UInt16(0), UInt32(1), UInt32(2))
-    pk = Packet(ip)                        # built from a field struct
-    # Round-trip: same fields.
-    ip_back = peek(pk, TestIpv4Header)
-    @test ip_back.total_length == 64
-    @test ip_back.protocol == 6
-    # Same packet peekable as raw bytes.
-    raw = peek(pk, Raw)
-    @test raw.data == to_bytes(ip)
+# --- the layout the struct already is ----------------------------------------
 
-    # A packet built from those SAME bytes reads back into an equivalent header.
-    pk2 = Packet(Raw(to_bytes(ip)))
-    ip_from_bytes = peek(pk2, TestIpv4Header)
-    @test ip_from_bytes.total_length == 64
-    @test ip_from_bytes.protocol == 6
-    @test ip_from_bytes.src_addr == 1
+@testset "describe_layout reads the same field types the codec does" begin
+    layout = describe_layout(EthernetMacHeader)
+    @test layout.name === :EthernetMacHeader
+    @test [f.name for f in layout.fields] == [:destination, :source, :type_or_length]
+    @test [f.offset for f in layout.fields] == [0, 48, 96]
+    @test [f.width for f in layout.fields] == [48, 48, 16]
+    @test layout.length == Bytes(14)
+    @test describe_layout(EthernetMacHeader).length ==
+          describe_layout(EthernetMacHeader(MAC_BROADCAST, MAC_BROADCAST, 0)).length
+
+    ipv4 = describe_layout(Ipv4Header)
+    @test [f.offset for f in ipv4.fields[1:5]] == [0, 4, 8, 14, 16]
+    @test ipv4.length == Bytes(20)
+    @test sum(f.width for f in ipv4.fields) == 160
 end
 
-# --- testPolymorphism — peek by TYPE, not by position ------------------------
-@testset "testPolymorphism — peek dispatches on target type" begin
-    eth = TestEthernetMacHeader(UInt16(0xdead), UInt32(0xbeefcafe),
-                            UInt16(0x0011), UInt32(0x22334455), UInt16(0x0800))
-    ip  = TestIpv4Header(4, 5, 0, 0, UInt16(1500), UInt16(0), UInt8(0), UInt16(0),
-                     UInt8(64), UInt8(6), UInt16(0), UInt32(1), UInt32(2))
-    payload = Filler(Bytes(500))
+@testset "a view reads the value, and the value prints itself" begin
+    mac = EthernetMacHeader("0a:00:00:00:00:02", "0a:00:00:00:00:01", ETHERTYPE_IPV4)
+    layout = describe_layout(EthernetMacHeader)
+    destination = layout.fields[1]
 
-    pk = Packet(payload)
-    pushfirst!(pk, ip)
-    pushfirst!(pk, eth)
-
-    # Peek by type — no position math needed at the call site.
-    eth_back = peek(pk, TestEthernetMacHeader)
-    @test eth_back.ethertype == 0x0800
-    @test eth_back.dst_mac_hi == 0xdead
-    # After consuming the Ethernet header, the front IS IPv4.
-    popfirst!(pk, chunk_length(TestEthernetMacHeader))
-    ip_back = peek(pk, TestIpv4Header)
-    @test ip_back.total_length == 1500
-    @test ip_back.protocol == 6
+    @test get_field(mac, destination) == MacAddress("0a:00:00:00:00:02")
+    @test format_field(mac, destination) == "0a:00:00:00:00:02"
+    @test encode_field(mac, destination) == 0x0a0000000002
+    @test !is_constant(destination)
+    @test has_bits(destination)
+    @test classify_display(destination) === :openable
+    @test classify_display(layout.fields[3]) === :openable
 end
 
-# --- R9 guard — the deliberate ugliness of reinterpretation ------------------
-@testset "R9 — refuse Fields → Fields reinterpretation" begin
-    ip = TestIpv4Header(4, 5, 0, 0, UInt16(20), UInt16(0), UInt8(0), UInt16(0),
-                    UInt8(64), UInt8(0), UInt16(0), UInt32(0), UInt32(0))
-    # Direct peek: an IPv4 chunk asked to be an Ethernet header. REFUSED.
-    @test_throws ErrorException peek(ip, TestEthernetMacHeader)
-    # Opt-in with `reinterpret = true` — the deserialisation succeeds even
-    # though the semantic meaning is nonsense; that is the WHOLE POINT of
-    # the guard being explicit.
-    forced = peek(ip, TestEthernetMacHeader; reinterpret = true)
-    @test forced isa TestEthernetMacHeader
+# --- what every header gets for free -----------------------------------------
+
+@testset "equality, hash and show come from the struct" begin
+    a = EthernetMacHeader("0a:00:00:00:00:02", "0a:00:00:00:00:01", ETHERTYPE_IPV4)
+    b = EthernetMacHeader("0a:00:00:00:00:02", "0a:00:00:00:00:01", ETHERTYPE_IPV4)
+    @test a == b
+    @test hash(a) == hash(b)
+    @test a != EthernetMacHeader(MAC_BROADCAST, a.source, a.type_or_length)
+    @test occursin("EthernetMacHeader(destination=", string(a))
+    @test quality(a) == Q_COMPLETE
 end
 
-# --- testConversion case 1 — split-source refusal (the real R2 test) --------
-@testset "peek refuses a half-Raw / half-Sliced header" begin
-    # Build a byte sequence that IS a valid IPv4 header, but split it across
-    # two chunks so the reader has to traverse a Sequence.
-    ip = TestIpv4Header(4, 5, 0, 0, UInt16(20), UInt16(0), UInt8(0), UInt16(0),
-                    UInt8(64), UInt8(1), UInt16(0), UInt32(0), UInt32(0))
-    bs = to_bytes(ip)
-    seq = sequence(Chunk[Raw(bs[1:10]), Raw(bs[11:20])])
-    # Split-source deserialise MUST WORK — the whole point of R2 duality is
-    # that representation is invisible to the reader. The plan's testConversion
-    # case 1 is about refusing something DIFFERENT — see the next testset.
-    ip_back = peek(seq, TestIpv4Header)
-    @test ip_back.total_length == 20
-    @test ip_back.protocol == 1
+@testset "set_field returns a new header" begin
+    ip = Ipv4Header(total_length = 48, protocol = IP_PROTOCOL_UDP,
+                    source = "10.0.0.1", destination = "10.0.0.2")
+    forwarded = set_field(ip, :time_to_live, ip.time_to_live - 1)
+    @test forwarded.time_to_live == 63
+    @test ip.time_to_live == 64            # the original is untouched
+    @test forwarded.source == ip.source
+    @test_throws ErrorException set_field(ip, :nonesuch, 1)
 end
 
-@testset "peek refuses when the source is a DIFFERENT Fields type" begin
-    # A packet whose FRONT is an TestEthernetMacHeader but the caller asks for
-    # TestIpv4Header. Without `reinterpret = true`, this MUST refuse loudly —
-    # this is where INET's Chunk.cc:122 lives.
-    eth = TestEthernetMacHeader(UInt16(0), UInt32(0), UInt16(0), UInt32(0), UInt16(0x0800))
-    pk = Packet(eth)
-    @test_throws ErrorException peek(pk, TestIpv4Header)
-    # But bytes → Ipv4 is the "safe" side of the guard and just works.
-    pk2 = Packet(Raw(to_bytes(TestIpv4Header(4, 5, 0, 0, UInt16(20), UInt16(0), UInt8(0),
-                                          UInt16(0), UInt8(64), UInt8(1), UInt16(0),
-                                          UInt32(0), UInt32(0)))))
-    @test peek(pk2, TestIpv4Header).protocol == 1
-end
+# --- byte order --------------------------------------------------------------
 
-# --- has() — "have I received a full header?" -------------------------------
-@testset "has(pk, T) — cheap prefix check" begin
-    pk = Packet(Filler(Bytes(50)))
-    @test has(pk, TestEthernetMacHeader)
-    @test has(pk, TestIpv4Header)
+@testset "byte order belongs to the header, not to a field" begin
+    @test byte_order(EthernetMacHeader) === :be
+    @test byte_order(Ipv4Header) === :be
 
-    small = Packet(Filler(Bytes(10)))
-    @test !has(small, TestIpv4Header)
-    @test !has(small, TestEthernetMacHeader)
+    # The writer and the reader still take it per call, which is what a
+    # little-endian protocol will use.
+    writer = BitWriter()
+    write_bits!(writer, UInt16(0x1234), 16, :le)
+    @test writer.bytes == UInt8[0x34, 0x12]
+    @test read_bits!(BitReader(writer.bytes), 16, :le) == 0x1234
+    # The byte is the unit the order applies to, so a 12-bit field has none.
+    @test_throws ErrorException write_bits!(BitWriter(), UInt16(1), 12, :le)
 end

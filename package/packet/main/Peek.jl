@@ -130,6 +130,6 @@ end
 
 # Fields source: serialise into a byte vector, then bit-slice.
 function _to_raw(c::Fields, off::BitLength, len::BitLength)
-    bs = to_bytes(c)
+    bs = encode_header(c)
     return _to_raw(Raw(bs, chunk_length(c), quality(c)), off, len)
 end

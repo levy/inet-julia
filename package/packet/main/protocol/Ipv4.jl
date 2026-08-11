@@ -1,25 +1,27 @@
 # ============================================================================
 # IPv4 — RFC 791, section 3.1.
 #
-# Twenty bytes, with `ihl` fixed at 5: this library declares no options, so
+# Twenty bytes, with `ihl` fixed at 5: this library declares no options yet, so
 # every IPv4 header it builds is the minimum one. A header that carries options
-# has an `ihl` above 5 and a tail whose width depends on that field, which is a
-# variable-length codec and is deliberately out of scope.
+# has an `ihl` above 5 and a tail whose width that field decides, which arrives
+# with the `Options` field of a later phase.
 #
-# The first two bytes hold four fields, and `flags` and `frag_offset` split a
-# byte boundary three bits in — which is the sort of thing a hand-written codec
-# gets wrong once and then nobody notices.
+# The declaration follows RFC 791 and not INET. Two consequences:
+#
+#   * the three flag bits are three fields, because §3.1 names them one at a
+#     time — `Bit 1: (DF)`, `Bit 2: (MF)` — rather than as a 3-bit number;
+#   * the first byte of the second word is `dscp` and `ecn`, per RFC 2474 and
+#     RFC 3168, rather than RFC 791's original `Type of Service`.
+#
+# `flags` and `fragment_offset` split a byte boundary three bits in, which is
+# the sort of thing a hand-written codec gets wrong once and then nobody
+# notices.
 # ============================================================================
 
-const IPV4_VERSION = UInt8(4)
-const IPV4_MIN_IHL = UInt8(5)              # 5 words of 32 bits = 20 bytes
+const IPV4_VERSION      = 4
+const IPV4_MIN_IHL      = 5                # 5 words of 32 bits = 20 bytes
 const IPV4_HEADER_BYTES = 20
-const IPV4_DEFAULT_TTL = UInt8(64)
-
-# The three bits of the flags field, as a 3-bit value.
-const IPV4_FLAG_RESERVED = UInt8(0b100)
-const IPV4_FLAG_DF       = UInt8(0b010)    # do not fragment
-const IPV4_FLAG_MF       = UInt8(0b001)    # more fragments
+const IPV4_DEFAULT_TTL  = 64
 
 const IP_PROTOCOL_ICMP = IpProtocol(1)
 const IP_PROTOCOL_IGMP = IpProtocol(2)
@@ -27,26 +29,30 @@ const IP_PROTOCOL_TCP  = IpProtocol(6)
 const IP_PROTOCOL_UDP  = IpProtocol(17)
 
 """
-    Ipv4Header(; total_length, protocol, src_address, dst_address, …)
+    Ipv4Header(; total_length, protocol, source, destination, …)
 
-The IPv4 header, 20 bytes. Every field but the four named above carries a
-default, so the keyword form states what a datagram actually decides.
+The IPv4 header, 20 bytes. Every field but the four named above carries the
+default RFC 791 gives it, so the keyword form states what a datagram actually
+decides.
 
-`header_checksum` is declared, never computed — the same choice INET's
-`declared` checksum mode makes.
+`total_length` counts the header and the payload together, which the header
+cannot see, so the IP module sets it. `header_checksum` is declared, never
+computed — the same choice INET's `declared` checksum mode makes.
 """
-@header Ipv4Header begin
-    version         :: UInt8       | 4        = IPV4_VERSION
-    ihl             :: UInt8       | 4        = IPV4_MIN_IHL
-    dscp            :: UInt8       | 6        = 0x00
-    ecn             :: UInt8       | 2        = 0x00
-    total_length    :: UInt16
-    identification  :: UInt16      | 16 | hex = 0x0000
-    flags           :: UInt8       | 3        = 0x00
-    frag_offset     :: UInt16      | 13 | dec = 0x0000
-    ttl             :: UInt8                  = IPV4_DEFAULT_TTL
+Base.@kwdef struct Ipv4Header <: Fields
+    version         :: U4         = IPV4_VERSION
+    ihl             :: U4         = IPV4_MIN_IHL
+    dscp            :: U6         = 0
+    ecn             :: U2         = 0
+    total_length    :: U16
+    identification  :: U16        = 0
+    reserved        :: Bool       = false
+    dont_fragment   :: Bool       = false
+    more_fragments  :: Bool       = false
+    fragment_offset :: U13        = 0
+    time_to_live    :: U8         = IPV4_DEFAULT_TTL
     protocol        :: IpProtocol
-    header_checksum :: UInt16      | 16 | hex = 0x0000
-    src_address     :: Ipv4Address
-    dst_address     :: Ipv4Address
+    header_checksum :: Checksum16 = 0
+    source          :: Ipv4Address
+    destination     :: Ipv4Address
 end

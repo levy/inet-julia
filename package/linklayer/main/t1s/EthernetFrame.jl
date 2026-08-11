@@ -34,8 +34,8 @@ if it's below.
 FCS is zero-filled (declared mode — `fcsMode = "declared"`, INET's default).
 """
 function build_ethernet_frame(src::Integer, dst::Integer,
-                              ethertype::Union{Integer, EtherType}, payload::Chunk)
-    header = EthernetMacHeader(MacAddress(dst), MacAddress(src), EtherType(ethertype))
+                              ethertype::Union{Integer, EtherTypeOrLength}, payload::Chunk)
+    header = EthernetMacHeader(MacAddress(dst), MacAddress(src), EtherTypeOrLength(ethertype))
     pk = Packet(payload)
     pushfirst!(pk, header)
     # Compute what the frame would be with just header + payload + FCS.

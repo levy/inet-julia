@@ -9,9 +9,9 @@
 using Test
 using InetPacket.PacketModule
 
-@header InspHdr begin
-    a :: UInt8
-    b :: UInt16
+struct InspHdr <: Fields
+    a :: U8
+    b :: U16
 end
 
 @testset "dissect — leaves" begin

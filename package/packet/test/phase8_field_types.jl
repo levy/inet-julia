@@ -1,143 +1,113 @@
 # ============================================================================
-# Phase 8 — field types, and the layout descriptor `@header` emits beside the
-# codec.
+# Phase 8 — the values the standards name.
 #
-# What the phase must prove: a header field may be a `MacAddress`; a
-# declaration may fix a display base and a default; and the description of the
-# layout agrees with the codec that was generated from the same declaration.
+# A protocol field is rarely "a 16-bit number". RFC 768 calls it a Source Port
+# and RFC 791 calls it a Protocol, so each is a type here. The type carries the
+# width, and it prints itself — which is why no declaration anywhere states a
+# display base.
 # ============================================================================
 using Test
 using InetPacket.PacketModule
 
-# --- the value types ---------------------------------------------------------
-
-@testset "value types — parse, print, round-trip" begin
+@testset "MacAddress — parse, print, round-trip" begin
     m = MacAddress("0a:00:00:00:00:01")
-    @test m.value == 0x0a0000000001
+    @test list_mac_octets(m) == (0x0a, 0x00, 0x00, 0x00, 0x00, 0x01)
     @test string(m) == "0a:00:00:00:00:01"
-    @test mac_octets(m) == (0x0a, 0x00, 0x00, 0x00, 0x00, 0x01)
     @test MacAddress(0x0a, 0x00, 0x00, 0x00, 0x00, 0x01) == m
-    # The 48-bit mask holds: the top two octets of a UInt64 never reach a field.
-    @test MacAddress(0xffff_ffff_ffff_ffff).value == 0x0000_ffff_ffff_ffff
+    @test measure_field(MacAddress) == 48
+    @test decode_field(MacAddress, encode_field(MacAddress, m)) == m
     @test is_broadcast(MAC_BROADCAST)
+    @test !is_broadcast(m)
     @test is_multicast(MacAddress("01:00:5e:00:00:01"))
     @test !is_multicast(m)
+    @test_throws ErrorException MacAddress("0a:00:00")
+    @test classify_display(MacAddress) === :openable
+end
 
+@testset "Ipv4Address — parse, print, round-trip" begin
     a = Ipv4Address("10.0.0.1")
-    @test a.value == 0x0a000001
+    @test list_ipv4_octets(a) == (0x0a, 0x00, 0x00, 0x01)
     @test string(a) == "10.0.0.1"
-    @test ipv4_octets(a) == (0x0a, 0x00, 0x00, 0x01)
     @test Ipv4Address(10, 0, 0, 1) == a
-
-    @test string(EtherType(0x0800)) == "IPv4 (0x0800)"
-    @test ethertype_name(EtherType(0x88b5)) === nothing
-    @test string(EtherType(0x88b5)) == "0x88b5"
-
-    @test string(IpProtocol(17)) == "UDP (17)"
-    @test ip_protocol_name(IpProtocol(253)) === nothing
-    @test string(IpProtocol(253)) == "253"
-
-    @test string(PortNumber(1000)) == "1000"
+    @test measure_field(Ipv4Address) == 32
+    @test decode_field(Ipv4Address, encode_field(Ipv4Address, a)) == a
+    @test_throws ErrorException Ipv4Address("10.0.0")
 end
 
-@testset "the four generic functions" begin
-    @test field_width(UInt16) == 16
-    @test field_width(MacAddress) == 48
-    @test field_width(Ipv4Address) == 32
-    @test field_width(Bool) == 1
-
-    @test field_encode(MacAddress, MacAddress("aa:bb:cc:dd:ee:ff")) == 0xaabbccddeeff
-    @test field_decode(MacAddress, UInt64(0xaabbccddeeff)) == MacAddress("aa:bb:cc:dd:ee:ff")
-    @test field_decode(Bool, UInt64(1))
-    @test !field_decode(Bool, UInt64(0))
-
-    # A field that is not a whole number of bytes reads as bits.
-    @test field_base(UInt8, 4) === :bin
-    @test field_base(UInt8, 8) === :dec
-    @test field_base(UInt16, 13) === :bin
-    @test field_base(MacAddress, 48) === :mac
-    @test field_base(Ipv4Address, 32) === :ipv4
-    @test field_base(EtherType, 16) === :enum
+@testset "Ipv6Address — 128 bits, and RFC 5952 text" begin
+    @test measure_field(Ipv6Address) == 128
+    @test string(Ipv6Address("2001:db8::1")) == "2001:db8::1"
+    @test string(IPV6_UNSPECIFIED) == "::"
+    @test string(IPV6_LOOPBACK) == "::1"
+    # The longest run of zero groups shortens, and only a run of two.
+    @test string(Ipv6Address("fe80:0:0:0:1:2:3:4")) == "fe80::1:2:3:4"
+    @test string(Ipv6Address("1:0:2:0:0:3:0:4")) == "1:0:2::3:0:4"
+    @test Ipv6Address("2001:db8:0:0:0:0:0:1") == Ipv6Address("2001:db8::1")
+    @test list_ipv6_groups(Ipv6Address("2001:db8::1"))[1] == 0x2001
+    @test_throws ErrorException Ipv6Address("1:2:3")
+    # No `UInt64` carries it, so it writes and reads itself.
+    writer = BitWriter()
+    write_field(writer, Ipv6Address, Ipv6Address("2001:db8::1"), 128, :be)
+    @test read_field(BitReader(writer.bytes), Ipv6Address, 128, :be) ==
+          Ipv6Address("2001:db8::1")
+    @test !has_field_bits(Ipv6Address)
 end
 
-# --- a header that uses every new form ---------------------------------------
-
-@header FieldFormsHeader begin
-    version :: UInt8      | 4
-    ihl     :: UInt8      | 4
-    dst     :: MacAddress                 # width from the type
-    kind    :: EtherType
-    csum    :: UInt16     | 16 | hex      # a display override
-    sfd     :: UInt8      | 8 = 0xD5      # a default
+@testset "EtherTypeOrLength — one field, two readings" begin
+    @test measure_field(EtherTypeOrLength) == 16
+    @test find_ether_type_name(EtherTypeOrLength(0x0800)) == "IPv4"
+    @test find_ether_type_name(EtherTypeOrLength(0x88b5)) === nothing
+    @test string(EtherTypeOrLength(0x88b5)) == "0x88b5"
+    @test MAX_ETHERNET_LENGTH_FIELD == 1500
+    @test MIN_ETHERNET_TYPE_FIELD == 1536
 end
 
-@testset "@header — field types, override, default" begin
-    h = FieldFormsHeader(4, 5, MacAddress("0a:00:00:00:00:01"),
-                         EtherType(0x0800), 0x1234, 0xD5)
-    @test chunk_length(FieldFormsHeader) == Bytes(12)
-    @test chunk_length(h) == Bytes(12)
-
-    bs = to_bytes(h)
-    @test bs == UInt8[0x45, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x01,
-                      0x08, 0x00, 0x12, 0x34, 0xd5]
-    @test from_bytes(FieldFormsHeader, bs) == h
-
-    # The keyword form fills the field that carries a default.
-    k = FieldFormsHeader(version = 4, ihl = 5, dst = MacAddress("0a:00:00:00:00:01"),
-                         kind = EtherType(0x0800), csum = 0x1234)
-    @test k == h
-
-    # An integer converts into a field type, so a call site stays readable.
-    @test FieldFormsHeader(4, 5, 0x0a0000000001, 0x0800, 0x1234, 0xD5) == h
+@testset "IpProtocol — the number, and the name when there is one" begin
+    @test measure_field(IpProtocol) == 8
+    @test find_ip_protocol_name(IP_PROTOCOL_UDP) == "UDP"
+    @test find_ip_protocol_name(IpProtocol(200)) === nothing
+    @test string(IP_PROTOCOL_TCP) == "TCP (6)"
+    @test string(IpProtocol(200)) == "200"
 end
 
-@testset "header_layout — the description agrees with the codec" begin
-    layout = header_layout(FieldFormsHeader)
-    @test layout === header_layout(FieldFormsHeader)     # a constant, not rebuilt
-    @test layout.name === :FieldFormsHeader
-    @test layout.length == chunk_length(FieldFormsHeader)
-    @test [s.name for s in layout.fields] ==
-          [:version, :ihl, :dst, :kind, :csum, :sfd]
-    @test [s.width for s in layout.fields] == [4, 4, 48, 16, 16, 8]
-    @test [s.offset for s in layout.fields] == [0, 4, 8, 56, 72, 88]
-    @test [s.base for s in layout.fields] ==
-          [:bin, :bin, :mac, :enum, :hex, :dec]
+@testset "Port and Checksum16 print without being told how" begin
+    @test measure_field(Port) == 16
+    @test string(Port(1000)) == "1000"
+    @test Int(Port(1000)) == 1000
+    @test Port(1000) == 1000
 
-    # The two invariants every declared header must keep: the widths sum to the
-    # length the codec writes, and the offsets run without a gap.
-    for T in (FieldFormsHeader, )
-        l = header_layout(T)
-        @test sum(s.width for s in l.fields) == chunk_length(T).bits
-        offset = 0
-        for s in l.fields
-            @test s.offset == offset
-            offset += s.width
-        end
-    end
+    @test measure_field(Checksum16) == 16
+    @test string(Checksum16(0x1234)) == "0x1234"     # hex, because it is a checksum
+    @test is_absent(Checksum16(0))                   # RFC 768 gives zero a meaning
+    @test !is_absent(Checksum16(1))
+    @test classify_display(Checksum16) === :scalar
 end
 
-@testset "field_bits / field_text" begin
-    h = FieldFormsHeader(4, 5, MacAddress("0a:00:00:00:00:01"),
-                         EtherType(0x0800), 0x1234, 0xD5)
-    layout = header_layout(FieldFormsHeader)
-    spec(name) = layout.fields[findfirst(s -> s.name === name, layout.fields)]
-
-    @test field_bits(h, spec(:version)) == 0x4
-    @test field_bits(h, spec(:dst)) == 0x0a0000000001
-
-    @test field_text(h, spec(:version)) == "0100"        # four bits, padded
-    @test field_text(h, spec(:dst)) == "0a:00:00:00:00:01"
-    @test field_text(h, spec(:kind)) == "IPv4 (0x0800)"
-    @test field_text(h, spec(:csum)) == "0x1234"
-    @test field_text(h, spec(:sfd)) == "213"
-
-    # A forced base is how a view shortens a value that does not fit.
-    @test field_text(field_bits(h, spec(:kind)), spec(:kind), :hex) == "0x0800"
-    @test field_text(field_bits(h, spec(:csum)), spec(:csum), :dec) == "4660"
+@testset "Constant — on the wire, and nothing in the struct" begin
+    signature = Constant{U8, 0x4E}()
+    @test measure_field(typeof(signature)) == 8
+    @test sizeof(typeof(signature)) == 0             # a singleton stores nothing
+    writer = BitWriter()
+    write_field(writer, typeof(signature), signature, 8, :be)
+    @test writer.bytes == UInt8[0x4E]
+    # A constant discards what it reads: a sender that wrote the wrong value
+    # still gives a header, and what it wrote is gone.
+    @test read_field(BitReader(UInt8[0xff]), typeof(signature), 8, :be) == signature
 end
 
-@testset "@header — a bad display base is a macro error" begin
-    @test_throws LoadError @eval @header BadBaseHeader begin
-        value :: UInt8 | 8 | octal
-    end
+@testset "Model — in the struct, and never on the wire" begin
+    mode = Model{ChecksumMode}(CHECKSUM_COMPUTED)
+    @test measure_field(typeof(mode)) == 0
+    @test mode.value == CHECKSUM_COMPUTED
+    @test string(mode) == "CHECKSUM_COMPUTED"
+    @test default_field(ChecksumMode) == CHECKSUM_DECLARED
+end
+
+@testset "the checksum machinery" begin
+    # The worked example of RFC 1071 §3.
+    @test compute_ones_complement(UInt8[0x00, 0x01, 0xf2, 0x03, 0xf4, 0xf5, 0xf6, 0xf7]) ==
+          0x220d
+    # An odd length pads with a zero on the right, so a trailing zero is free.
+    @test compute_ones_complement(UInt8[0x12]) == compute_ones_complement(UInt8[0x12, 0x00])
+    @test compute_ones_complement(UInt8[]) == 0xffff
 end

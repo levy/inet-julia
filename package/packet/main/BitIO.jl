@@ -96,12 +96,12 @@ function write_byte_repeatedly!(w::BitWriter, byte::UInt8, count::Int)
 end
 
 """
-    pad_bits(offset::Int, boundary::BitLength)::Int
+    measure_padding(offset::Int, boundary::BitLength)::Int
 
 The number of bits that take `offset` up to the next multiple of `boundary`.
 Zero when `offset` already sits on one.
 """
-function pad_bits(offset::Int, boundary::BitLength)
+function measure_padding(offset::Int, boundary::BitLength)
     unit = boundary.bits
     unit > 0 || error("@pad: the boundary must be positive, got $boundary")
     over = offset % unit
