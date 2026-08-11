@@ -34,10 +34,10 @@ delay varies does to a stream, and why the later link-layer steps care.
     network::Any
 end
 
-model_module_count(m::AbstractDelayerModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractDelayerModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractDelayerModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractDelayerModel)       = network_topology(m.network)
+model_module_count(m::ADelayerModel)   = network_module_count(m.network)
+model_barrier_module(m::ADelayerModel) = network_barrier(m.network)
+model_delay_edges(m::ADelayerModel)    = network_delay_edges(m.network)
+model_topology(m::ADelayerModel)       = network_topology(m.network)
 
 model_description(::Type{DelayerModel}) =
     "A delayer that holds every packet for a while on its way from source to sink."
@@ -50,8 +50,8 @@ model_parameter_space(::Type{DelayerModel}) = ParameterSpace(Parameter[
     Parameter(:seed,         42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{DelayerModel}, r::AbstractResolvedParameters)
-    m = DelayerModelMut(Float64(r[:arrival_rate]), Float64(r[:delay]),
+function build_model(::Type{DelayerModel}, r::AResolvedParameters)
+    m = MDelayerModel(Float64(r[:arrival_rate]), Float64(r[:delay]),
                         Bool(r[:random_delay]), Float64(r[:time_limit]),
                         Int(r[:seed]), nothing)
     m.network = _build_delayer_network(m)
@@ -73,9 +73,9 @@ function _build_delayer_network(m)
     network
 end
 
-reset_model!(m::AbstractDelayerModel) = (reset_network!(m.network); m)
+reset_model!(m::ADelayerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractDelayerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ADelayerModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -83,7 +83,7 @@ function schedule_initial_events!(m::AbstractDelayerModel, engine::AbstractEngin
     engine
 end
 
-finalize_model!(m::AbstractDelayerModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::ADelayerModel, recorder) = finalize_network!(m.network, recorder)
 
 # ── Joining ─────────────────────────────────────────────────────────────────
 
@@ -104,10 +104,10 @@ what lets a chain be fed from more than one place without the chain knowing.
     network::Any
 end
 
-model_module_count(m::AbstractMultiplexerModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractMultiplexerModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractMultiplexerModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractMultiplexerModel)       = network_topology(m.network)
+model_module_count(m::AMultiplexerModel)   = network_module_count(m.network)
+model_barrier_module(m::AMultiplexerModel) = network_barrier(m.network)
+model_delay_edges(m::AMultiplexerModel)    = network_delay_edges(m.network)
+model_topology(m::AMultiplexerModel)       = network_topology(m.network)
 
 model_description(::Type{MultiplexerModel}) =
     "Several sources feeding one sink through a multiplexer."
@@ -119,8 +119,8 @@ model_parameter_space(::Type{MultiplexerModel}) = ParameterSpace(Parameter[
     Parameter(:seed,         42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{MultiplexerModel}, r::AbstractResolvedParameters)
-    m = MultiplexerModelMut(Float64(r[:arrival_rate]), Int(r[:sources]),
+function build_model(::Type{MultiplexerModel}, r::AResolvedParameters)
+    m = MMultiplexerModel(Float64(r[:arrival_rate]), Int(r[:sources]),
                             Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_multiplexer_network(m)
     m
@@ -144,9 +144,9 @@ function _build_multiplexer_network(m)
     network
 end
 
-reset_model!(m::AbstractMultiplexerModel) = (reset_network!(m.network); m)
+reset_model!(m::AMultiplexerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractMultiplexerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AMultiplexerModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -154,7 +154,7 @@ function schedule_initial_events!(m::AbstractMultiplexerModel, engine::AbstractE
     engine
 end
 
-finalize_model!(m::AbstractMultiplexerModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::AMultiplexerModel, recorder) = finalize_network!(m.network, recorder)
 
 # ── Splitting ───────────────────────────────────────────────────────────────
 
@@ -178,10 +178,10 @@ chooses.
     network::Any
 end
 
-model_module_count(m::AbstractDemultiplexerModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractDemultiplexerModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractDemultiplexerModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractDemultiplexerModel)       = network_topology(m.network)
+model_module_count(m::ADemultiplexerModel)   = network_module_count(m.network)
+model_barrier_module(m::ADemultiplexerModel) = network_barrier(m.network)
+model_delay_edges(m::ADemultiplexerModel)    = network_delay_edges(m.network)
+model_topology(m::ADemultiplexerModel)       = network_topology(m.network)
 
 model_description(::Type{DemultiplexerModel}) =
     "Several sinks pulling from one source through a demultiplexer."
@@ -193,8 +193,8 @@ model_parameter_space(::Type{DemultiplexerModel}) = ParameterSpace(Parameter[
     Parameter(:seed,                42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{DemultiplexerModel}, r::AbstractResolvedParameters)
-    m = DemultiplexerModelMut(Float64(r[:collection_interval]), Int(r[:sinks]),
+function build_model(::Type{DemultiplexerModel}, r::AResolvedParameters)
+    m = MDemultiplexerModel(Float64(r[:collection_interval]), Int(r[:sinks]),
                               Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_demultiplexer_network(m)
     m
@@ -221,9 +221,9 @@ function _build_demultiplexer_network(m)
     network
 end
 
-reset_model!(m::AbstractDemultiplexerModel) = (reset_network!(m.network); m)
+reset_model!(m::ADemultiplexerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractDemultiplexerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ADemultiplexerModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -231,4 +231,4 @@ function schedule_initial_events!(m::AbstractDemultiplexerModel, engine::Abstrac
     engine
 end
 
-finalize_model!(m::AbstractDemultiplexerModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::ADemultiplexerModel, recorder) = finalize_network!(m.network, recorder)

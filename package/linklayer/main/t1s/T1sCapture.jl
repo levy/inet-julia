@@ -37,7 +37,7 @@ import OmnetppSimulator: attach_capture_seams!
 using OmnetppSimulator: CaptureAttachment, attach_link_seams!,
     declare_observation_point!, record_tap!
 
-function attach_capture_seams!(m::AbstractT1sModel, att::CaptureAttachment)
+function attach_capture_seams!(m::AT1sModel, att::CaptureAttachment)
     attach_link_seams!(m, att)          # generic declared-Link seams (none today)
     st = m.state
     st === nothing && return nothing

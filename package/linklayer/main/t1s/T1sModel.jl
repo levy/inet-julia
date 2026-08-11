@@ -64,12 +64,12 @@ end
     state::Any                           # T1sModelState — mutable per-run state
 end
 
-model_module_count(m::AbstractT1sModel)   = m.n_modules
-model_barrier_module(m::AbstractT1sModel) = T1S_BARRIER_MODULE_ID
+model_module_count(m::AT1sModel)   = m.n_modules
+model_barrier_module(m::AT1sModel) = T1S_BARRIER_MODULE_ID
 # All nodes and junctions transitively reach each other via the shared bus,
 # so ONE cluster — no delay-edge graph structure the parallel engine can
 # exploit. Empty edges → parallel engine treats as single cluster (barrier).
-model_delay_edges(m::AbstractT1sModel)    = Tuple{Int,Int,SimTime}[]
+model_delay_edges(m::AT1sModel)    = Tuple{Int,Int,SimTime}[]
 
 model_description(::Type{T1sModel}) =
     "10BASE-T1S multidrop bus with PLCA arbitration (IEEE 802.3cg-2019)."
@@ -90,7 +90,7 @@ model_parameter_space(::Type{T1sModel}) = ParameterSpace(Parameter[
 
 # ---------- build_model -----------------------------------------------------
 
-function build_model(::Type{T1sModel}, r::AbstractResolvedParameters)
+function build_model(::Type{T1sModel}, r::AResolvedParameters)
     n_nodes = Int(r[:n_nodes])
     time_limit = to_simtime(Float64(r[:time_limit]))
     d_seg  = Float64(r[:d_seg])
@@ -110,7 +110,7 @@ function build_model(::Type{T1sModel}, r::AbstractResolvedParameters)
     n_modules = 1 + n_nodes + n_junctions
 
     vec_path = haskey(r, :vec_path) ? String(r[:vec_path]) : ""
-    m = T1sModelMut(n_nodes, n_modules, time_limit, d_seg, d_stub,
+    m = MT1sModel(n_nodes, n_modules, time_limit, d_seg, d_stub,
                     max_bc, sources, seed, vec_path, nothing)
     m.state = _build_state!(m)
     return m
@@ -141,7 +141,7 @@ end
 
 # ---------- build state (wire everything) -----------------------------------
 
-function _build_state!(m::AbstractT1sModel)
+function _build_state!(m::AT1sModel)
     n = m.n_nodes                            # coord + followers (n = 1 + numNodes)
     n_followers = n - 1                      # INET numNodes
     d_seg  = to_simtime(m.d_seg)             # 100 cm — coord-to-j[0] AND j[i]-j[i+1]
@@ -299,12 +299,12 @@ end
 
 # ---------- lifecycle -------------------------------------------------------
 
-function reset_model!(m::AbstractT1sModel)
+function reset_model!(m::AT1sModel)
     m.state = _build_state!(m)
     m
 end
 
-function schedule_initial_events!(m::AbstractT1sModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AT1sModel, engine::AbstractEngine, recorder)
     # Wire the recorder into every node's state structs before scheduling.
     # See plan/done/ten-base-t1s-statistics.md §3.
     _wire_recorder!(m, recorder)
@@ -375,7 +375,7 @@ _inet_signal_name(sym::Symbol) = "$(sym):vector"
 
 # Emit each MAC / PHY signal at t=0 with its initial value, matching
 # INET's initialize() emit() convention. plca_start! handles PLCA signals.
-function _emit_initial_stats!(engine::AbstractEngine, m::AbstractT1sModel)
+function _emit_initial_stats!(engine::AbstractEngine, m::AT1sModel)
     st = m.state
     for (i, node) in enumerate(st.nodes)
         schedule_root!(engine, to_simtime(0.0), node.module_id,
@@ -408,7 +408,7 @@ function _emit_node_initial_stats!(ctx, node)
 end
 
 # Emit each layer's CURRENT signal value at sim-end (mirrors INET's finish()).
-function _emit_final_stats!(engine::AbstractEngine, m::AbstractT1sModel)
+function _emit_final_stats!(engine::AbstractEngine, m::AT1sModel)
     st = m.state
     for node in st.nodes
         schedule_root!(engine, m.time_limit, node.module_id,
@@ -454,7 +454,7 @@ function _emit_node_final_stats!(ctx, node)
     end
 end
 
-function _wire_recorder!(m::AbstractT1sModel, recorder)
+function _wire_recorder!(m::AT1sModel, recorder)
     recorder === nothing && return
     st = m.state
     n = m.n_nodes
@@ -486,7 +486,7 @@ function _wire_recorder!(m::AbstractT1sModel, recorder)
 end
 
 # Attach a result sink when `:vec_path` is set (matches RoutingModel).
-function make_recorder(m::AbstractT1sModel, engine::AbstractEngine)
+function make_recorder(m::AT1sModel, engine::AbstractEngine)
     rec = Recorder()
     path = _t1s_vec_path(m)
     if path !== nothing
@@ -498,4 +498,4 @@ end
 
 # Optional per-model .vec output path — off by default so tests don't write
 # files. Set via the :vec_path parameter (added below).
-_t1s_vec_path(m::AbstractT1sModel) = isempty(m.vec_path) ? nothing : m.vec_path
+_t1s_vec_path(m::AT1sModel) = isempty(m.vec_path) ? nothing : m.vec_path

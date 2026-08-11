@@ -33,10 +33,10 @@ compound module's submodules are real modules in the network.
     network::Any
 end
 
-model_module_count(m::AbstractPriorityQueueModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractPriorityQueueModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractPriorityQueueModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractPriorityQueueModel)       = network_topology(m.network)
+model_module_count(m::APriorityQueueModel)   = network_module_count(m.network)
+model_barrier_module(m::APriorityQueueModel) = network_barrier(m.network)
+model_delay_edges(m::APriorityQueueModel)    = network_delay_edges(m.network)
+model_topology(m::APriorityQueueModel)       = network_topology(m.network)
 
 model_description(::Type{PriorityQueueModel}) =
     "A priority queue of several levels, as one element, between a source and a server."
@@ -50,8 +50,8 @@ model_parameter_space(::Type{PriorityQueueModel}) = ParameterSpace(Parameter[
     Parameter(:seed,            42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{PriorityQueueModel}, r::AbstractResolvedParameters)
-    m = PriorityQueueModelMut(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+function build_model(::Type{PriorityQueueModel}, r::AResolvedParameters)
+    m = MPriorityQueueModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                               Int(r[:priorities]), Int(r[:level_capacity]),
                               Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_priority_queue_network(m)
@@ -80,9 +80,9 @@ function _build_priority_queue_network(m)
     network
 end
 
-reset_model!(m::AbstractPriorityQueueModel) = (reset_network!(m.network); m)
+reset_model!(m::APriorityQueueModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractPriorityQueueModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::APriorityQueueModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -90,7 +90,7 @@ function schedule_initial_events!(m::AbstractPriorityQueueModel, engine::Abstrac
     engine
 end
 
-finalize_model!(m::AbstractPriorityQueueModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::APriorityQueueModel, recorder) = finalize_network!(m.network, recorder)
 
 # ── Refusing rather than dropping ───────────────────────────────────────────
 
@@ -115,10 +115,10 @@ dropping one lets the whole chain run and throws the packets away at the end.
     network::Any
 end
 
-model_module_count(m::AbstractBackpressureFilterModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractBackpressureFilterModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractBackpressureFilterModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractBackpressureFilterModel)       = network_topology(m.network)
+model_module_count(m::ABackpressureFilterModel)   = network_module_count(m.network)
+model_barrier_module(m::ABackpressureFilterModel) = network_barrier(m.network)
+model_delay_edges(m::ABackpressureFilterModel)    = network_delay_edges(m.network)
+model_topology(m::ABackpressureFilterModel)       = network_topology(m.network)
 
 model_description(::Type{BackpressureFilterModel}) =
     "A filter that refuses packets instead of dropping them, and the queue that fills behind it."
@@ -132,8 +132,8 @@ model_parameter_space(::Type{BackpressureFilterModel}) = ParameterSpace(Paramete
     Parameter(:seed,            42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{BackpressureFilterModel}, r::AbstractResolvedParameters)
-    m = BackpressureFilterModelMut(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+function build_model(::Type{BackpressureFilterModel}, r::AResolvedParameters)
+    m = MBackpressureFilterModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                                    Bool(r[:backpressure]), Float64(r[:pass_rate]),
                                    Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_backpressure_network(m)
@@ -163,9 +163,9 @@ function _build_backpressure_network(m)
     network
 end
 
-reset_model!(m::AbstractBackpressureFilterModel) = (reset_network!(m.network); m)
+reset_model!(m::ABackpressureFilterModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractBackpressureFilterModel,
+function schedule_initial_events!(m::ABackpressureFilterModel,
                                   engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
@@ -174,5 +174,5 @@ function schedule_initial_events!(m::AbstractBackpressureFilterModel,
     engine
 end
 
-finalize_model!(m::AbstractBackpressureFilterModel, recorder) =
+finalize_model!(m::ABackpressureFilterModel, recorder) =
     finalize_network!(m.network, recorder)

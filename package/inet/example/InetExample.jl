@@ -64,7 +64,7 @@ import Projectured.ProjectionApiModule: print_document, read_intent,
 using Projectured.ProjectionApiModule: Projection
 using Projectured.ProjectionModule: var"@projection"
 using Projectured.ProjectionTemplateModule: var"@projection_template"
-using Projectured.StyleTextModule: StyleText, DStyleText
+using Projectured.StyleTextModule: StyleText, DCStyleText
 using Projectured.SyntaxModule: SyntaxLeaf
 using Projectured.TextModule: TextString
 using Projectured.WidgetModule: WidgetScrollPane

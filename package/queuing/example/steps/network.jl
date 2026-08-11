@@ -31,10 +31,10 @@ and the compound does not know a filter is downstream.
     network::Any
 end
 
-model_module_count(m::AbstractComplexNetworkModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractComplexNetworkModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractComplexNetworkModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractComplexNetworkModel)       = network_topology(m.network)
+model_module_count(m::AComplexNetworkModel)   = network_module_count(m.network)
+model_barrier_module(m::AComplexNetworkModel) = network_barrier(m.network)
+model_delay_edges(m::AComplexNetworkModel)    = network_delay_edges(m.network)
+model_topology(m::AComplexNetworkModel)       = network_topology(m.network)
 
 model_description(::Type{ComplexNetworkModel}) =
     "Two sources, a multiplexer, a priority queue, a server and a filter: the elements composed."
@@ -49,8 +49,8 @@ model_parameter_space(::Type{ComplexNetworkModel}) = ParameterSpace(Parameter[
     Parameter(:seed,            42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{ComplexNetworkModel}, r::AbstractResolvedParameters)
-    m = ComplexNetworkModelMut(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+function build_model(::Type{ComplexNetworkModel}, r::AResolvedParameters)
+    m = MComplexNetworkModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                                Int(r[:priorities]), Int(r[:level_capacity]),
                                Float64(r[:pass_rate]), Float64(r[:time_limit]),
                                Int(r[:seed]), nothing)
@@ -90,9 +90,9 @@ function _build_complex_network(m)
     network
 end
 
-reset_model!(m::AbstractComplexNetworkModel) = (reset_network!(m.network); m)
+reset_model!(m::AComplexNetworkModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractComplexNetworkModel,
+function schedule_initial_events!(m::AComplexNetworkModel,
                                   engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
@@ -101,4 +101,4 @@ function schedule_initial_events!(m::AbstractComplexNetworkModel,
     engine
 end
 
-finalize_model!(m::AbstractComplexNetworkModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::AComplexNetworkModel, recorder) = finalize_network!(m.network, recorder)

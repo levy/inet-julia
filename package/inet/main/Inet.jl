@@ -54,8 +54,8 @@ export
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
     T1sModule,
     # the model interface implementations the lifecycle drives
-    QueuingModel, AbstractQueuingModel, QueuingModelMut,
-    T1sModel, AbstractT1sModel, T1sModelMut,
+    QueuingModel, AQueuingModel, MQueuingModel,
+    T1sModel, AT1sModel, MT1sModel,
     # every model there is, offered to a workbench
     inet_simulation_catalog,
     # a packet as the ASCII art figure the RFCs draw — a submodule, so

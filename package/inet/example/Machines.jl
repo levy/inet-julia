@@ -159,7 +159,7 @@ An edge label that is just the trigger. The shared `FsmTransitionToSyntaxLabel`
 adds the guard and the action, which a window has room for and a page does not.
 """
 @projection struct FsmTriggerLabel
-    trigger::ImmutableCell{DStyleText} =
+    trigger::ImmutableCell{DCStyleText} =
         StyleText(font_ubuntu_monospace_regular_20, color_solarized_violet)
 end
 

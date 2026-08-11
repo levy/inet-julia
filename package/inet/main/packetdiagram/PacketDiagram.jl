@@ -37,9 +37,9 @@ import ProjecturedVisual.ReferenceBuilderModule: var"@reference"
 import ProjecturedVisual.ReferenceCaseModule: var"@reference_case"
 import ProjecturedVisual.CellStructModule: ImmutableCell
 import ProjecturedVisual.ChainingProjectionModule: ChainingProjection
-import ProjecturedVisual.ColorModule: DStyleColor, color_solarized_blue,
+import ProjecturedVisual.ColorModule: DCStyleColor, color_solarized_blue,
     color_solarized_gray, color_solarized_green, color_solarized_magenta
-import ProjecturedVisual.FontModule: DStyleFont, font_ubuntu_monospace_regular_20
+import ProjecturedVisual.FontModule: DCStyleFont, font_ubuntu_monospace_regular_20
 import ProjecturedVisual.TextModule: TextDocument, TextBlock, TextString, TextNewline
 import ProjecturedVisual.TextToGraphicsModule: TextToGraphics
 import ProjecturedVisual.TextToStringModule: TextToString

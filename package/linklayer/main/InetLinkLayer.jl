@@ -24,7 +24,7 @@ using OmnetppSimulator: SimTime, to_simtime, ScheduleContext, schedule!,
     SimTimeLimit
 # Parameterization: a model declares its degrees of freedom, the lifecycle
 # resolves them and hands back a `ResolvedParameters`.
-using OmnetppSimulator: Parameter, ParameterSpace, AbstractResolvedParameters,
+using OmnetppSimulator: Parameter, ParameterSpace, AResolvedParameters,
     StructuralDOF, StochasticDOF, IterationDOF
 # Result recording.
 using OmnetppSimulator: Recorder, attach_sink!, OmnetppTextSink,
@@ -55,6 +55,6 @@ export
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
     T1sModule,
     # the model interface implementation the lifecycle drives
-    T1sModel, AbstractT1sModel, T1sModelMut
+    T1sModel, AT1sModel, MT1sModel
 
 end # module InetLinkLayer

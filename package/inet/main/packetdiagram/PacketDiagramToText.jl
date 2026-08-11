@@ -35,11 +35,11 @@ box.
     show_values::ImmutableCell{Bool} = true
     show_legend::ImmutableCell{Bool} = true
     max_opaque_rows::ImmutableCell{Int} = 2
-    font::ImmutableCell{DStyleFont} = font_ubuntu_monospace_regular_20
-    chrome_color::ImmutableCell{DStyleColor} = color_solarized_gray
-    title_color::ImmutableCell{DStyleColor} = color_solarized_green
-    name_color::ImmutableCell{DStyleColor} = color_solarized_blue
-    value_color::ImmutableCell{DStyleColor} = color_solarized_magenta
+    font::ImmutableCell{DCStyleFont} = font_ubuntu_monospace_regular_20
+    chrome_color::ImmutableCell{DCStyleColor} = color_solarized_gray
+    title_color::ImmutableCell{DCStyleColor} = color_solarized_green
+    name_color::ImmutableCell{DCStyleColor} = color_solarized_blue
+    value_color::ImmutableCell{DCStyleColor} = color_solarized_magenta
 end
 
 function print_document(p::PacketDiagramToText, recursion, diagram::PacketDiagram, ctx)

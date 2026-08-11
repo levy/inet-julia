@@ -31,10 +31,10 @@ somewhere that does not know about your classification.
     network::Any
 end
 
-model_module_count(m::AbstractLabelerModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractLabelerModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractLabelerModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractLabelerModel)       = network_topology(m.network)
+model_module_count(m::ALabelerModel)   = network_module_count(m.network)
+model_barrier_module(m::ALabelerModel) = network_barrier(m.network)
+model_delay_edges(m::ALabelerModel)    = network_delay_edges(m.network)
+model_topology(m::ALabelerModel)       = network_topology(m.network)
 
 model_description(::Type{LabelerModel}) =
     "A labeler that writes the value a classifier downstream sorts by."
@@ -46,8 +46,8 @@ model_parameter_space(::Type{LabelerModel}) = ParameterSpace(Parameter[
     Parameter(:seed,         42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{LabelerModel}, r::AbstractResolvedParameters)
-    m = LabelerModelMut(Float64(r[:arrival_rate]), Int(r[:labels]),
+function build_model(::Type{LabelerModel}, r::AResolvedParameters)
+    m = MLabelerModel(Float64(r[:arrival_rate]), Int(r[:labels]),
                         Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_labeler_network(m)
     m
@@ -78,9 +78,9 @@ function _build_labeler_network(m)
     network
 end
 
-reset_model!(m::AbstractLabelerModel) = (reset_network!(m.network); m)
+reset_model!(m::ALabelerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractLabelerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ALabelerModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -88,7 +88,7 @@ function schedule_initial_events!(m::AbstractLabelerModel, engine::AbstractEngin
     engine
 end
 
-finalize_model!(m::AbstractLabelerModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::ALabelerModel, recorder) = finalize_network!(m.network, recorder)
 
 """
     ClonerModel
@@ -108,10 +108,10 @@ thickens it in place. The counts at the two sinks are what tells them apart.
     network::Any
 end
 
-model_module_count(m::AbstractClonerModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractClonerModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractClonerModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractClonerModel)       = network_topology(m.network)
+model_module_count(m::AClonerModel)   = network_module_count(m.network)
+model_barrier_module(m::AClonerModel) = network_barrier(m.network)
+model_delay_edges(m::AClonerModel)    = network_delay_edges(m.network)
+model_topology(m::AClonerModel)       = network_topology(m.network)
 
 model_description(::Type{ClonerModel}) =
     "A cloner fanning a stream out, and a duplicator thickening one branch of it."
@@ -124,8 +124,8 @@ model_parameter_space(::Type{ClonerModel}) = ParameterSpace(Parameter[
     Parameter(:seed,             42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{ClonerModel}, r::AbstractResolvedParameters)
-    m = ClonerModelMut(Float64(r[:arrival_rate]), Int(r[:branches]),
+function build_model(::Type{ClonerModel}, r::AResolvedParameters)
+    m = MClonerModel(Float64(r[:arrival_rate]), Int(r[:branches]),
                        Int(r[:duplicate_every]), Float64(r[:time_limit]),
                        Int(r[:seed]), nothing)
     m.network = _build_cloner_network(m)
@@ -154,9 +154,9 @@ function _build_cloner_network(m)
     network
 end
 
-reset_model!(m::AbstractClonerModel) = (reset_network!(m.network); m)
+reset_model!(m::AClonerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractClonerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AClonerModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -164,4 +164,4 @@ function schedule_initial_events!(m::AbstractClonerModel, engine::AbstractEngine
     engine
 end
 
-finalize_model!(m::AbstractClonerModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::AClonerModel, recorder) = finalize_network!(m.network, recorder)

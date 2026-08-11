@@ -102,7 +102,7 @@ function attach_packet_peer_seams!(att::CaptureAttachment, network;
     nothing
 end
 
-function attach_capture_seams!(m::AbstractQueuingModel, att::CaptureAttachment)
+function attach_capture_seams!(m::AQueuingModel, att::CaptureAttachment)
     attach_link_seams!(m, att)          # generic declared-Link seams (none today)
     attach_packet_peer_seams!(att, m.network)
     nothing

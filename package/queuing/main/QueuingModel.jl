@@ -44,12 +44,12 @@ shipping as an example.
     network::Any                   # the live Network of modules
 end
 
-model_module_count(m::AbstractQueuingModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractQueuingModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractQueuingModel)    = network_delay_edges(m.network)
+model_module_count(m::AQueuingModel)   = network_module_count(m.network)
+model_barrier_module(m::AQueuingModel) = network_barrier(m.network)
+model_delay_edges(m::AQueuingModel)    = network_delay_edges(m.network)
 # The diagram comes from the same wiring the engine reads, so it cannot drift
 # from the model it describes.
-model_topology(m::AbstractQueuingModel)       = network_topology(m.network)
+model_topology(m::AQueuingModel)       = network_topology(m.network)
 
 model_description(::Type{QueuingModel}) =
     "A single queue served by one server: packets arrive, wait, are served, and leave."
@@ -64,8 +64,8 @@ model_parameter_space(::Type{QueuingModel}) = ParameterSpace(Parameter[
     Parameter(:seed,            42,     nothing, StochasticDOF),
 ])
 
-function build_model(::Type{QueuingModel}, r::AbstractResolvedParameters)
-    m = QueuingModelMut(Float64(r[:arrival_rate]), Float64(r[:service_rate]),
+function build_model(::Type{QueuingModel}, r::AResolvedParameters)
+    m = MQueuingModel(Float64(r[:arrival_rate]), Float64(r[:service_rate]),
                         Int(r[:packet_capacity]), Int(r[:packet_bytes]),
                         Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_queuing_network(m)
@@ -95,9 +95,9 @@ function _build_queuing_network(m)
     network
 end
 
-reset_model!(m::AbstractQueuingModel) = (reset_network!(m.network); m)
+reset_model!(m::AQueuingModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractQueuingModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AQueuingModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     # The run ends by the clock rather than by running out of packets: the
@@ -107,4 +107,4 @@ function schedule_initial_events!(m::AbstractQueuingModel, engine::AbstractEngin
     engine
 end
 
-finalize_model!(m::AbstractQueuingModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::AQueuingModel, recorder) = finalize_network!(m.network, recorder)

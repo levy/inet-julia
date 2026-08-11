@@ -89,7 +89,7 @@ end
 @testset "T1sModel — model interface plumbs through cleanly" begin
     m = build_model(T1sModel, resolve_parameters(model_parameter_space(T1sModel),
                                                   ParameterAssignment()))
-    @test m isa AbstractT1sModel
+    @test m isa AT1sModel
     @test model_module_count(m) == 1 + 5 + 4    # barrier + 5 nodes + 4 junctions
                                                  # (INET: one junction per follower;
                                                  # coord shares j[0] with node[0])

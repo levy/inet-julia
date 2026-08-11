@@ -50,10 +50,10 @@ where it goes. Everything downstream of the fork sees only its own share.
     network::Any
 end
 
-model_module_count(m::AbstractContentBasedClassifierModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractContentBasedClassifierModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractContentBasedClassifierModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractContentBasedClassifierModel)       = network_topology(m.network)
+model_module_count(m::AContentBasedClassifierModel)   = network_module_count(m.network)
+model_barrier_module(m::AContentBasedClassifierModel) = network_barrier(m.network)
+model_delay_edges(m::AContentBasedClassifierModel)    = network_delay_edges(m.network)
+model_topology(m::AContentBasedClassifierModel)       = network_topology(m.network)
 
 model_description(::Type{ContentBasedClassifierModel}) =
     "A classifier that reads the value written on each packet and forks the chain by it."
@@ -65,8 +65,8 @@ model_parameter_space(::Type{ContentBasedClassifierModel}) = ParameterSpace(Para
     Parameter(:seed,         42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{ContentBasedClassifierModel}, r::AbstractResolvedParameters)
-    m = ContentBasedClassifierModelMut(Float64(r[:arrival_rate]), Int(r[:classes]),
+function build_model(::Type{ContentBasedClassifierModel}, r::AResolvedParameters)
+    m = MContentBasedClassifierModel(Float64(r[:arrival_rate]), Int(r[:classes]),
                                        Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_content_classifier_network(m)
     m
@@ -98,9 +98,9 @@ function _build_content_classifier_network(m)
     network
 end
 
-reset_model!(m::AbstractContentBasedClassifierModel) = (reset_network!(m.network); m)
+reset_model!(m::AContentBasedClassifierModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractContentBasedClassifierModel,
+function schedule_initial_events!(m::AContentBasedClassifierModel,
                                   engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
@@ -109,7 +109,7 @@ function schedule_initial_events!(m::AbstractContentBasedClassifierModel,
     engine
 end
 
-finalize_model!(m::AbstractContentBasedClassifierModel, recorder) =
+finalize_model!(m::AContentBasedClassifierModel, recorder) =
     finalize_network!(m.network, recorder)
 
 # ── Scheduling ──────────────────────────────────────────────────────────────
@@ -134,10 +134,10 @@ told about priorities.
     network::Any
 end
 
-model_module_count(m::AbstractPriorityQueueChainModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractPriorityQueueChainModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractPriorityQueueChainModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractPriorityQueueChainModel)       = network_topology(m.network)
+model_module_count(m::APriorityQueueChainModel)   = network_module_count(m.network)
+model_barrier_module(m::APriorityQueueChainModel) = network_barrier(m.network)
+model_delay_edges(m::APriorityQueueChainModel)    = network_delay_edges(m.network)
+model_topology(m::APriorityQueueChainModel)       = network_topology(m.network)
 
 model_description(::Type{PriorityQueueChainModel}) =
     "A classifier, two queues and a scheduler: a priority queue built from the parts."
@@ -150,8 +150,8 @@ model_parameter_space(::Type{PriorityQueueChainModel}) = ParameterSpace(Paramete
     Parameter(:seed,            42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{PriorityQueueChainModel}, r::AbstractResolvedParameters)
-    m = PriorityQueueChainModelMut(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+function build_model(::Type{PriorityQueueChainModel}, r::AResolvedParameters)
+    m = MPriorityQueueChainModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                                    Int(r[:first_capacity]), Float64(r[:time_limit]),
                                    Int(r[:seed]), nothing)
     m.network = _build_priority_chain_network(m)
@@ -183,9 +183,9 @@ function _build_priority_chain_network(m)
     network
 end
 
-reset_model!(m::AbstractPriorityQueueChainModel) = (reset_network!(m.network); m)
+reset_model!(m::APriorityQueueChainModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractPriorityQueueChainModel,
+function schedule_initial_events!(m::APriorityQueueChainModel,
                                   engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
@@ -194,7 +194,7 @@ function schedule_initial_events!(m::AbstractPriorityQueueChainModel,
     engine
 end
 
-finalize_model!(m::AbstractPriorityQueueChainModel, recorder) =
+finalize_model!(m::APriorityQueueChainModel, recorder) =
     finalize_network!(m.network, recorder)
 
 # ── Filtering ───────────────────────────────────────────────────────────────
@@ -218,10 +218,10 @@ different predicate is a different step.
     network::Any
 end
 
-model_module_count(m::AbstractFilterModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractFilterModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractFilterModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractFilterModel)       = network_topology(m.network)
+model_module_count(m::AFilterModel)   = network_module_count(m.network)
+model_barrier_module(m::AFilterModel) = network_barrier(m.network)
+model_delay_edges(m::AFilterModel)    = network_delay_edges(m.network)
+model_topology(m::AFilterModel)       = network_topology(m.network)
 
 model_description(::Type{FilterModel}) =
     "A filter that passes on only the packets whose value it is looking for."
@@ -234,8 +234,8 @@ model_parameter_space(::Type{FilterModel}) = ParameterSpace(Parameter[
     Parameter(:seed,         42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{FilterModel}, r::AbstractResolvedParameters)
-    m = FilterModelMut(Float64(r[:arrival_rate]), Int(r[:classes]), Int(r[:keep]),
+function build_model(::Type{FilterModel}, r::AResolvedParameters)
+    m = MFilterModel(Float64(r[:arrival_rate]), Int(r[:classes]), Int(r[:keep]),
                        Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_filter_network(m)
     m
@@ -255,9 +255,9 @@ function _build_filter_network(m)
     network
 end
 
-reset_model!(m::AbstractFilterModel) = (reset_network!(m.network); m)
+reset_model!(m::AFilterModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractFilterModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AFilterModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -265,7 +265,7 @@ function schedule_initial_events!(m::AbstractFilterModel, engine::AbstractEngine
     engine
 end
 
-finalize_model!(m::AbstractFilterModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::AFilterModel, recorder) = finalize_network!(m.network, recorder)
 
 # ── Sharing a chain out ─────────────────────────────────────────────────────
 
@@ -293,10 +293,10 @@ policy.
     network::Any
 end
 
-model_module_count(m::AbstractSharedChainModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractSharedChainModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractSharedChainModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractSharedChainModel)       = network_topology(m.network)
+model_module_count(m::ASharedChainModel)   = network_module_count(m.network)
+model_barrier_module(m::ASharedChainModel) = network_barrier(m.network)
+model_delay_edges(m::ASharedChainModel)    = network_delay_edges(m.network)
+model_topology(m::ASharedChainModel)       = network_topology(m.network)
 
 model_description(::Type{SharedChainModel}) =
     "Two queues sharing one server, with the sharing policy as a parameter."
@@ -312,8 +312,8 @@ model_parameter_space(::Type{SharedChainModel}) = ParameterSpace(Parameter[
     Parameter(:seed,            42,            nothing, StochasticDOF),
 ])
 
-function build_model(::Type{SharedChainModel}, r::AbstractResolvedParameters)
-    m = SharedChainModelMut(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+function build_model(::Type{SharedChainModel}, r::AResolvedParameters)
+    m = MSharedChainModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                             Symbol(r[:policy]), Int(r[:first_weight]),
                             Int(r[:second_weight]), Float64(r[:stickiness]),
                             Float64(r[:time_limit]), Int(r[:seed]), nothing)
@@ -377,9 +377,9 @@ function _build_shared_chain_network(m)
     network
 end
 
-reset_model!(m::AbstractSharedChainModel) = (reset_network!(m.network); m)
+reset_model!(m::ASharedChainModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractSharedChainModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ASharedChainModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -387,7 +387,7 @@ function schedule_initial_events!(m::AbstractSharedChainModel, engine::AbstractE
     engine
 end
 
-finalize_model!(m::AbstractSharedChainModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::ASharedChainModel, recorder) = finalize_network!(m.network, recorder)
 
 # ── Naming a policy instead of writing it ───────────────────────────────────
 
@@ -412,10 +412,10 @@ but what it names is a function anyone can register rather than a class.
     network::Any
 end
 
-model_module_count(m::AbstractNamedPolicyModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractNamedPolicyModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractNamedPolicyModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractNamedPolicyModel)       = network_topology(m.network)
+model_module_count(m::ANamedPolicyModel)   = network_module_count(m.network)
+model_barrier_module(m::ANamedPolicyModel) = network_barrier(m.network)
+model_delay_edges(m::ANamedPolicyModel)    = network_delay_edges(m.network)
+model_topology(m::ANamedPolicyModel)       = network_topology(m.network)
 
 model_description(::Type{NamedPolicyModel}) =
     "A filter whose rule is chosen by name from the registered policies."
@@ -429,8 +429,8 @@ model_parameter_space(::Type{NamedPolicyModel}) = ParameterSpace(Parameter[
     Parameter(:seed,         42,            nothing, StochasticDOF),
 ])
 
-function build_model(::Type{NamedPolicyModel}, r::AbstractResolvedParameters)
-    m = NamedPolicyModelMut(Float64(r[:arrival_rate]), Int(r[:classes]),
+function build_model(::Type{NamedPolicyModel}, r::AResolvedParameters)
+    m = MNamedPolicyModel(Float64(r[:arrival_rate]), Int(r[:classes]),
                             Symbol(r[:policy]), r[:argument],
                             Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_named_policy_network(m)
@@ -452,9 +452,9 @@ function _build_named_policy_network(m)
     network
 end
 
-reset_model!(m::AbstractNamedPolicyModel) = (reset_network!(m.network); m)
+reset_model!(m::ANamedPolicyModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractNamedPolicyModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ANamedPolicyModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -462,4 +462,4 @@ function schedule_initial_events!(m::AbstractNamedPolicyModel, engine::AbstractE
     engine
 end
 
-finalize_model!(m::AbstractNamedPolicyModel, recorder) = finalize_network!(m.network, recorder)
+finalize_model!(m::ANamedPolicyModel, recorder) = finalize_network!(m.network, recorder)

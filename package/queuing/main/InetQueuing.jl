@@ -22,7 +22,7 @@ using OmnetppSimulator: SimTime, to_simtime, schedule_root!, stop!,
     AbstractEngine, AbstractModel, SimTimeLimit
 # Parameterization: a model declares its degrees of freedom, the lifecycle
 # resolves them and hands back a `ResolvedParameters`.
-using OmnetppSimulator: Parameter, ParameterSpace, AbstractResolvedParameters,
+using OmnetppSimulator: Parameter, ParameterSpace, AResolvedParameters,
     StructuralDOF, StochasticDOF
 # The model interface itself — `import`, not `using`, because `QueuingModel`
 # adds methods to these.
@@ -98,6 +98,6 @@ export
     PacketClassifierElement, PacketSchedulerElement, PacketFilterElement,
     PacketPlumbingElement, PacketMarkingModule, PriorityQueueElement,
     # the model interface implementation the lifecycle drives
-    QueuingModel, AbstractQueuingModel, QueuingModelMut
+    QueuingModel, AQueuingModel, MQueuingModel
 
 end # module InetQueuing

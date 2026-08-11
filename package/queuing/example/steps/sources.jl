@@ -11,7 +11,7 @@ using InetQueuing: ActivePacketSourceModule,
     PassivePacketSourceModule,
     ActivePacketSinkModule,
     PassivePacketSinkModule, PacketTemplate, check_packet_connections
-using OmnetppSimulator: AbstractModel, AbstractEngine, AbstractResolvedParameters,
+using OmnetppSimulator: AbstractModel, AbstractEngine, AResolvedParameters,
     Parameter, ParameterSpace, StructuralDOF, StochasticDOF, SimTimeLimit,
     schedule_root!, stop!, to_simtime
 using OmnetppSimulator.NetworkModule: Network, add_module!, connect!,
@@ -45,10 +45,10 @@ interval differs from a fixed one.
     network::Any                   # the live Network of modules
 end
 
-model_module_count(m::AbstractActiveSourcePassiveSinkModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractActiveSourcePassiveSinkModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractActiveSourcePassiveSinkModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractActiveSourcePassiveSinkModel)       = network_topology(m.network)
+model_module_count(m::AActiveSourcePassiveSinkModel)   = network_module_count(m.network)
+model_barrier_module(m::AActiveSourcePassiveSinkModel) = network_barrier(m.network)
+model_delay_edges(m::AActiveSourcePassiveSinkModel)    = network_delay_edges(m.network)
+model_topology(m::AActiveSourcePassiveSinkModel)       = network_topology(m.network)
 
 model_description(::Type{ActiveSourcePassiveSinkModel}) =
     "A source that produces packets on its own, pushing them into a sink that counts them."
@@ -61,8 +61,8 @@ model_parameter_space(::Type{ActiveSourcePassiveSinkModel}) = ParameterSpace(Par
     Parameter(:seed,                42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{ActiveSourcePassiveSinkModel}, r::AbstractResolvedParameters)
-    m = ActiveSourcePassiveSinkModelMut(Float64(r[:production_interval]),
+function build_model(::Type{ActiveSourcePassiveSinkModel}, r::AResolvedParameters)
+    m = MActiveSourcePassiveSinkModel(Float64(r[:production_interval]),
                                         Bool(r[:random_intervals]),
                                         Int(r[:packet_bytes]),
                                         Float64(r[:time_limit]), Int(r[:seed]), nothing)
@@ -88,9 +88,9 @@ function _build_source_sink_network(m)
     network
 end
 
-reset_model!(m::AbstractActiveSourcePassiveSinkModel) = (reset_network!(m.network); m)
+reset_model!(m::AActiveSourcePassiveSinkModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractActiveSourcePassiveSinkModel,
+function schedule_initial_events!(m::AActiveSourcePassiveSinkModel,
                                   engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
@@ -99,7 +99,7 @@ function schedule_initial_events!(m::AbstractActiveSourcePassiveSinkModel,
     engine
 end
 
-finalize_model!(m::AbstractActiveSourcePassiveSinkModel, recorder) =
+finalize_model!(m::AActiveSourcePassiveSinkModel, recorder) =
     finalize_network!(m.network, recorder)
 
 """
@@ -122,10 +122,10 @@ knowing about the other.
     network::Any
 end
 
-model_module_count(m::AbstractPassiveSourceActiveSinkModel)   = network_module_count(m.network)
-model_barrier_module(m::AbstractPassiveSourceActiveSinkModel) = network_barrier(m.network)
-model_delay_edges(m::AbstractPassiveSourceActiveSinkModel)    = network_delay_edges(m.network)
-model_topology(m::AbstractPassiveSourceActiveSinkModel)       = network_topology(m.network)
+model_module_count(m::APassiveSourceActiveSinkModel)   = network_module_count(m.network)
+model_barrier_module(m::APassiveSourceActiveSinkModel) = network_barrier(m.network)
+model_delay_edges(m::APassiveSourceActiveSinkModel)    = network_delay_edges(m.network)
+model_topology(m::APassiveSourceActiveSinkModel)       = network_topology(m.network)
 
 model_description(::Type{PassiveSourceActiveSinkModel}) =
     "A sink that collects packets on its own from a source that provides them on request."
@@ -138,8 +138,8 @@ model_parameter_space(::Type{PassiveSourceActiveSinkModel}) = ParameterSpace(Par
     Parameter(:seed,                42,    nothing, StochasticDOF),
 ])
 
-function build_model(::Type{PassiveSourceActiveSinkModel}, r::AbstractResolvedParameters)
-    m = PassiveSourceActiveSinkModelMut(Float64(r[:collection_interval]),
+function build_model(::Type{PassiveSourceActiveSinkModel}, r::AResolvedParameters)
+    m = MPassiveSourceActiveSinkModel(Float64(r[:collection_interval]),
                                         Bool(r[:random_intervals]),
                                         Int(r[:packet_bytes]),
                                         Float64(r[:time_limit]), Int(r[:seed]), nothing)
@@ -163,9 +163,9 @@ function _build_pull_network(m)
     network
 end
 
-reset_model!(m::AbstractPassiveSourceActiveSinkModel) = (reset_network!(m.network); m)
+reset_model!(m::APassiveSourceActiveSinkModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AbstractPassiveSourceActiveSinkModel,
+function schedule_initial_events!(m::APassiveSourceActiveSinkModel,
                                   engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
@@ -174,5 +174,5 @@ function schedule_initial_events!(m::AbstractPassiveSourceActiveSinkModel,
     engine
 end
 
-finalize_model!(m::AbstractPassiveSourceActiveSinkModel, recorder) =
+finalize_model!(m::APassiveSourceActiveSinkModel, recorder) =
     finalize_network!(m.network, recorder)
