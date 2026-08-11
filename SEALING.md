@@ -102,6 +102,8 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/Udp.jl`
     - ⬜ `protocol/TcpOption.jl`
     - ⬜ `protocol/Tcp.jl`
+    - ⬜ `protocol/Rip.jl`
+    - ⬜ `protocol/Aodv.jl`
   - ⬜ `PeekFields.jl`
   - ⬜ `QualityOps.jl`
   - ⬜ `Tags.jl`

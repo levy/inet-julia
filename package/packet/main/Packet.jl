@@ -223,6 +223,14 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        TCPOPTION_SACK_PERMITTED, TCPOPTION_SACK, TCPOPTION_TIMESTAMP,
        UdpHeader, UDP_HEADER_BYTES,
        TcpHeader, list_tcp_flags, TCP_MIN_DATA_OFFSET, TCP_HEADER_BYTES,
+       RipPacket, RipEntry, RIP_REQUEST, RIP_RESPONSE, RIP_ENTRY_BYTES,
+       RIP_ADDRESS_FAMILY_NONE, RIP_ADDRESS_FAMILY_INET,
+       RIP_ADDRESS_FAMILY_AUTHENTICATION,
+       AodvControlPacket, AodvCommon, AodvRreq, AodvRrep, AodvRerr, AodvRrepAck,
+       AodvRreqIpv6, AodvRrepIpv6, AodvRerrIpv6, AodvRrepAckIpv6,
+       AodvUnreachableNode, AodvUnreachableNodeIpv6, DsdvHello,
+       AODV_RREQ, AODV_RREP, AODV_RERR, AODV_RREP_ACK,
+       AODV_RREQ_IPV6, AODV_RREP_IPV6, AODV_RERR_IPV6, AODV_RREP_ACK_IPV6,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -277,6 +285,8 @@ include("protocol/Icmpv6.jl")
 include("protocol/Udp.jl")
 include("protocol/TcpOption.jl")
 include("protocol/Tcp.jl")
+include("protocol/Rip.jl")
+include("protocol/Aodv.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")

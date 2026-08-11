@@ -27,4 +27,5 @@ using Test
     include("phase20_wave2b.jl")
     include("phase21_header_facts.jl")
     include("phase21_wave3.jl")
+    include("phase22_wave4.jl")
 end

@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Wave 1 and Wave 2 are in, and Wave 3 is most of the way. 140 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 170 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -737,7 +737,7 @@ Each phase ends with a green test and a commit. The command is
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
 | 8 ✅ | the corpus ✅, Wave 1 ✅, Wave 2 ✅ | green over 91 formats |
-| 9 ◐ | Wave 3 without IEEE 802.11, Wave 4 | green over 140 formats |
+| 9 ◐ | Wave 3 ✅, Wave 4 started | green over 170 formats |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 
 Phases 1 to 7 are the language. Phases 8 and 9 are the inventory. Do not start
