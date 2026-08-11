@@ -303,12 +303,41 @@ macro header(declaration, block)
         :($(M).option_code(::Type{$(esc(name))}) = $(esc(fields[1].type.args[3]))) :
         :()
 
+    # A header is a document, like every other chunk. Three parts of the
+    # declaration keep the codec on the same wire it was on before:
+    #
+    #  * `[I, C]` binds the bare name to the IMMUTABLE native struct. The codec
+    #    writes `h::Ipv4Header` and `fieldtype(H, index)`, and both want a
+    #    concrete type — a cell layout is a UnionAll, which is neither. The
+    #    immutable spelling is what keeps a header a value: a `mutable struct`
+    #    is never isbits, so `M` would make `EthernetFcs` a heap reference
+    #    where it is four bytes inline today.
+    #  * `ImmutableCell` is the kind that the cell spellings take.
+    #  * `selection::Nothing` is written out, so the injected union never
+    #    arrives. It is a union over heap types, and one of them in the struct
+    #    would undo what `I` just bought.
+    #
+    # The whole macrocall is escaped and its parts are written bare, because
+    # `@document` reads the struct's *name* and wants a symbol — an `esc(name)`
+    # reaches it as an `Expr` and the parse refuses it. Escaping here leaves
+    # `@document`'s own `esc` to resolve everything in the caller's module. The
+    # kind is module-qualified on purpose: `@header` is called from files that do
+    # not have `ImmutableCell` in scope.
+    doc_struct = esc(Expr(:macrocall, Expr(:., M, QuoteNode(Symbol("@document"))),
+                          LineNumberNode(@__LINE__, @__FILE__),
+                          Expr(:., M, QuoteNode(:ImmutableCell)),
+                          Expr(:vect, :I, :C),
+                          Expr(:struct, false,
+                               Expr(:(<:), name,
+                                    supertype === nothing ?
+                                        Expr(:., M, QuoteNode(:Fields)) : supertype),
+                               Expr(:block,
+                                    [Expr(:(::), f.name, f.type) for f in fields]...,
+                                    Expr(:(::), :selection, :Nothing)))))
+
     return quote
         # `Base.@__doc__` is what lets a docstring sit in front of `@header`.
-        Base.@__doc__ struct $(esc(name)) <: $(supertype === nothing ?
-                                                 :($(M).Fields) : esc(supertype))
-            $(struct_fields...)
-        end
+        Base.@__doc__ $(doc_struct)
         $(keyword_constructor)
         $(clause_methods...)
         $(option_code_method)

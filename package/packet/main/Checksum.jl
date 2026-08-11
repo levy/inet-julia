@@ -60,9 +60,9 @@ A copy of `h` whose `field` is `value`. A header is immutable, so this rebuilds
 it through its positional constructor.
 """
 function set_field(h::H, field::Symbol, value) where {H <: Fields}
-    field in fieldnames(H) ||
+    field in header_fields(H) ||
         error("set_field: $(H) has no field `$(field)`")
-    return H((name === field ? value : getfield(h, name) for name in fieldnames(H))...)
+    return H((name === field ? value : getfield(h, name) for name in header_fields(H))...)
 end
 
 """
@@ -78,7 +78,7 @@ takes its other branch and reads the zero this function just wrote.
 function compute_internet_checksum(h::Fields, field::Symbol = :checksum;
                            mode_field::Symbol = :checksum_mode)
     zeroed = set_field(h, field, convert(fieldtype(typeof(h), field), 0))
-    if mode_field in fieldnames(typeof(h))
+    if mode_field in header_fields(typeof(h))
         zeroed = set_field(zeroed, mode_field, CHECKSUM_DECLARED)
     end
     return compute_ones_complement(encode_header(zeroed))
@@ -95,7 +95,7 @@ function compute_internet_checksum(h::Fields, field::Symbol,
                            pseudo_header::AbstractVector{UInt8};
                            mode_field::Symbol = :checksum_mode)
     zeroed = set_field(h, field, convert(fieldtype(typeof(h), field), 0))
-    if mode_field in fieldnames(typeof(h))
+    if mode_field in header_fields(typeof(h))
         zeroed = set_field(zeroed, mode_field, CHECKSUM_DECLARED)
     end
     return compute_ones_complement(vcat(pseudo_header, encode_header(zeroed)))

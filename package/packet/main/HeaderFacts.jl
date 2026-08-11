@@ -144,7 +144,7 @@ Whether `H` can be built by naming its fields. True for every header `@header`
 declared, and false for one written as a plain struct.
 """
 has_keyword_constructor(::Type{H}) where {H <: Fields} =
-    hasmethod(H, Tuple{}, fieldnames(H))
+    hasmethod(H, Tuple{}, header_fields(H))
 
 "The fields the call names, in declaration order."
 list_named(c::HeaderConstruction) = [a for a in c.arguments if is_named(a)]
@@ -172,7 +172,7 @@ function describe_construction(h::H) where {H <: Fields}
     keyword = has_keyword_constructor(H)
     derived = list_derived(H)
     arguments = HeaderArgument[]
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         name = fieldname(H, index)
         type = fieldtype(H, index)
         value = getfield(h, index)
@@ -216,11 +216,11 @@ end
 # does not — a header with twelve keywords on one line is a line nobody reads.
 function _construction_call(::Type{H}, arguments, keyword::Bool) where {H <: Fields}
     named = [a for a in arguments if is_named(a)]
-    isempty(named) && return string(nameof(H), "()")
+    isempty(named) && return string(document_schema_name(H), "()")
     pieces = [keyword ? string(a.name, " = ", a.literal) : a.literal for a in named]
-    single = string(nameof(H), "(", join(pieces, ", "), ")")
+    single = string(document_schema_name(H), "(", join(pieces, ", "), ")")
     Base.length(single) <= 76 && return single
-    return string(nameof(H), "(\n    ", join(pieces, ",\n    "), ")")
+    return string(document_schema_name(H), "(\n    ", join(pieces, ",\n    "), ")")
 end
 
 """
@@ -275,7 +275,7 @@ printing side by side.
 function describe_update(h::H) where {H <: Fields}
     name = find_updatable_field(H)
     name === nothing &&
-        error("describe_update: ", nameof(H), " has no field an update can show")
+        error("describe_update: ", document_schema_name(H), " has no field an update can show")
     type = fieldtype(H, name)
     before = getfield(h, name)
     after = decode_field(type, encode_field(type, before) ⊻ UInt64(1))
@@ -296,7 +296,7 @@ The first field of `H` that `describe_update` can demonstrate on.
 function find_updatable_field(::Type{H}) where {H <: Fields}
     derived = list_derived(H)
     checked = list_checked(H)
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         name = fieldname(H, index)
         type = fieldtype(H, index)
         name in derived && continue

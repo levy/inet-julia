@@ -591,7 +591,7 @@ both were checked. The only difference is that an element path reads
 Gate: the normalisation tests of `phase1_chunks.jl` pass unchanged. They are the
 specification of the composites, and this phase must not touch them.
 
-### Phase 3 — the headers — **PENDING, and its ground moved**
+### Phase 3 — the headers — **DONE**
 
 It was built once and dropped in a rebase. `inet-julia` main rewrote the header
 mechanism underneath it — `3e137cd`, *"Make the struct the wire format, and the
@@ -616,13 +616,68 @@ What the first attempt learned still applies and is worth keeping:
 - `getfield(h, …)` returns the **cell**, so a codec reading fields that way hands
   itself a cell instead of a value.
 
-- [ ] `@header` emits `@document ImmutableCell [DC] struct`.
-- [ ] Resolve the constructor overlap of §6.
-- [ ] `field_bits` reads through `getproperty`.
+**What it did.** `@header` emits `@document ImmutableCell [I, C] struct`, with
+`selection::Nothing` written out. The codec asks three new questions instead of
+asking Julia directly:
+
+```julia
+header_fields(H)   # fieldnames  without the selection
+header_types(H)    # fieldtypes  without the selection
+header_count(H)    # fieldcount  without the selection
+```
+
+`has_selection_field(H)` decides, so a header written as a plain struct is still
+a complete header — which `EthernetMacHeader` is, on purpose, and which the
+corpus walks. All twenty sites now read the three, and an index at or below
+`header_count(H)` still names the same field, so `fieldtype(H, index)` and
+`fieldname(H, index)` are read directly.
+
+**The immutable native layout, `[I]`, had to be built first.** `[M]` binds the
+bare name to a `mutable struct`, and a `mutable struct` is never isbits, however
+small its fields are. Four headers lost isbits under `[M]` — `EthernetFcs` went
+from 4 bytes inline to a heap reference. `I` was already reserved in
+`projectured-julia`'s layout list and refused by name with *"add it when a caller
+does"*; a caller arrived. It landed on `projectured-julia` main as `e9a7e79b`.
+
+**Every displayed name goes through `document_schema_name`.** `nameof` answers
+the coded name of whichever layout it is handed — `MEthernetPhyHeader` — and a
+schema that bound its bare name elsewhere then reads as its layout rather than
+as itself. Seventeen sites in `package/packet/main`, eight in `package/inet`.
+
+**`getfield` stays `getfield`.** The native layout holds the declared value types
+directly, so a field still gives the raw box. `getproperty` unwraps a `Model` and
+a `Constant`, which is exactly what `set_field` must not do — swapping the two
+made it rebuild a `Constant` field from its unwrapped value.
+
+**Measured, against main.**
+
+| | main | after phase 3 |
+| --- | --- | --- |
+| `EthernetMacHeader` isbits / sizeof | true / 24 | **true / 24** |
+| `EthernetPhyHeader` isbits / sizeof | true / 16 | **true / 16** |
+| `EthernetFcs` isbits / sizeof | true / 4 | **true / 4** |
+| `Ieee8021qTag` isbits / sizeof | true / 6 | **true / 6** |
+| `UdpHeader` isbits / sizeof | true / 8 | **true / 8** |
+| `build_ethernet_frame` | 1824 | **1824** |
+| `peek(frame, EthernetMacHeader)` | 2464 | **2464** |
+| `EthernetMacHeader(a, b, t)` | 0 | **0** |
+| `chunk_length(mac)` | 160 | **160** |
+| `encode_header(mac)` | 384 | **384** |
+| `describe_layout(EthernetMacHeader)` | 192 | **192** |
+
+`test_packet()` is 5971 / 5971. The whole repository is 7194 / 10 / 7, which is
+what main gives when it is measured the same way in the same environment.
+
+### Phase 3 — what it asked for — **DONE**
+
+- [ ] `@header` emits a document, and the codec knows the injected field is not
+      a wire field.
+- [ ] A header stays isbits, and the hot path does not move.
+- [ ] A header written as a plain struct is still a complete header.
 
 Gate: the golden byte vectors of `phase9_protocol_headers.jl` are unchanged. A
 header's wire form has nothing to do with how the struct stores its fields, and
-a changed byte means the codec was disturbed.
+a changed byte means the codec was disturbed. **They are unchanged.**
 
 ### Phase 4 — the envelope — **DONE**
 

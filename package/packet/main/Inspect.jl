@@ -58,8 +58,8 @@ function _dissect_one(c::Sequence)
 end
 
 function _dissect_one(h::Fields)
-    fs = [Symbol(f) => getfield(h, f) for f in fieldnames(typeof(h))]
-    return Dissection(:fields, string(nameof(typeof(h))),
+    fs = [Symbol(f) => getfield(h, f) for f in header_fields(typeof(h))]
+    return Dissection(:fields, string(document_schema_name(typeof(h))),
                       chunk_length(h), quality(h), fs, Dissection[])
 end
 

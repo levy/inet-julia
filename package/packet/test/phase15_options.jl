@@ -94,7 +94,7 @@ end
     @test bytes[1] >> 4 == 2                       # data_offset, derived
 
     read_back = decode_header(SegmentProbe, bytes)
-    @test [nameof(typeof(o)) for o in read_back.options] ==
+    @test [document_schema_name(typeof(o)) for o in read_back.options] ==
           [:ProbeOptionMss, :ProbeOptionNop, :ProbeOptionEnd]
     @test read_back.options[1].max_segment_size == 1460
     @test encode_header(read_back) == bytes
@@ -113,7 +113,7 @@ end
     # The padding after the options is zeros, and a zero IS an End of Option
     # List — so the list reads back with the terminator the padding spelled.
     # What matters is that the ORDER survived.
-    @test [nameof(typeof(o)) for o in decode_header(SegmentProbe,
+    @test [document_schema_name(typeof(o)) for o in decode_header(SegmentProbe,
                                                     encode_header(one)).options] ==
           [:ProbeOptionNop, :ProbeOptionMss, :ProbeOptionEnd]
     @test encode_header(decode_header(SegmentProbe, encode_header(one))) ==
@@ -127,7 +127,7 @@ end
     wire = UInt8[0x20,  0x07, 0x04, 0xde, 0xad,  0x01, 0x00,  0x00]
     read_back = decode_header(SegmentProbe, wire)
 
-    @test [nameof(typeof(o)) for o in read_back.options] ==
+    @test [document_schema_name(typeof(o)) for o in read_back.options] ==
           [:ProbeOptionRaw, :ProbeOptionNop, :ProbeOptionEnd]
     @test read_back.options[1].kind == 0x07
     @test read_back.options[1].data == Octets(UInt8[0xde, 0xad])
@@ -141,7 +141,7 @@ end
     # has two entries and not seven.
     wire = UInt8[0x20,  0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
     read_back = decode_header(SegmentProbe, wire)
-    @test [nameof(typeof(o)) for o in read_back.options] ==
+    @test [document_schema_name(typeof(o)) for o in read_back.options] ==
           [:ProbeOptionNop, :ProbeOptionEnd]
 
     # It does NOT come back byte for byte, and that is worth stating plainly.
@@ -151,7 +151,7 @@ end
     # `data_offset` read from the wire instead of derived, which is the same
     # choice `total_length` already makes.
     @test encode_header(read_back) == UInt8[0x10, 0x01, 0x00, 0x00]
-    @test [nameof(typeof(o)) for o in
+    @test [document_schema_name(typeof(o)) for o in
            decode_header(SegmentProbe, encode_header(read_back)).options] ==
           [:ProbeOptionNop, :ProbeOptionEnd]
 end
@@ -162,7 +162,7 @@ end
     # Three zero bytes of padding, and a zero is an End of Option List — so the
     # list reads back with one entry, and the bytes are unchanged.
     read_back = decode_header(SegmentProbe, encode_header(probe))
-    @test [nameof(typeof(o)) for o in read_back.options] == [:ProbeOptionEnd]
+    @test [document_schema_name(typeof(o)) for o in read_back.options] == [:ProbeOptionEnd]
     @test encode_header(read_back) == encode_header(probe)
 end
 

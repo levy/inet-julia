@@ -51,7 +51,7 @@ end
     @test hex18(encode_header(rtag)) == "f1 c1 00 00 12 34"
     # The identifier and the reserved octets are constants, so they are on the
     # wire and not in the struct.
-    @test fieldnames(Ieee8021rTagTpidHeader) == (:tpid, :reserved, :sequence_number)
+    @test header_fields(Ieee8021rTagTpidHeader) == (:tpid, :reserved, :sequence_number)
     @test rtag.tpid == 0xF1C1
 end
 

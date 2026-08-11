@@ -9,8 +9,8 @@
 #         type_or_length :: EtherTypeOrLength
 #     end
 #
-# `fieldnames` and `fieldtypes` ARE the layout, so everything below is written
-# once and works on that struct at once: `serialize`, `deserialize`,
+# `header_fields` and `header_types` ARE the layout, so everything below is
+# written once and works on that struct at once: `serialize`, `deserialize`,
 # `chunk_length`, `describe_layout`, equality and `show`. Nothing is generated
 # per header, and there is no second description of the layout to keep in step
 # with the first — the description and the codec read the same tuple.
@@ -24,6 +24,55 @@
 # written by hand and one written through the macro are the same type with the
 # same methods.
 # ============================================================================
+
+# ---------- the layout ---------------------------------------------------------
+
+"""
+    header_fields(::Type{H}) -> Tuple{Vararg{Symbol}}
+    header_types(::Type{H}) -> Tuple{Vararg{Type}}
+    header_count(::Type{H})::Int
+
+The fields a header puts on the wire, in order, their types, and how many there
+are.
+
+`fieldnames`, `fieldtypes` and `fieldcount` are not those. `@header` declares a
+document, and `@document` appends a `selection` field that is machinery and
+never encoded. Everything that walks a header's layout reads these three, and a
+site that reaches for `fieldnames` or `1:fieldcount(H)` instead will encode the
+selection.
+
+A header written as a plain struct is a complete header too, and has no such
+field. So the three ask, rather than assume: `has_selection_field` decides, and
+`H` is concrete wherever they are called, so the answer is a constant and the
+truncation folds away.
+
+An index at or below `header_count(H)` means the same field it always did, so
+`fieldtype(H, index)` and `fieldname(H, index)` are still read directly.
+"""
+@inline header_fields(::Type{H}) where {H <: Fields} =
+    _wire_part(fieldnames(H), Val(has_selection_field(H)))
+@inline header_types(::Type{H}) where {H <: Fields} =
+    _wire_part(fieldtypes(H), Val(has_selection_field(H)))
+@inline header_count(::Type{H}) where {H <: Fields} =
+    fieldcount(H) - (has_selection_field(H) ? 1 : 0)
+
+header_fields(h::Fields) = header_fields(typeof(h))
+header_types(h::Fields)  = header_types(typeof(h))
+header_count(h::Fields)  = header_count(typeof(h))
+
+"""
+    has_selection_field(::Type{H})::Bool
+
+Whether `H` carries `@document`'s appended `selection` field. It is always the
+last one, which is what makes dropping it a truncation rather than a filter.
+"""
+@inline has_selection_field(::Type{H}) where {H <: Fields} =
+    fieldcount(H) > 0 && fieldname(H, fieldcount(H)) === :selection
+
+# The `Val` is what keeps the two answers apart: the tuples have different
+# lengths, so a branch on a plain `Bool` would leave the length to inference.
+@inline _wire_part(all, ::Val{true}) = Base.front(all)
+@inline _wire_part(all, ::Val{false}) = all
 
 # ---------- what a header states about itself --------------------------------
 
@@ -100,7 +149,7 @@ function describe_layout(::Type{H}) where {H <: Fields}
     isabstracttype(H) && return describe_layout(variant_base(H))
     specs = FieldSpec[]
     offset = 0
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         type = fieldtype(H, index)
         # A variable field has no width until there is an instance, and nothing
         # after it has an offset either, so the TYPE layout stops here.
@@ -110,7 +159,7 @@ function describe_layout(::Type{H}) where {H <: Fields}
         push!(specs, FieldSpec(fieldname(H, index), type, offset, width))
         offset += width
     end
-    return HeaderLayout(nameof(H), Bits(offset), specs)
+    return HeaderLayout(document_schema_name(H), Bits(offset), specs)
 end
 
 # The layout of an INSTANCE has every field, with the widths this header
@@ -119,14 +168,14 @@ function describe_layout(h::H) where {H <: Fields}
     is_fixed_length(H) && return describe_layout(H)
     specs = FieldSpec[]
     offset = 0
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         width = measure_value(getfield(h, index), offset)
         if width > 0
             push!(specs, FieldSpec(fieldname(H, index), fieldtype(H, index), offset, width))
         end
         offset += width
     end
-    return HeaderLayout(nameof(H), Bits(offset), specs)
+    return HeaderLayout(document_schema_name(H), Bits(offset), specs)
 end
 
 """
@@ -141,7 +190,7 @@ should not have to build a descriptor to see what is in it.
 get_field(h::Fields, spec::FieldSpec) = getfield(h, spec.name)
 
 function get_field(h::H, field::Symbol) where {H <: Fields}
-    field in fieldnames(H) ||
+    field in header_fields(H) ||
         error("get_field: $(H) has no field `$(field)`")
     return getfield(h, field)
 end
@@ -200,7 +249,7 @@ measure_header(h::Fields) = bits(chunk_length(h))
 # For a header with no variable field the walk folds to the type's constant.
 function chunk_length(h::H) where {H <: Fields}
     offset = 0
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         name = fieldname(H, index)
         # Ask the writer, not the value. A `when` clause can say a field is
         # absent while the struct still holds one, and the length of a header
@@ -225,7 +274,7 @@ function is_fixed_length(::Type{H}) where {H <: Fields}
     # A variant family is abstract and has no fields of its own: its members
     # have different lengths, so the family has none.
     isabstracttype(H) && return false
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         type = fieldtype(H, index)
         # Padding is variable in general and determinate here. Its width is the
         # distance from a known offset to a boundary, and the offset is known
@@ -252,7 +301,7 @@ function minimum_chunk_length(::Type{H}) where {H <: Fields}
     # counts only while the offset is known. After a variable field it is not,
     # and the least the padding can be is nothing.
     known_offset = true
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         type = fieldtype(H, index)
         if type <: Pad
             known_offset && (total += measure_pad_width(type, total))
@@ -272,7 +321,7 @@ measure_pad_width(::Type{Pad{B, F}}, offset::Int) where {B, F} = measure_padding
 # type-level question names the two that always have an answer.
 function chunk_length(::Type{H}) where {H <: Fields}
     is_fixed_length(H) ||
-        error("chunk_length($(nameof(H))): the length depends on the instance; ask " *
+        error("chunk_length($(document_schema_name(H))): the length depends on the instance; ask " *
               "minimum_chunk_length, or chunk_length of a header you have")
     return minimum_chunk_length(H)
 end
@@ -290,7 +339,7 @@ end
 function refuse_bad_header(::Type{H}, h::H) where {H <: Fields}
     for name in list_checked(H)
         check_field(H, Val(name), h) ||
-            error("$(nameof(H)): refusing to serialize — the `$(name)` check failed")
+            error("$(document_schema_name(H)): refusing to serialize — the `$(name)` check failed")
     end
     return nothing
 end
@@ -299,7 +348,7 @@ end
 # compile-time constant, so `fieldtype` and `measure_field` fold away and Julia
 # unrolls the walk into straight-line code.
 function write_from(io::BitWriter, h::H, ::Val{INDEX}, start::Int) where {H <: Fields, INDEX}
-    INDEX > fieldcount(H) && return nothing
+    INDEX > header_count(H) && return nothing
     type = fieldtype(H, INDEX)
     # A derived field is what the header computes, not what the struct holds.
     value = fieldname(H, INDEX) in list_derived(H) ?
@@ -338,7 +387,7 @@ end
 # the reader met three fields ago.
 function read_from(::Type{H}, io::BitReader, ::Val{INDEX},
                    sofar::NamedTuple, start::Int) where {H <: Fields, INDEX}
-    INDEX > fieldcount(H) && return ()
+    INDEX > header_count(H) && return ()
     type = fieldtype(H, INDEX)
     name = fieldname(H, INDEX)
     width = measure_read(H, Val(name), type, sofar,
@@ -444,24 +493,24 @@ decode_header(::Type{H}, bytes::Vector{UInt8}) where {H <: Fields} =
 # `===` once a field is not `isbits`, so a header with a byte field would never
 # equal the identical one read back off the wire.
 function Base.:(==)(a::H, b::H) where {H <: Fields}
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         getfield(a, index) == getfield(b, index) || return false
     end
     return true
 end
 
 function Base.hash(h::H, seed::UInt) where {H <: Fields}
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         seed = hash(getfield(h, index), seed)
     end
-    return hash(nameof(H), seed)
+    return hash(document_schema_name(H), seed)
 end
 
 function Base.show(io::IO, h::H) where {H <: Fields}
-    print(io, nameof(H), "(")
-    for (index, name) in enumerate(fieldnames(H))
+    print(io, document_schema_name(H), "(")
+    for (index, name) in enumerate(header_fields(H))
         index > 1 && print(io, ", ")
-        print(io, name, "=", getfield(h, index))
+        print(io, name, "=", getfield(h, name))
     end
     print(io, ")")
 end

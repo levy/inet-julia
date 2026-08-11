@@ -44,8 +44,8 @@ hex20(bytes) = join((string(b, base = 16, pad = 2) for b in bytes), " ")
 end
 
 @testset "Ipv6DestinationOptionsHeader is the hop-by-hop header's twin" begin
-    @test fieldnames(Ipv6DestinationOptionsHeader) ==
-          fieldnames(Ipv6HopByHopOptionsHeader)
+    @test header_fields(Ipv6DestinationOptionsHeader) ==
+          header_fields(Ipv6HopByHopOptionsHeader)
     @test minimum_chunk_length(Ipv6DestinationOptionsHeader) ==
           minimum_chunk_length(Ipv6HopByHopOptionsHeader)
 end
@@ -113,7 +113,7 @@ end
     # ESP names no next header at the front. The next-header octet travels in
     # the trailer so that it is encrypted with the payload.
     @test chunk_length(Ipv6EncapsulatingSecurityPayloadHeader) == Bytes(8)
-    @test fieldnames(Ipv6EncapsulatingSecurityPayloadHeader) ==
+    @test header_fields(Ipv6EncapsulatingSecurityPayloadHeader) ==
           (:spi, :sequence_number)
 
     esp = Ipv6EncapsulatingSecurityPayloadHeader(spi = UInt32(0x11223344),

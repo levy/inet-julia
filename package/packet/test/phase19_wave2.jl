@@ -22,7 +22,7 @@ hex19(bytes) = join((string(b, base = 16, pad = 2) for b in bytes), " ")
 
     # The four fields that say what kind of addresses follow are fixed for
     # Ethernet over IPv4, so they are on the wire and not in the struct.
-    @test fieldnames(ArpPacket) ==
+    @test header_fields(ArpPacket) ==
           (:hardware_type, :protocol_type, :hardware_address_size,
            :protocol_address_size, :opcode, :source_mac, :source_ip,
            :destination_mac, :destination_ip)
@@ -121,7 +121,7 @@ end
     @test hex19(bytes[21:28]) == "02 04 05 b4 01 00 00 00"
 
     read_back = decode_header(TcpHeader, bytes)
-    @test [nameof(typeof(o)) for o in read_back.options] ==
+    @test [document_schema_name(typeof(o)) for o in read_back.options] ==
           [:TcpOptionMaxSegmentSize, :TcpOptionNop, :TcpOptionEnd]
     @test read_back.options[1].max_segment_size == 1460
     @test encode_header(read_back) == bytes

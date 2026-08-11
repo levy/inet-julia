@@ -109,7 +109,7 @@ Base.getindex(value::Options, index) = value.values[index]
 Base.iterate(value::Options, state...) = iterate(value.values, state...)
 Base.eltype(::Type{Options{FAMILY}}) where {FAMILY} = FAMILY
 Base.show(io::IO, value::Options) =
-    print(io, "[", join((string(nameof(typeof(v))) for v in value.values), ", "), "]")
+    print(io, "[", join((string(document_schema_name(typeof(v))) for v in value.values), ", "), "]")
 
 is_variable_field(::Type{<:Options}) = true
 has_field_bits(::Type{<:Options}) = false
@@ -152,7 +152,7 @@ function read_field(io::BitReader, ::Type{Options{FAMILY}}, width::Int,
         # exactly that twice — in the IPv6 TLV reader and in the BGP length
         # reader — so the loop refuses rather than hangs.
         io.bit_pos > before ||
-            error("Options{$(FAMILY)}: `$(nameof(member))` read no bits; the list " *
+            error("Options{$(FAMILY)}: `$(document_schema_name(member))` read no bits; the list " *
                   "would never end")
         ends_option_list(FAMILY, code) && break
     end

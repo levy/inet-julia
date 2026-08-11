@@ -102,7 +102,7 @@ that fails its own check tests the check and not the round trip.
 function fill_asymmetric(::Type{H}, seed::Int = 0) where {H <: Fields}
     checked = list_checked(H)
     values = Any[]
-    for index in 1:fieldcount(H)
+    for index in 1:header_count(H)
         name = fieldname(H, index)
         type = fieldtype(H, index)
         default = find_default(H, Val(name))

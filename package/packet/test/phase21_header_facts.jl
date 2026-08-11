@@ -28,7 +28,7 @@ const LIBRARY_HEADERS = filter(H -> parentmodule(H) === PacketModule, list_heade
         @test isfile(path)
         # The file that declares it says its name — the marker that puts a
         # declaration on a page addresses it by that name.
-        @test occursin(string(nameof(H)), read(path, String))
+        @test occursin(string(document_schema_name(H)), read(path, String))
     end
 end
 
@@ -84,10 +84,10 @@ end
         header = example_header(H)
         construction = describe_construction(header)
         @test construction.type === H
-        @test startswith(construction.call, string(nameof(H)))
+        @test startswith(construction.call, string(document_schema_name(H)))
         # Every field is accounted for, once.
-        @test Base.length(construction.arguments) == fieldcount(H)
-        @test [a.name for a in construction.arguments] == collect(fieldnames(H))
+        @test Base.length(construction.arguments) == header_count(H)
+        @test [a.name for a in construction.arguments] == collect(header_fields(H))
         # A field the call leaves out is one the declaration already decides.
         for argument in list_omitted(construction)
             @test argument.reason in (:default, :derived, :fixed)

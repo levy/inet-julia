@@ -133,7 +133,7 @@ end
     # Every field of `ProbeRequest` is declared once, the base's included,
     # and the codec reads them from that one declaration. There is no per-case
     # copy to omit — which is the defect the C++ branch fixed for DELBA.
-    @test fieldnames(ProbeRequest) == (:base, :identifier, :sequence_number)
+    @test header_fields(ProbeRequest) == (:base, :identifier, :sequence_number)
     @test fieldtype(ProbeRequest, :base) === ProbeBase
     @test measure_field(ProbeBase) == 32
 

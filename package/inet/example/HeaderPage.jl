@@ -95,10 +95,10 @@ because a marker that resolves to nothing is a page with a hole in it.
 """
 function find_gallery_header(name::AbstractString)
     for (type, _) in GALLERY_HEADERS
-        string(nameof(type)) == name && return type
+        string(document_schema_name(type)) == name && return type
     end
     error("header_view(", repr(String(name)), "): no such header in the gallery; ",
-          "available: ", join((string(nameof(t)) for t in gallery_headers()), ", "))
+          "available: ", join((string(document_schema_name(t)) for t in gallery_headers()), ", "))
 end
 
 "The one line that says why this header is in the gallery."
@@ -143,10 +143,10 @@ renamed header fails here loudly rather than showing the wrong declaration.
 function header_declaration(::Type{H}) where {H <: Fields}
     path = declaration_path(H)
     path === nothing &&
-        error("header_declaration: ", nameof(H), " never recorded where it was declared")
+        error("header_declaration: ", document_schema_name(H), " never recorded where it was declared")
     relative = relpath(path, package_source_directory())
     Projectured.evaluate_marker(
-        string("definition(file(", repr(relative), "), ", repr(string(nameof(H))), ")"),
+        string("definition(file(", repr(relative), "), ", repr(string(document_schema_name(H))), ")"),
         gallery_loader_context())
 end
 
@@ -207,7 +207,7 @@ function _build_header_page(::Type{H}) where {H <: Fields}
     end
 
     push!(blocks, _heading("The instance, by reflection"))
-    push!(blocks, reflect_document(header; label = string(nameof(H))))
+    push!(blocks, reflect_document(header; label = string(document_schema_name(H))))
 
     push!(blocks, _heading("The instance, as the standard draws it"))
     # The figure as the live document it is: the field names, the values and the
@@ -244,12 +244,12 @@ function _construction_note(construction)
     named = list_named(construction)
     omitted = list_omitted(construction)
     construction.keyword ||
-        return string("Every field is stated, in order: ", nameof(construction.type),
+        return string("Every field is stated, in order: ", document_schema_name(construction.type),
                       " is a plain struct, so the only constructor it has is the ",
                       "positional one Julia gives every struct — and a positional ",
                       "call has no default to leave anything to.")
     isempty(omitted) &&
-        return string("Every field is named: ", nameof(construction.type),
+        return string("Every field is named: ", document_schema_name(construction.type),
                       " gives none of them a default.")
     parts = String[]
     for reason in (:default, :derived, :fixed)
@@ -272,7 +272,7 @@ function _update_code(update)
     read_after = string("get_field(changed, :", update.field, ")")
     column = max(Base.length(read_before), Base.length(read_after)) + 2
     return string(
-        "header = example_header(", nameof(update.type), ")\n",
+        "header = example_header(", document_schema_name(update.type), ")\n",
         rpad(read_before, column), "# ", update.before, "\n",
         "changed = set_field(header, :", update.field, ", ", update.literal, ")\n",
         rpad(read_after, column), "# ", update.after)

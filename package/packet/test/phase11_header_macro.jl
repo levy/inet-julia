@@ -29,7 +29,7 @@ hex11(bytes) = join((string(b, base = 16, pad = 2) for b in bytes), " ")
                                               source = "10.0.0.1",
                                               destination = "10.0.0.2")
     # The positional constructor is still there, and still takes every field.
-    @test Base.length(fieldnames(Ipv4Header)) == 18
+    @test Base.length(header_fields(Ipv4Header)) == 18
 end
 
 # --- derive ------------------------------------------------------------------

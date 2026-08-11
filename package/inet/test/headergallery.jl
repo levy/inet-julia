@@ -91,12 +91,12 @@ end
     shell, _ = _gallery_shell()
     paths = [e.path for e in collect(shell.entries) if !e.section]
     for H in gallery_headers()
-        path = string("pages/header/", nameof(H), ".md")
+        path = string("pages/header/", document_schema_name(H), ".md")
         @test path in paths
         @test isfile(joinpath(demo_directory(), path))
         # And the stub names the header the row is for, so a page cannot end up
         # showing a different format from the one its title states.
-        @test occursin(string("header_view(\"", nameof(H), "\")"),
+        @test occursin(string("header_view(\"", document_schema_name(H), "\")"),
                        read(joinpath(demo_directory(), path), String))
     end
 end
@@ -116,7 +116,7 @@ end
         blocks = collect(page.elements)
         # The call that builds an instance names the type.
         code = [b.code for b in blocks if b isa MarkdownCodeBlock]
-        @test any(c -> occursin(string(nameof(H), "("), c), code)
+        @test any(c -> occursin(string(document_schema_name(H), "("), c), code)
         # The figure is drawn from a packet that holds this header, and not
         # from one built for another page.
         diagram = only(b for b in blocks if b isa PacketDiagram)

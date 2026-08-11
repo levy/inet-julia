@@ -174,7 +174,7 @@ end
     for T in (EthernetPhyHeader, EthernetMacHeader, Ieee8021qTag, EthernetFcs,
               Ipv4Header, UdpHeader, TcpHeader)
         layout = describe_layout(T)
-        @test layout.name === nameof(T)
+        @test layout.name === document_schema_name(T)
         # For a header with an option list the TYPE layout stops at the list,
         # which is exactly the fixed part.
         @test layout.length == minimum_chunk_length(T)
@@ -183,7 +183,7 @@ end
         # and present in the struct — `Ipv4Header.checksum_mode` is the one here.
         # Every field the layout names is a field of the struct, in order.
         @test [s.name for s in layout.fields] ==
-              [n for n in fieldnames(T)
+              [n for n in header_fields(T)
                if !is_variable_field(fieldtype(T, n)) && measure_field(fieldtype(T, n)) > 0]
         offset = 0
         for s in layout.fields

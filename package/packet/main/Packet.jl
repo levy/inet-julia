@@ -32,7 +32,8 @@ module PacketModule
 # over heap types that would stop it being isbits — a `Filler` would go from 16
 # bytes inline to 24 on the heap. Nothing a simulation touches is reactive.
 using ProjecturedKernel.DocumentModule: Document, @document, @document_preset,
-                                        copy_document, sync_document!
+                                        copy_document, sync_document!,
+                                        document_schema_name
 using ProjecturedKernel.ReferenceModule: Reference
 using ProjecturedKernel.CellModule: AbstractCell, ImmutableCell
 
@@ -76,6 +77,8 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        Ieee80211Duration, is_association_id, is_duration, read_association_id,
        read_microseconds, IEEE80211_AID_MARK,
        Ieee80211SequenceControl, read_fragment_number, read_sequence_number,
+       header_fields, header_types, header_count, has_selection_field,
+       document_schema_name,
        FieldSpec, HeaderLayout, describe_layout, get_field, is_constant, has_bits,
        byte_order, default_field, measure_header, unwrap_field, measure_write,
        serialize, deserialize, encode_header, decode_header, has,

@@ -53,7 +53,7 @@ what the standard fixes, not what a builder still has to decide — and every
 other field unset.
 """
 function start_draft(::Type{H}) where {H <: Fields}
-    values = Any[find_default(H, Val(name)) for name in fieldnames(H)]
+    values = Any[find_default(H, Val(name)) for name in header_fields(H)]
     return Draft{H}(values)
 end
 
@@ -77,14 +77,14 @@ end
 Every field still waiting for a value, in declaration order.
 """
 list_unset(draft::Draft{H}) where {H} =
-    [name for (index, name) in enumerate(fieldnames(H))
+    [name for (index, name) in enumerate(header_fields(H))
      if draft.values[index] === nothing]
 
 "The position of `name` in `H`, or an error naming what `H` does have."
 function find_field_index(::Type{H}, name::Symbol) where {H <: Fields}
-    index = findfirst(==(name), fieldnames(H))
+    index = findfirst(==(name), header_fields(H))
     index === nothing &&
-        error("$(nameof(H)) has no field `$(name)`; it has $(join(fieldnames(H), ", "))")
+        error("$(document_schema_name(H)) has no field `$(name)`; it has $(join(header_fields(H), ", "))")
     return index
 end
 
@@ -116,14 +116,14 @@ function Base.getproperty(draft::Draft{H}, name::Symbol) where {H}
     index = find_field_index(H, name)
     value = getfield(draft, :values)[index]
     value === nothing &&
-        error("$(nameof(H)).$(name) is not set yet; ask `is_set` before reading it")
+        error("$(document_schema_name(H)).$(name) is not set yet; ask `is_set` before reading it")
     return unwrap_field(value)
 end
 
 Base.setproperty!(draft::Draft{H}, name::Symbol, value) where {H} =
     (set_field!(draft, name, value); value)
 
-Base.propertynames(::Draft{H}) where {H} = fieldnames(H)
+Base.propertynames(::Draft{H}) where {H} = header_fields(H)
 
 """
     build_header(draft)::H
@@ -134,7 +134,7 @@ every one of them — a builder that forgot two fields wants to hear about both.
 function build_header(draft::Draft{H}) where {H <: Fields}
     unset = list_unset(draft)
     isempty(unset) ||
-        error("build_header($(nameof(H))): still unset — $(join(unset, ", "))")
+        error("build_header($(document_schema_name(H))): still unset — $(join(unset, ", "))")
     return H(getfield(draft, :values)...)
 end
 
@@ -146,12 +146,12 @@ header field by field and then makes a new one; `set_field` is the shorter way
 when there is only one field to change.
 """
 function start_draft(h::H) where {H <: Fields}
-    return Draft{H}(Any[getfield(h, index) for index in 1:fieldcount(H)])
+    return Draft{H}(Any[getfield(h, index) for index in 1:header_count(H)])
 end
 
 function Base.show(io::IO, draft::Draft{H}) where {H}
-    print(io, "Draft{", nameof(H), "}(")
-    for (index, name) in enumerate(fieldnames(H))
+    print(io, "Draft{", document_schema_name(H), "}(")
+    for (index, name) in enumerate(header_fields(H))
         index > 1 && print(io, ", ")
         value = getfield(draft, :values)[index]
         print(io, name, "=", value === nothing ? "?" : unwrap_field(value))
