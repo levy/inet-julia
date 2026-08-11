@@ -601,7 +601,7 @@ Each phase ends with a green test and a commit. The command is
 | 5 ✅ | `Repeated`, and the embedding it needs | an IGMPv3 report round-trips |
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
-| 8 | the round-trip corpus, Wave 1 and Wave 2 | green over about 85 formats |
+| 8 ◐ | the round-trip corpus (done), Wave 1 and Wave 2 | green over about 85 formats |
 | 9 | Wave 3 and Wave 4 | green over the inventory |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 
@@ -619,13 +619,18 @@ number it is.
 
 ## 13. How to test
 
-1. **The round-trip corpus.** For each declared header, build an instance with
-   distinct, byte-asymmetric values and check
-   `encode_header(decode_header(H, bytes)) == bytes`, and that the length
-   agrees. This is the C++ `serializer_chunk_roundtrip` test, and it catches an
-   asymmetry between the reader and the writer — the defect class the whole C++
-   branch is about. It is cheaper here, because `describe_layout` gives the
-   field list for free.
+1. **The round-trip corpus.** ✅ `RoundTrip.jl`. `@header` registers every
+   header it declares, `fill_asymmetric` builds an instance whose every field
+   is distinct — reading `fieldtypes`, so no per-header recipe — and
+   `check_round_trip` checks that encode, decode and encode again give the same
+   bytes and the same length. This is the C++ `serializer_chunk_roundtrip`
+   test, and it catches an asymmetry between the reader and the writer, the
+   defect class the whole C++ branch is about.
+
+   A field a `check` clause pins keeps its declared value: a header that fails
+   its own check tests the check, not the round trip. And the corpus walks the
+   headers declared in `PacketModule`, because a probe header in a test file is
+   registered too and its clauses want values a generic fill cannot invent.
 2. **Golden vectors.** One hand-written byte string per family, from the RFC or
    from the branch's `tests/unit/pcap/` corpus, with the field values it must
    produce. This catches a layout that is self-consistent and wrong.

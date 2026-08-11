@@ -53,6 +53,9 @@ struct EthernetMacHeader <: Fields
     type_or_length :: EtherTypeOrLength
 end
 
+# A plain struct is a complete header, and the corpus should still walk it.
+register_header(EthernetMacHeader)
+
 """
     EthernetPhyHeader(; preamble, sfd)
 

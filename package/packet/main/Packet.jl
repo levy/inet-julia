@@ -36,6 +36,7 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        list_options, find_raw_option, option_code, ends_option_list,
        measure_option_code, find_option_type,
        list_variants, variant_base, matches_variant, select_variant,
+       list_headers, register_header, fill_field, fill_asymmetric, check_round_trip,
        store_unsigned, store_signed,
        is_variable_field, measure_value, measure_read, format_octets,
        MacAddress, list_mac_octets, MAC_BROADCAST, is_multicast, is_broadcast,
@@ -86,6 +87,7 @@ include("Header.jl")
 include("Draft.jl")
 include("Options.jl")
 include("Variant.jl")
+include("RoundTrip.jl")
 include("Checksum.jl")
 # The wire formats. One file per protocol, each written from the standard.
 include("protocol/Ethernet.jl")

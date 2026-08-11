@@ -284,6 +284,7 @@ macro header(declaration, block)
         $(keyword_constructor)
         $(clause_methods...)
         $(option_code_method)
+        $(M).register_header($(esc(name)))
         $(M).list_derived(::Type{$(esc(name))}) = $(Expr(:tuple, QuoteNode.(derived)...))
         $(M).list_checked(::Type{$(esc(name))}) = $(Expr(:tuple, QuoteNode.(checked)...))
     end
