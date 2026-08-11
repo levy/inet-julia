@@ -12,7 +12,6 @@
 # ────────────────────────────────────────────────────────────────────────────
 
 using Inet.PacketModule: dissect, Q_COMPLETE, Fields, Packet
-using OmnetppPresentation: evaluate_document_expression
 
 """
     PACKET_VIEWS :: Dict{String, Function}
@@ -61,19 +60,16 @@ end
 # The figure is still drawn from the packet, by the same projection that draws
 # one the renderer meets anywhere else — `packet_diagram_entries` registers both
 # ends, so a packet in a document field needs no marker at all.
-#
-# The argument is a name from the table above, or the Julia that builds the
-# thing: `<<packet("UdpHeader(source_port = 5000)")>>` states the datagram the
-# page means, where the page is. `evaluate_document_expression` runs it — a
-# constructor call over literals and nothing else, so a page still cannot call
-# a function or reach a binding.
-function marker_packet(_ctx, source::AbstractString)
-    haskey(PACKET_VIEWS, String(source)) && return packet_diagram(named_packet(source))
-    return marker_packet(_ctx, evaluate_document_expression(source))
-end
+marker_packet(_ctx, name::AbstractString) = packet_diagram(named_packet(name))
 
-# A header of its own becomes a packet with one chunk, which is what the figure
-# draws. A packet says so already.
+# Or the page states the datagram itself, and the marker is handed the thing
+# rather than a name for it:
+#
+#     <<packet(UdpHeader(source_port = 5000, destination_port = 53))>>
+#
+# A capitalised callee in a marker is a type, and the marker language builds it
+# — so what arrives here is a header, already constructed, with the fields the
+# declaration decides filled in.
 marker_packet(_ctx, header::Fields) = packet_diagram(Packet(header))
 marker_packet(_ctx, packet::Packet) = packet_diagram(packet)
 

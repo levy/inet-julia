@@ -10,10 +10,10 @@ UdpHeader(source_port = 5000, destination_port = 53)
 ```
 
 And the same call, drawn the way RFC 768 draws it — not a picture of that code,
-but that code, evaluated and projected:
+but that code, constructed and projected:
 
 ```pred-ref
-<<packet("UdpHeader(source_port = 5000, destination_port = 53)")>>
+<<packet(UdpHeader(source_port = 5000, destination_port = 53))>>
 ```
 
 `length` and `checksum` are absent from the call and present in the figure, at
