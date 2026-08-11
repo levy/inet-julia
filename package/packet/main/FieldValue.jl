@@ -317,3 +317,125 @@ Base.zero(::Type{I{N, T}}) where {N, T} = I{N, T}(0)
 Base.one(::Type{I{N, T}}) where {N, T} = I{N, T}(1)
 Base.iszero(a::U) = iszero(a.value)
 Base.iszero(a::I) = iszero(a.value)
+
+# ---------- fields whose width the data decides ------------------------------
+
+"""
+    is_variable_field(::Type{T})::Bool
+
+Whether the width of a `T` field depends on the value or on where the codec is,
+rather than on the type alone. A header with one is variable-length.
+"""
+is_variable_field(::Type) = false
+
+"""
+    measure_value(value, offset::Int)::Int
+
+The width of THIS value in bits, at `offset` bits into its header. The default
+is the type's own width, which ignores both arguments; a run of bytes measures
+itself, and padding measures the distance to its boundary.
+"""
+measure_value(value, offset::Int) = measure_field(typeof(value))
+
+"""
+    Octets(data)
+
+A run of bytes the header does not model. Its length comes from a `length(…)`
+clause on the declaration — the type says it is a byte run, and the expression
+says how long it is this time.
+
+This is how the option-carrying headers keep what they do not understand: the
+bytes survive, so the header round-trips even where the model stops.
+"""
+struct Octets
+    data::Vector{UInt8}
+end
+
+Octets(value::Octets) = value
+Base.convert(::Type{Octets}, data::AbstractVector{UInt8}) = Octets(Vector{UInt8}(data))
+Base.:(==)(a::Octets, b::Octets) = a.data == b.data
+Base.hash(value::Octets, seed::UInt) = hash(value.data, hash(:Octets, seed))
+Base.length(value::Octets) = Base.length(value.data)
+Base.show(io::IO, value::Octets) = print(io, format_bytes(value.data))
+
+"A run of bytes as a reader sees it: hex, and a count when it is long."
+format_bytes(data::AbstractVector{UInt8}, limit::Int = 16) =
+    Base.length(data) <= limit ?
+    join((string(b, base = 16, pad = 2) for b in data), " ") :
+    join((string(b, base = 16, pad = 2) for b in data[1:limit]), " ") *
+    " … ($(Base.length(data)) B)"
+
+is_variable_field(::Type{Octets}) = true
+measure_value(value::Octets, ::Int) = 8 * Base.length(value.data)
+has_field_bits(::Type{Octets}) = false
+classify_display(::Type{Octets}) = :scalar
+format_field(value::Octets) = format_bytes(value.data)
+
+write_field(io::BitWriter, ::Type{Octets}, value::Octets, ::Int, ::Symbol) =
+    write_bytes!(io, value.data)
+read_field(io::BitReader, ::Type{Octets}, width::Int, ::Symbol) =
+    Octets(read_bytes!(io, width >> 3))
+
+"""
+    Rest(data)
+
+The remainder of the window, as bytes. It must be the last field of a header,
+because it leaves nothing for a later one to read.
+
+`Rest` needs no clause: the type says everything about it.
+"""
+struct Rest
+    data::Vector{UInt8}
+end
+
+Rest(value::Rest) = value
+Base.convert(::Type{Rest}, data::AbstractVector{UInt8}) = Rest(Vector{UInt8}(data))
+Base.:(==)(a::Rest, b::Rest) = a.data == b.data
+Base.hash(value::Rest, seed::UInt) = hash(value.data, hash(:Rest, seed))
+Base.length(value::Rest) = Base.length(value.data)
+Base.show(io::IO, value::Rest) = print(io, format_bytes(value.data))
+
+is_variable_field(::Type{Rest}) = true
+measure_value(value::Rest, ::Int) = 8 * Base.length(value.data)
+has_field_bits(::Type{Rest}) = false
+classify_display(::Type{Rest}) = :scalar
+format_field(value::Rest) = format_bytes(value.data)
+
+write_field(io::BitWriter, ::Type{Rest}, value::Rest, ::Int, ::Symbol) =
+    write_bytes!(io, value.data)
+read_field(io::BitReader, ::Type{Rest}, width::Int, ::Symbol) =
+    Rest(read_bytes!(io, width >> 3))
+
+"""
+    Pad{BOUNDARY, FILL}
+
+Padding up to a boundary. `BOUNDARY` is a `BitLength` and `FILL` is the byte it
+writes — both are values a type parameter holds, so padding needs no clause and
+no macro: `padding :: Pad{Bytes(4), 0x00}` says the whole of it.
+
+That is IPv4's and TCP's option padding. The field is a zero-size singleton, so
+the struct stores nothing.
+"""
+struct Pad{BOUNDARY, FILL}
+    Pad{BOUNDARY, FILL}() where {BOUNDARY, FILL} = new{BOUNDARY, FILL}()
+end
+
+Pad{BOUNDARY, FILL}(::Pad{BOUNDARY, FILL}) where {BOUNDARY, FILL} = Pad{BOUNDARY, FILL}()
+Base.convert(::Type{Pad{B, F}}, ::Any) where {B, F} = Pad{B, F}()
+
+is_variable_field(::Type{<:Pad}) = true
+measure_value(::Pad{BOUNDARY, FILL}, offset::Int) where {BOUNDARY, FILL} =
+    measure_padding(offset, BOUNDARY)
+measure_field(::Type{Pad{BOUNDARY, FILL}}) where {BOUNDARY, FILL} = 0
+has_field_bits(::Type{<:Pad}) = false
+classify_display(::Type{<:Pad}) = :scalar
+Base.show(io::IO, ::Pad{BOUNDARY, FILL}) where {BOUNDARY, FILL} =
+    print(io, "pad to ", BOUNDARY)
+
+write_field(io::BitWriter, ::Type{Pad{B, F}}, ::Pad{B, F},
+            width::Int, ::Symbol) where {B, F} =
+    write_byte_repeatedly!(io, UInt8(F), width >> 3)
+function read_field(io::BitReader, ::Type{Pad{B, F}}, width::Int, ::Symbol) where {B, F}
+    skip_bits!(io, width)
+    return Pad{B, F}()
+end

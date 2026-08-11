@@ -99,6 +99,9 @@ function describe_layout(::Type{H}) where {H <: Fields}
     offset = 0
     for index in 1:fieldcount(H)
         type = fieldtype(H, index)
+        # A variable field has no width until there is an instance, and nothing
+        # after it has an offset either, so the TYPE layout stops here.
+        is_variable_field(type) && break
         width = measure_field(type)
         width == 0 && continue
         push!(specs, FieldSpec(fieldname(H, index), type, offset, width))
@@ -107,7 +110,21 @@ function describe_layout(::Type{H}) where {H <: Fields}
     return HeaderLayout(nameof(H), Bits(offset), specs)
 end
 
-describe_layout(h::Fields) = describe_layout(typeof(h))
+# The layout of an INSTANCE has every field, with the widths this header
+# actually has. It is what a view of a real packet reads.
+function describe_layout(h::H) where {H <: Fields}
+    is_fixed_length(H) && return describe_layout(H)
+    specs = FieldSpec[]
+    offset = 0
+    for index in 1:fieldcount(H)
+        width = measure_value(getfield(h, index), offset)
+        if width > 0
+            push!(specs, FieldSpec(fieldname(H, index), fieldtype(H, index), offset, width))
+        end
+        offset += width
+    end
+    return HeaderLayout(nameof(H), Bits(offset), specs)
+end
 
 """
     get_field(h::Fields, spec::FieldSpec)
@@ -161,18 +178,54 @@ The width of a header in bits. `chunk_length` wraps it in a `BitLength`; a
 """
 measure_header(h::Fields) = bits(chunk_length(h))
 
-chunk_length(h::Fields) = chunk_length(typeof(h))
+# The length of an INSTANCE walks the fields with a running offset, because a
+# byte run measures itself and padding measures the distance to its boundary.
+# For a header with no variable field the walk folds to the type's constant.
+function chunk_length(h::H) where {H <: Fields}
+    offset = 0
+    for index in 1:fieldcount(H)
+        offset += measure_value(getfield(h, index), offset)
+    end
+    return Bits(offset)
+end
 
-function chunk_length(::Type{H}) where {H <: Fields}
+"""
+    is_fixed_length(::Type{H})::Bool
+
+Whether every instance of `H` is the same width. `false` when a field's width
+depends on the value or on where the codec is, so the length is a property of
+the value and not of the type.
+"""
+function is_fixed_length(::Type{H}) where {H <: Fields}
+    for index in 1:fieldcount(H)
+        is_variable_field(fieldtype(H, index)) && return false
+    end
+    return true
+end
+
+"""
+    minimum_chunk_length(::Type{H})::BitLength
+
+The width of the fixed part — the whole of it when the header is fixed-length.
+This is always known, which is what a reader needs before any bytes arrive.
+"""
+function minimum_chunk_length(::Type{H}) where {H <: Fields}
     total = 0
     for index in 1:fieldcount(H)
-        total += measure_field(fieldtype(H, index))
+        type = fieldtype(H, index)
+        is_variable_field(type) || (total += measure_field(type))
     end
     return Bits(total)
 end
 
-minimum_chunk_length(::Type{H}) where {H <: Fields} = chunk_length(H)
-is_fixed_length(::Type{H}) where {H <: Fields} = true
+# A variable-length header has no length until there is an instance, so the
+# type-level question names the two that always have an answer.
+function chunk_length(::Type{H}) where {H <: Fields}
+    is_fixed_length(H) ||
+        error("chunk_length($(nameof(H))): the length depends on the instance; ask " *
+              "minimum_chunk_length, or chunk_length of a header you have")
+    return minimum_chunk_length(H)
+end
 
 # ---------- serialize --------------------------------------------------------
 
@@ -180,7 +233,7 @@ function serialize(io::BitWriter, h::H) where {H <: Fields}
     # A check refuses BEFORE any bits reach the caller's writer: a header the
     # model built wrong is a bug, and half of it on the wire helps nobody.
     refuse_bad_header(H, h)
-    write_from(io, h, Val(1))
+    write_from(io, h, Val(1), bit_count(io))
     return io
 end
 
@@ -195,21 +248,23 @@ end
 # The recursion the whole codec rests on. `Val(index)` makes the index a
 # compile-time constant, so `fieldtype` and `measure_field` fold away and Julia
 # unrolls the walk into straight-line code.
-function write_from(io::BitWriter, h::H, ::Val{INDEX}) where {H <: Fields, INDEX}
+function write_from(io::BitWriter, h::H, ::Val{INDEX}, start::Int) where {H <: Fields, INDEX}
     INDEX > fieldcount(H) && return nothing
     type = fieldtype(H, INDEX)
-    width = measure_field(type)
     # A derived field is what the header computes, not what the struct holds.
     value = fieldname(H, INDEX) in list_derived(H) ?
             derive_field(H, Val(fieldname(H, INDEX)), h) : getfield(h, INDEX)
+    # `offset` is how far into THIS header the writer is, which is what padding
+    # measures itself against.
+    width = measure_value(value, bit_count(io) - start)
     width > 0 && write_field(io, type, value, width, byte_order(H))
-    return write_from(io, h, Val(INDEX + 1))
+    return write_from(io, h, Val(INDEX + 1), start)
 end
 
 # ---------- deserialize ------------------------------------------------------
 
 function deserialize(::Type{H}, io::BitReader) where {H <: Fields}
-    h = H(read_from(H, io, Val(1))...)
+    h = H(read_from(H, io, Val(1), NamedTuple(), io.bit_pos)...)
     # A check that fails on READ marks and hands the header back: a packet that
     # arrived malformed is data, not a program error. `peek` gates on the mark,
     # so the caller decides whether to accept it.
@@ -223,15 +278,41 @@ function mark_bad_header(::Type{H}, h::H) where {H <: Fields}
     return h
 end
 
-function read_from(::Type{H}, io::BitReader, ::Val{INDEX}) where {H <: Fields, INDEX}
+# The read walk carries the fields it has already read, because the width of a
+# byte run is an expression over them — `length(Bytes(count))` reads a `count`
+# the reader met three fields ago.
+function read_from(::Type{H}, io::BitReader, ::Val{INDEX},
+                   sofar::NamedTuple, start::Int) where {H <: Fields, INDEX}
     INDEX > fieldcount(H) && return ()
     type = fieldtype(H, INDEX)
-    width = measure_field(type)
+    name = fieldname(H, INDEX)
+    width = measure_read(H, Val(name), type, sofar,
+                         io.bit_pos - start, io.total - io.bit_pos)
     # A model-only field took no bits, so it takes its default instead.
-    value = width > 0 ? read_field(io, type, width, byte_order(H)) :
-                        convert(type, default_field(model_type(type)))
-    return (value, read_from(H, io, Val(INDEX + 1))...)
+    value = width > 0 || is_variable_field(type) ?
+            read_field(io, type, width, byte_order(H)) :
+            convert(type, default_field(model_type(type)))
+    return (value, read_from(H, io, Val(INDEX + 1),
+                             merge(sofar, NamedTuple{(name,)}((unwrap_field(value),))),
+                             start)...)
 end
+
+"""
+    measure_read(::Type{H}, ::Val{NAME}, ::Type{T}, sofar, offset, remaining)::Int
+
+How many bits the `NAME` field takes, on the way in. The default is the type's
+own width. `Rest` takes what is left, padding takes the distance to its
+boundary, and a `Bytes` field takes what its `length` clause says — `@header`
+defines that one.
+"""
+measure_read(::Type{H}, ::Val{NAME}, ::Type{T}, sofar, offset::Int,
+             remaining::Int) where {H, NAME, T} = measure_field(T)
+
+measure_read(::Type{H}, ::Val{NAME}, ::Type{Rest}, sofar, offset::Int,
+             remaining::Int) where {H, NAME} = remaining
+
+measure_read(::Type{H}, ::Val{NAME}, ::Type{Pad{B, F}}, sofar, offset::Int,
+             remaining::Int) where {H, NAME, B, F} = measure_padding(offset, B)
 
 model_type(::Type{Model{T}}) where {T} = T
 model_type(::Type{T}) where {T} = T

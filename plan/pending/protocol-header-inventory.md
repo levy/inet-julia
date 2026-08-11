@@ -17,8 +17,8 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 3 are done, and the repository is green:
-3040 passes with the seven pre-existing capture and runner errors and nothing
+Status: **IN PROGRESS**. Phases 0 to 4 are done, and the repository is green:
+3097 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
 ## 1. What the plan delivers
@@ -398,14 +398,25 @@ a bug. A failed read check returns the header in a `MarkedFields` envelope, and
 ### 9.5 A byte tail, padding, and the cursor
 
 ```julia
-    body :: Bytes  length(Bytes(count))
-    tail :: Rest
-    @pad to Bytes(4) fill 0x00
+    body    :: Octets
+        length(Bytes(count))
+    tail    :: Rest
+    padding :: Pad{Bytes(4), 0x00}
 ```
 
-`Rest` must be the last field. Inside an expression, `offset` is where the
-codec is and `remaining` is what the window has left. `remaining` exists on the
-read side alone, because a writer has no window to have a remainder of.
+Two names changed in Phase 4. The byte run is `Octets`, not `Bytes`, because
+`Bytes(n)` is already the `BitLength` constructor — and "octets" is the word the
+RFCs use. And padding is a field type rather than a `@pad` line: its boundary
+and its fill are both values a type parameter holds, so it needs no clause and
+no macro at all. `Pad` and `Constant` fields default to themselves, so a caller
+never names one.
+
+`Rest` needs no clause either — the type says everything about it.
+
+Inside a `length` clause, `offset` is where the codec is and `remaining` is
+what the window has left, and the clause may name only the fields ABOVE it:
+nothing below has been read yet. On the write side there is no window to have a
+remainder of, so the width comes from the value.
 
 A header with any of these is variable-length: `chunk_length(h)` answers,
 `is_fixed_length(H)` is false, and `chunk_length(H)` raises an error naming
@@ -540,7 +551,7 @@ Each phase ends with a green test and a commit. The command is
 | 1 ✅ | the value types, and the generic codec over `fieldtypes` | `EthernetMacHeader` is a plain struct that round-trips |
 | 2 ✅ | `@header`: defaults, `derive`, `check` | `Ipv4Header` without options round-trips; a version of 5 marks incorrect |
 | 3 ✅ | `Draft`, `start_draft`, `build_header` | a required field left unset fails at `build_header`, not on the wire |
-| 4 | variable length: `Bytes`, `Rest`, `@pad` | a byte tail round-trips and `peek` finds it |
+| 4 ✅ | variable length: `Octets`, `Rest`, `Pad` | a byte tail round-trips and `peek` finds it |
 | 5 | `Repeated` | an IGMPv3 report round-trips |
 | 6 | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 | variants and embedding | an ICMP echo request decodes from an `IcmpHeader` window |

@@ -17,4 +17,5 @@ using Test
     include("phase9_protocol_headers.jl")
     include("phase11_header_macro.jl")
     include("phase12_draft.jl")
+    include("phase13_variable_length.jl")
 end
