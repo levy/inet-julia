@@ -214,7 +214,13 @@ function is_fixed_length(::Type{H}) where {H <: Fields}
     # have different lengths, so the family has none.
     isabstracttype(H) && return false
     for index in 1:fieldcount(H)
-        is_variable_field(fieldtype(H, index)) && return false
+        type = fieldtype(H, index)
+        # Padding is variable in general and determinate here. Its width is the
+        # distance from a known offset to a boundary, and the offset is known
+        # unless a field above it is variable — in which case this loop has
+        # already said so.
+        type <: Pad && continue
+        is_variable_field(type) && return false
     end
     return true
 end
@@ -230,12 +236,25 @@ function minimum_chunk_length(::Type{H}) where {H <: Fields}
     # starts with, and the part a reader needs before it can choose one.
     isabstracttype(H) && return minimum_chunk_length(variant_base(H))
     total = 0
+    # Padding is as wide as the distance from its offset to a boundary, so it
+    # counts only while the offset is known. After a variable field it is not,
+    # and the least the padding can be is nothing.
+    known_offset = true
     for index in 1:fieldcount(H)
         type = fieldtype(H, index)
-        is_variable_field(type) || (total += measure_field(type))
+        if type <: Pad
+            known_offset && (total += measure_pad_width(type, total))
+        elseif is_variable_field(type)
+            known_offset = false
+        else
+            total += measure_field(type)
+        end
     end
     return Bits(total)
 end
+
+"How wide a padding field is at `offset`, without an instance to ask."
+measure_pad_width(::Type{Pad{B, F}}, offset::Int) where {B, F} = measure_padding(offset, B)
 
 # A variable-length header has no length until there is an instance, so the
 # type-level question names the two that always have an answer.

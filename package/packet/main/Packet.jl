@@ -148,6 +148,29 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        XMacUnknownFrame, XMAC_PREAMBLE, XMAC_DATA, XMAC_ACK,
        CsmaCaMacHeader, CsmaCaMacCommon, CsmaCaMacAckHeader, CsmaCaMacDataHeader,
        CsmaCaMacTrailer, CSMA_DATA, CSMA_ACK,
+       GptpMessage, GptpCommon, GptpTimestamp, GptpPortIdentity,
+       GptpScaledNanoseconds, GptpFollowUpInformationTlv,
+       GptpSync, GptpFollowUp, GptpPdelayReq, GptpPdelayResp,
+       GptpPdelayRespFollowUp, GptpAnnounce,
+       GPTP_TYPE_SYNC, GPTP_TYPE_PDELAY_REQUEST, GPTP_TYPE_PDELAY_RESPONSE,
+       GPTP_TYPE_FOLLOW_UP, GPTP_TYPE_PDELAY_RESPONSE_FOLLOW_UP, GPTP_TYPE_ANNOUNCE,
+       GPTP_FLAG_ALTERNATE_MASTER, GPTP_FLAG_TWO_STEP,
+       GPTP_FOLLOW_UP_INFORMATION_TLV, GPTP_ORGANIZATION_ID, GPTP_ORGANIZATION_SUBTYPE,
+       GPTP_HEADER_BYTES, GPTP_SYNC_BYTES, GPTP_FOLLOW_UP_BYTES,
+       GPTP_PDELAY_REQUEST_BYTES, GPTP_PDELAY_RESPONSE_BYTES,
+       GPTP_PDELAY_RESPONSE_FOLLOW_UP_BYTES, GPTP_ANNOUNCE_BYTES,
+       MrpVersion, MrpTlv, MrpEnd, MrpCommon, MrpTest, MrpTopologyChange,
+       MrpLinkDown, MrpLinkUp, MrpInTest, MrpInTopologyChange, MrpInLinkDown,
+       MrpInLinkUp, MrpInLinkStatusPoll, MrpOption,
+       MrpSubTlv, MrpAutoManager, MrpManufacturerFunction,
+       MrpSubTlvTestPropagate, MrpSubTlvTestManagerNack,
+       MRP_TLV_END, MRP_TLV_COMMON, MRP_TLV_TEST, MRP_TLV_TOPOLOGY_CHANGE,
+       MRP_TLV_LINK_DOWN, MRP_TLV_LINK_UP, MRP_TLV_IN_TEST,
+       MRP_TLV_IN_TOPOLOGY_CHANGE, MRP_TLV_IN_LINK_DOWN, MRP_TLV_IN_LINK_UP,
+       MRP_TLV_IN_LINK_STATUS_POLL, MRP_TLV_OPTION,
+       MRP_SUBTLV_RESERVED, MRP_SUBTLV_TEST_MANAGER_NACK,
+       MRP_SUBTLV_TEST_PROPAGATE, MRP_SUBTLV_AUTO_MANAGER,
+       MRP_OUI_DEFAULT, MRP_OUI_IEC, MRP_PRIORITY_DEFAULT,
        Ieee8022LlcHeader, Ieee8022SnapHeader, Ieee8022LlcSnapHeader,
        LLC_SAP_SNAP, LLC_SAP_IP, LLC_CONTROL_UNNUMBERED_INFORMATION,
        PppHeader, PppTrailer, PPP_FLAG, PPP_ADDRESS, PPP_CONTROL,
@@ -208,6 +231,8 @@ include("protocol/Ieee8021d.jl")
 include("protocol/Ieee8022.jl")
 include("protocol/Ieee802154.jl")
 include("protocol/WirelessMac.jl")
+include("protocol/Gptp.jl")
+include("protocol/Mrp.jl")
 include("protocol/ProtocolElement.jl")
 include("protocol/Ppp.jl")
 include("protocol/Mpls.jl")

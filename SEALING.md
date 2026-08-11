@@ -83,6 +83,8 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/Ieee8022.jl`
     - ⬜ `protocol/Ieee802154.jl`
     - ⬜ `protocol/WirelessMac.jl`
+    - ⬜ `protocol/Gptp.jl`
+    - ⬜ `protocol/Mrp.jl`
     - ⬜ `protocol/ProtocolElement.jl`
     - ⬜ `protocol/Ppp.jl`
     - ⬜ `protocol/Mpls.jl`

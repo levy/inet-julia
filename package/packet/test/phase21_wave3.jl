@@ -161,3 +161,105 @@ end
     @test decode_header(CsmaCaMacHeader, encode_header(frame)) isa CsmaCaMacDataHeader
     @test chunk_length(CsmaCaMacTrailer) == Bytes(4)
 end
+
+# --- IEEE 802.1AS, the generalized precision time protocol --------------------
+
+@testset "gPTP — one common header, and the message type says what follows" begin
+    @test chunk_length(GptpCommon) == Bytes(GPTP_HEADER_BYTES)
+    @test chunk_length(GptpTimestamp) == Bytes(10)
+    @test chunk_length(GptpPortIdentity) == Bytes(10)
+    @test chunk_length(GptpScaledNanoseconds) == Bytes(12)
+    @test chunk_length(GptpFollowUpInformationTlv) == Bytes(32)
+
+    for (T, bytes) in ((GptpSync, GPTP_SYNC_BYTES),
+                       (GptpFollowUp, GPTP_FOLLOW_UP_BYTES),
+                       (GptpPdelayReq, GPTP_PDELAY_REQUEST_BYTES),
+                       (GptpPdelayResp, GPTP_PDELAY_RESPONSE_BYTES),
+                       (GptpPdelayRespFollowUp, GPTP_PDELAY_RESPONSE_FOLLOW_UP_BYTES),
+                       (GptpAnnounce, GPTP_ANNOUNCE_BYTES))
+        @test chunk_length(T) == Bytes(bytes)
+    end
+
+    sync = GptpSync(base = GptpCommon(message_type = GPTP_TYPE_SYNC,
+                                      message_length = GPTP_SYNC_BYTES,
+                                      flags = GPTP_FLAG_TWO_STEP,
+                                      sequence_id = UInt16(7),
+                                      source_port_identity =
+                                          GptpPortIdentity(clock_identity = UInt64(0x0a00),
+                                                           port_number = UInt16(1))))
+    bytes = encode_header(sync)
+    # The first octet is the major SDO identifier over the message type, and a
+    # Sync is type zero.
+    @test bytes[1] == 0x10
+    # The second is the minor version over the version, which is 1 over 2.
+    @test bytes[2] == 0x12
+    @test hex21(bytes[3:4]) == "00 2c"
+
+    back = decode_header(GptpMessage, encode_header(sync))
+    @test back isa GptpSync
+    @test back == sync
+    @test back.base.sequence_id == 7
+    @test back.base.source_port_identity.port_number == 1
+
+    # Each message comes back as itself.
+    for header in (sync, GptpFollowUp(), GptpPdelayReq(), GptpPdelayResp(),
+                   GptpPdelayRespFollowUp(), GptpAnnounce())
+        got = decode_header(GptpMessage, encode_header(header))
+        @test !(got isa MarkedFields)
+        @test got == header
+    end
+
+    # A message type nobody models comes back as the common header, marked.
+    unknown = encode_header(GptpCommon(message_type = 0x7))
+    @test decode_header(GptpMessage, unknown) isa MarkedFields
+end
+
+# --- IEC 62439-2, the media redundancy protocol -------------------------------
+
+@testset "MRP — a list of records, each padded to four octets" begin
+    @test chunk_length(MrpVersion) == Bytes(2)
+    @test chunk_length(MrpEnd) == Bytes(2)
+    # Every record but End reaches a multiple of four. The Option record is the
+    # one where the padding is what gets it there: six octets become eight.
+    for (T, bytes) in ((MrpCommon, 20), (MrpTest, 20), (MrpTopologyChange, 12),
+                       (MrpLinkDown, 12), (MrpLinkUp, 12), (MrpInTest, 20),
+                       (MrpInTopologyChange, 12), (MrpInLinkDown, 16),
+                       (MrpInLinkUp, 16), (MrpInLinkStatusPoll, 12), (MrpOption, 8))
+        @test chunk_length(T) == Bytes(bytes)
+        @test bits(chunk_length(T)) % 32 == 0
+    end
+
+    test = MrpTest(source = MacAddress("0a:00:00:00:00:01"), ring_state = 1,
+                   transition = 2, timestamp = UInt32(1000))
+    bytes = encode_header(test)
+    @test bytes[1] == MRP_TLV_TEST
+    @test bytes[2] == 18
+    @test hex21(bytes[3:4]) == "80 00"
+    @test hex21(bytes[5:10]) == "0a 00 00 00 00 01"
+    @test decode_header(MrpTest, bytes) == test
+
+    # Link Down and Link Up have one layout and two type octets.
+    @test fieldnames(MrpLinkUp) == fieldnames(MrpLinkDown)
+    @test option_code(MrpLinkDown) == MRP_TLV_LINK_DOWN
+    @test option_code(MrpLinkUp) == MRP_TLV_LINK_UP
+
+    # A frame is a version and then records, and End stops the list.
+    frame = vcat(encode_header(MrpCommon(sequence_id = UInt16(1))),
+                 encode_header(test),
+                 encode_header(MrpEnd()))
+    io = BitReader(frame)
+    records = read_field(io, Options{MrpTlv}, 8 * Base.length(frame), :be)
+    @test Base.length(records) == 3
+    @test records[1] isa MrpCommon
+    @test records[2] isa MrpTest
+    @test records[3] isa MrpEnd
+    @test records[1].sequence_id == 1
+
+    # The sub-records of an Option are a family of their own.
+    @test chunk_length(MrpAutoManager) == Bytes(2)
+    @test chunk_length(MrpSubTlvTestPropagate) == Bytes(18)
+    propagate = MrpSubTlvTestPropagate(source = MacAddress("0a:00:00:00:00:01"),
+                                       other_manager_priority = UInt16(0x7000),
+                                       other_manager_source = MacAddress("0a:00:00:00:00:02"))
+    @test decode_header(MrpSubTlvTestPropagate, encode_header(propagate)) == propagate
+end
