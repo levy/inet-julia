@@ -74,7 +74,7 @@ An option this library does not model, kept whole.
 """
 @header TcpOptionRaw <: TcpOption begin
     kind   :: U8
-    length :: U8
+    length :: U8 = 0
         derive(2 + Base.length(data))
     data   :: Octets
         length(Bytes(length - 2))

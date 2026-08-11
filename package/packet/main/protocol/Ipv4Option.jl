@@ -72,9 +72,9 @@ octets from the start of the option, so it is four times the index plus four.
 """
 @header Ipv4OptionRecordRoute <: Ipv4Option begin
     type      :: Constant{U8, IPOPTION_RECORD_ROUTE}
-    length    :: U8
+    length    :: U8 = 0
         derive(3 + 4 * Base.length(addresses))
-    pointer   :: U8
+    pointer   :: U8 = 0
         derive(4 + 4 * next_address_index)
     addresses :: Repeated{Ipv4Address}
         count((length - 3) ÷ 4)
@@ -89,7 +89,7 @@ round-trips.
 """
 @header Ipv4OptionRaw <: Ipv4Option begin
     type   :: U8
-    length :: U8
+    length :: U8 = 0
         derive(2 + Base.length(data))
     data   :: Octets
         length(Bytes(length - 2))

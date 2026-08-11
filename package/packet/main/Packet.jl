@@ -39,7 +39,7 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        list_variants, variant_base, variant_fallback, matches_variant, select_variant,
        list_headers, register_header, fill_field, fill_asymmetric, check_round_trip,
        store_unsigned, store_signed,
-       is_variable_field, measure_value, measure_read, format_octets,
+       is_variable_field, measure_value, measure_read, measure_default, format_octets,
        MacAddress, list_mac_octets, MAC_BROADCAST, is_multicast, is_broadcast,
        Ipv4Address, list_ipv4_octets, Ipv6Address, list_ipv6_groups,
        IPV6_UNSPECIFIED, IPV6_LOOPBACK,
@@ -65,6 +65,40 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        Ipv6Header, IPV6_VERSION, IPV6_HEADER_BYTES, IPV6_DEFAULT_HOP_LIMIT,
        IP_PROTOCOL_NONE, IP_PROTOCOL_IPV6_ROUTING, IP_PROTOCOL_IPV6_FRAGMENT,
        IP_PROTOCOL_ICMPV6, split_dscp, split_ecn, join_traffic_class,
+       Ipv6Option, Ipv6OptionPad1, Ipv6OptionPadN, Ipv6OptionRaw,
+       IPV6_TLVOPTION_PAD1, IPV6_TLVOPTION_PADN,
+       Ipv6HopByHopOptionsHeader, Ipv6DestinationOptionsHeader,
+       Ipv6RoutingHeader, Ipv6FragmentHeader, Ipv6AuthenticationHeader,
+       Ipv6EncapsulatingSecurityPayloadHeader, measure_fragment_offset,
+       IP_PROTOCOL_IPV6_HOP_BY_HOP, IP_PROTOCOL_IPV6_DESTINATION,
+       IP_PROTOCOL_IPV6_AUTHENTICATION, IP_PROTOCOL_IPV6_ESP,
+       IPV6_ROUTING_TYPE_SEGMENT,
+       Ipv6NdOption, Ipv6NdSourceLinkLayerAddress, Ipv6NdTargetLinkLayerAddress,
+       Ipv6NdPrefixInformation, Ipv6NdMtu, Ipv6NdOptionRaw,
+       IPV6ND_SOURCE_LINK_LAYER_ADDRESS, IPV6ND_TARGET_LINK_LAYER_ADDRESS,
+       IPV6ND_PREFIX_INFORMATION, IPV6ND_REDIRECTED_HEADER, IPV6ND_MTU,
+       Icmpv6Message, Icmpv6Common, Icmpv6Header,
+       Icmpv6DestinationUnreachable, Icmpv6PacketTooBig, Icmpv6TimeExceeded,
+       Icmpv6ParameterProblem, Icmpv6EchoRequest, Icmpv6EchoReply,
+       Ipv6RouterSolicitation, Ipv6RouterAdvertisement,
+       Ipv6NeighborSolicitation, Ipv6NeighborAdvertisement, Ipv6Redirect,
+       MldQuery, MldReport, MldDone, Mldv2Query, Mldv2Report,
+       Mldv2MulticastAddressRecord, MLD_MESSAGE_BYTES,
+       ICMPV6_DESTINATION_UNREACHABLE, ICMPV6_PACKET_TOO_BIG,
+       ICMPV6_TIME_EXCEEDED, ICMPV6_PARAMETER_PROBLEM,
+       ICMPV6_ECHO_REQUEST, ICMPV6_ECHO_REPLY,
+       ICMPV6_MLD_QUERY, ICMPV6_MLD_REPORT, ICMPV6_MLD_DONE,
+       ICMPV6_ROUTER_SOLICITATION, ICMPV6_ROUTER_ADVERTISEMENT,
+       ICMPV6_NEIGHBOR_SOLICITATION, ICMPV6_NEIGHBOR_ADVERTISEMENT,
+       ICMPV6_REDIRECT, ICMPV6_MLDV2_REPORT,
+       IgmpMessage, IgmpCommon, IgmpHeader,
+       Igmpv1Query, Igmpv2Query, Igmpv3Query, Igmpv1Report, Igmpv2Report,
+       Igmpv2Leave, Igmpv3Report, Igmpv3GroupRecord, RgmpHello,
+       IGMP_MEMBERSHIP_QUERY, IGMPV1_MEMBERSHIP_REPORT, IGMPV2_MEMBERSHIP_REPORT,
+       IGMPV2_LEAVE_GROUP, IGMPV3_MEMBERSHIP_REPORT, RGMP_HELLO,
+       IGMP_MESSAGE_BYTES, IGMP_MODE_IS_INCLUDE, IGMP_MODE_IS_EXCLUDE,
+       IGMP_CHANGE_TO_INCLUDE_MODE, IGMP_CHANGE_TO_EXCLUDE_MODE,
+       IGMP_ALLOW_NEW_SOURCES, IGMP_BLOCK_OLD_SOURCES,
        EthernetMacAddressFields, EthernetTypeOrLengthField,
        EthernetControlMessage, EthernetControlFrame, EthernetPauseFrame,
        ETHERNET_CONTROL_PAUSE,
@@ -131,7 +165,12 @@ include("protocol/Ipv4Option.jl")
 include("protocol/Ipv4.jl")
 include("protocol/Arp.jl")
 include("protocol/Icmp.jl")
+include("protocol/Igmp.jl")
 include("protocol/Ipv6.jl")
+include("protocol/Ipv6Option.jl")
+include("protocol/Ipv6Extension.jl")
+include("protocol/Ipv6NdOption.jl")
+include("protocol/Icmpv6.jl")
 include("protocol/Udp.jl")
 include("protocol/TcpOption.jl")
 include("protocol/Tcp.jl")

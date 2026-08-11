@@ -456,11 +456,17 @@ end
     Repeated{T}(values)
 
 A vector of `T`, as many as a `count(…)` clause says. `T` is a value type or a
-fixed-length header.
+header.
 
 This is the IGMPv3 source list, the IPv4 record-route addresses, the RIP
 entries and the OSPF LSA headers: the standard gives a count and then that many
 of the same thing.
+
+An element that decides its own length takes no count, because a count cannot
+give a width when no two elements are the same width. Such a list fills its
+window instead, and the count field beside it becomes a `check`. That is the
+IGMPv3 group record and the MLDv2 multicast address record: each record carries
+a source list of its own.
 """
 struct Repeated{T}
     values::Vector{T}
@@ -479,7 +485,9 @@ Base.show(io::IO, value::Repeated) =
     print(io, "[", join((format_field(v) for v in value.values), ", "), "]")
 
 is_variable_field(::Type{<:Repeated}) = true
-measure_value(value::Repeated{T}, ::Int) where {T} =
+measure_value(value::Repeated{T}, offset::Int) where {T} =
+    is_variable_field(T) ?
+    sum(measure_value(element, offset) for element in value.values; init = 0) :
     Base.length(value.values) * measure_field(T)
 has_field_bits(::Type{<:Repeated}) = false
 classify_display(::Type{<:Repeated}) = :composite
@@ -488,13 +496,14 @@ format_field(value::Repeated) = string(value)
 function write_field(io::BitWriter, ::Type{Repeated{T}}, value::Repeated{T},
                      ::Int, order::Symbol) where {T}
     for element in value.values
-        write_field(io, T, element, measure_field(T), order)
+        write_field(io, T, element, measure_value(element, 0), order)
     end
     return io
 end
 
 function read_field(io::BitReader, ::Type{Repeated{T}}, width::Int,
                     order::Symbol) where {T}
+    is_variable_field(T) && return read_variable_elements(io, Repeated{T}, width, order)
     element_width = measure_field(T)
     element_width > 0 ||
         error("Repeated{$(T)}: an element of no width would never end")
@@ -504,6 +513,22 @@ function read_field(io::BitReader, ::Type{Repeated{T}}, width::Int,
     values = Vector{T}(undef, width ÷ element_width)
     for index in eachindex(values)
         values[index] = read_field(io, T, element_width, order)
+    end
+    return Repeated{T}(values)
+end
+
+# An element that decides its own length gives the reader no arithmetic to do:
+# it reads elements until the window is full. The loop refuses an element that
+# reads nothing, for the same reason the option loop does — it would never end.
+function read_variable_elements(io::BitReader, ::Type{Repeated{T}}, width::Int,
+                                order::Symbol) where {T}
+    values = T[]
+    stop = io.bit_pos + width
+    while io.bit_pos < stop
+        before = io.bit_pos
+        push!(values, read_field(io, T, stop - io.bit_pos, order))
+        io.bit_pos > before ||
+            error("Repeated{$(T)}: an element read no bits; the list would never end")
     end
     return Repeated{T}(values)
 end

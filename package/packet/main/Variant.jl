@@ -69,20 +69,32 @@ variant_fallback(::Type{FAMILY}) where {FAMILY} = variant_base(FAMILY)
 
 """
     matches_variant(::Type{MEMBER}, base)::Bool
+    matches_variant(::Type{MEMBER}, base, available::Int)::Bool
 
 Whether this member is what the base says arrived. The first member that says
 yes is the one the reader builds.
+
+`available` is how many bits the message has, the base counted in. Most members
+never look at it. Some standards make the length part of the discriminator and
+give a reader no other way to tell two versions apart: RFC 3376 section 7.1
+says a Membership Query is version 1 or 2 at eight octets and version 3 when it
+is longer, and RFC 3810 section 8.1 says the same of an MLD Query at twenty-four
+octets. A member that needs the length defines the three-argument form. Every
+other one defines the two-argument form, which the three-argument form calls.
 """
 matches_variant(::Type, base) = false
+matches_variant(::Type{MEMBER}, base, available::Int) where {MEMBER} =
+    matches_variant(MEMBER, base)
 
 """
-    select_variant(::Type{FAMILY}, base)::Type
+    select_variant(::Type{FAMILY}, base, available::Int = typemax(Int))::Type
 
-The member the base selects, or `variant_base(FAMILY)` when none does.
+The member the base selects, or `variant_fallback(FAMILY)` when none does.
 """
-function select_variant(::Type{FAMILY}, base) where {FAMILY}
+function select_variant(::Type{FAMILY}, base,
+                        available::Int = typemax(Int)) where {FAMILY}
     for member in list_variants(FAMILY)
-        matches_variant(member, base) && return member
+        matches_variant(member, base, available) && return member
     end
     return variant_fallback(FAMILY)
 end
@@ -95,7 +107,7 @@ function deserialize_variant(::Type{FAMILY}, io::BitReader) where {FAMILY}
     at = io.bit_pos
     base = deserialize(base_type, io)
     header = base isa MarkedFields ? base.header : base
-    member = select_variant(FAMILY, header)
+    member = select_variant(FAMILY, header, io.total - at)
     if member === variant_fallback(FAMILY)
         # Nothing claimed it, so read again as the fallback — which may be
         # wider than the part the reader looked at.

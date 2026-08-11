@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done — the language is complete — Wave 1 is in, and Wave 2 has begun, and the repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done — the language is complete — and Wave 1 and Wave 2 are both in. 91 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -115,9 +115,32 @@ Ethernet family, the 802.1 tag headers, `Ieee8022LlcHeader`,
 its six extension headers, UDP, TCP with options, ARP, the ICMP family, the
 ICMPv6 family and the IGMP family.
 
-Done: IPv4 and IPv6, UDP, TCP, ARP, the ICMP family, and the IPv4 and TCP
-option lists — 21 formats. Left: the six IPv6 extension headers, ICMPv6 (19)
-and IGMP (10).
+**Wave 2 is done — 65 formats.** IPv4 and IPv6, UDP, TCP, ARP, the ICMP family,
+the IPv4 and TCP option lists, the six IPv6 extension headers with their TLV
+option family, the ICMPv6 family with the neighbour discovery messages and their
+option family, MLD version 1 and version 2, and the IGMP family with RGMP.
+
+Three differences from INET, all because the standard is clearer than the code
+and the user's rule is to follow the standard:
+
+* **`Ipv6AuthenticationHeader`** — INET's is a stub that writes zero octets and
+  carries a `// TODO`. This is RFC 4302 section 2, so it has an SPI, a sequence
+  number and an integrity check value. Its length octet counts four-octet units
+  minus two, which no other IPv6 extension header does.
+* **`Ipv6EncapsulatingSecurityPayloadHeader`** — the same stub, and INET writes
+  a next-header octet at the front. RFC 4303 section 2 puts no next header at
+  the front of ESP at all: it travels in the trailer so that it is encrypted
+  with the payload. This declares the eight octets the RFC draws.
+* **MLD lives in the ICMPv6 family.** INET gives the four MLD types a
+  serializer of their own and makes its ICMPv6 serializer throw on them. RFC
+  2710 and RFC 3810 make them ICMPv6 messages, and one type octet is all a
+  reader has, so they are members here like any other.
+
+Two members of `Ipv6RoutingHeader` deserve a note. RFC 8200 section 4.4 gives
+every routing header the same four octets and leaves the rest to the routing
+type; type 0 was deprecated by RFC 5095 and type 2 belongs to Mobile IPv6, so
+what this declares is RFC 8754's Segment Routing Header, which is also what
+INET writes.
 
 IPv4 and TCP are now variable-length, and `ihl` and `data_offset` derive from
 the header's own width — so a datagram that carries options gets the right
@@ -131,6 +154,46 @@ LMAC, gPTP, the 802.1D BPDUs and MRP (17).
 **Wave 4 — the routing and application protocols, about 100 formats.** OSPFv2
 and OSPFv3, BGP, PIM, AODV, DYMO, RIP, EIGRP, LDP, RSVP-TE, DSDV, GPSR, DHCP,
 SCTP, RTP and RTCP, MIPv6, QUIC.
+
+### 3.5 What Wave 2 added to the language
+
+Three gaps showed up only once a real format needed them.
+
+1. **A repeated element that decides its own length.** `Repeated{T}` measured a
+   list as `count × measure_field(T)`, which no IGMPv3 group record can answer:
+   each record carries a source list of its own. Such a list now fills its
+   window and reads elements until it is full, and the count field beside it
+   becomes a `derive`. The loop refuses an element that reads no bits, for the
+   reason the option loop does.
+2. **An option list with no window.** The neighbour discovery options run to
+   the end of the ICMPv6 message and nothing inside the message says where they
+   stop — the IPv6 payload length does. A list with no `until` clause therefore
+   takes what is left, as `Rest` does.
+3. **A variant that the length tells apart.** RFC 3376 section 7.1 makes an
+   IGMP query version 1, 2 or 3 by its length and its second octet, and RFC
+   3810 section 8.1 does the same for MLD. `matches_variant` gained a
+   three-argument form that also receives how many bits the message has. Every
+   member that does not need it defines the two-argument form, and the
+   three-argument form calls it.
+
+One refactor came out of the same work. `measure_read` had four methods that
+dispatched on the field's type and one that dispatched on the header and the
+field name. Neither kind is more specific than the other, so a field that had
+both a clause and a type-specialised method would have been an ambiguous call —
+latent until a list with no clause arrived. There is now one `measure_read`,
+which calls `measure_default(T, offset, remaining)`. The type answers there,
+where a clause cannot collide with it.
+
+Two edges are recorded rather than fixed:
+
+* **A derived field keeps its stored value.** `decode(encode(h))` does not
+  equal `h` when `h` was built with a stale derived field, because the writer
+  computes the derived value and the struct keeps what it was given. The bytes
+  round-trip, which is what the corpus proves, and the tests compare bytes.
+* **A count beside a window-filling list is not checked on read.** An IGMPv3
+  report that says two records and carries three reads back as three. A `check`
+  clause cannot express it: the corpus builds a header whose fields are all
+  distinct, so a checked count would fail the check rather than the round trip.
 
 ## 4. The design
 
@@ -617,7 +680,7 @@ Each phase ends with a green test and a commit. The command is
 | 5 ✅ | `Repeated`, and the embedding it needs | an IGMPv3 report round-trips |
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
-| 8 ◐ | the corpus ✅, Wave 1 ✅, Wave 2 started | green over about 85 formats |
+| 8 ✅ | the corpus ✅, Wave 1 ✅, Wave 2 ✅ | green over 91 formats |
 | 9 | Wave 3 and Wave 4 | green over the inventory |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 

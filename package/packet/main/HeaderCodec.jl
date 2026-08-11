@@ -326,25 +326,40 @@ measure_write(::Type{H}, ::Val{NAME}, h, value, offset::Int) where {H, NAME} =
 """
     measure_read(::Type{H}, ::Val{NAME}, ::Type{T}, sofar, offset, remaining)::Int
 
-How many bits the `NAME` field takes, on the way in. The default is the type's
-own width. `Rest` takes what is left, padding takes the distance to its
-boundary, and a `Bytes` field takes what its `length` clause says — `@header`
-defines that one.
+How many bits the `NAME` field takes, on the way in. `@header` defines one per
+field that carries a `length`, `count`, `until` or `when` clause; every other
+field falls to the one method below, which asks the type.
+
+There is exactly one method here on purpose. A clause names its header and its
+field, and a type-specialised method names its type, so neither is more
+specific than the other and a field with both would be an ambiguous call.
+`measure_default` moves the type's answer out of dispatch on `NAME`, where it
+cannot collide.
 """
 measure_read(::Type{H}, ::Val{NAME}, ::Type{T}, sofar, offset::Int,
-             remaining::Int) where {H, NAME, T} = measure_field(T)
+             remaining::Int) where {H, NAME, T} = measure_default(T, offset, remaining)
+
+"""
+    measure_default(::Type{T}, offset::Int, remaining::Int)::Int
+
+The width a field of type `T` takes when its header states no clause for it.
+"""
+measure_default(::Type{T}, offset::Int, remaining::Int) where {T} = measure_field(T)
 
 # An embedded variable-length header decides its own size out of the stream, so
 # the reader asks it rather than working the width out first.
-measure_read(::Type{H}, ::Val{NAME}, ::Type{E}, sofar, offset::Int,
-             remaining::Int) where {H, NAME, E <: Fields} =
+measure_default(::Type{E}, offset::Int, remaining::Int) where {E <: Fields} =
     is_fixed_length(E) ? measure_field(E) : 0
 
-measure_read(::Type{H}, ::Val{NAME}, ::Type{Rest}, sofar, offset::Int,
-             remaining::Int) where {H, NAME} = remaining
+measure_default(::Type{Rest}, offset::Int, remaining::Int) = remaining
 
-measure_read(::Type{H}, ::Val{NAME}, ::Type{Pad{B, F}}, sofar, offset::Int,
-             remaining::Int) where {H, NAME, B, F} = measure_padding(offset, B)
+measure_default(::Type{Pad{B, F}}, offset::Int, remaining::Int) where {B, F} =
+    measure_padding(offset, B)
+
+# A list with no window runs to the end of what is there. That is the IGMPv3
+# group records, and it is the neighbour discovery options — `Options.jl`
+# carries that one, because `Options` is declared after this file.
+measure_default(::Type{<:Repeated}, offset::Int, remaining::Int) = remaining
 
 model_type(::Type{Model{T}}) where {T} = T
 model_type(::Type{T}) where {T} = T

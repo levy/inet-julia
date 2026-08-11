@@ -116,6 +116,11 @@ has_field_bits(::Type{<:Options}) = false
 classify_display(::Type{<:Options}) = :composite
 format_field(value::Options) = string(value)
 
+# A list with no `until` clause runs to the end of what is there. That is the
+# IPv6 neighbour discovery options: RFC 4861 bounds them by the ICMPv6 message,
+# and no field of the message says where they stop.
+measure_default(::Type{<:Options}, offset::Int, remaining::Int) = remaining
+
 # On write the list is exactly its options; a header that pads follows it with
 # a `Pad` field, as IPv4 and TCP do.
 measure_value(value::Options, ::Int) =

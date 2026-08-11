@@ -85,7 +85,12 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/Ipv4.jl`
     - ⬜ `protocol/Arp.jl`
     - ⬜ `protocol/Icmp.jl`
+    - ⬜ `protocol/Igmp.jl`
     - ⬜ `protocol/Ipv6.jl`
+    - ⬜ `protocol/Ipv6Option.jl`
+    - ⬜ `protocol/Ipv6Extension.jl`
+    - ⬜ `protocol/Ipv6NdOption.jl`
+    - ⬜ `protocol/Icmpv6.jl`
     - ⬜ `protocol/Udp.jl`
     - ⬜ `protocol/TcpOption.jl`
     - ⬜ `protocol/Tcp.jl`
