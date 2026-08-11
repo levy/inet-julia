@@ -257,6 +257,17 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        RTCP_SDES_END, RTCP_SDES_CNAME, RTCP_SDES_NAME, RTCP_SDES_EMAIL,
        RTCP_SDES_PHONE, RTCP_SDES_LOCATION, RTCP_SDES_TOOL, RTCP_SDES_NOTE,
        RTCP_SDES_PRIVATE,
+       DhcpMessage, DhcpOption, DhcpPad, DhcpEnd, DhcpMessageType,
+       DhcpAddressOption, DhcpOptionRaw, read_client_mac,
+       build_client_hardware_address,
+       DHCP_BOOT_REQUEST, DHCP_BOOT_REPLY, DHCP_HARDWARE_ETHERNET,
+       DHCP_ETHERNET_ADDRESS_BYTES, DHCP_MAGIC_COOKIE, DHCP_MESSAGE_BYTES,
+       DHCP_OPTION_PAD, DHCP_OPTION_SUBNET_MASK, DHCP_OPTION_ROUTER,
+       DHCP_OPTION_HOST_NAME, DHCP_OPTION_REQUESTED_IP, DHCP_OPTION_LEASE_TIME,
+       DHCP_OPTION_MESSAGE_TYPE, DHCP_OPTION_SERVER_ID, DHCP_OPTION_PARAMETER_LIST,
+       DHCP_OPTION_CLIENT_ID, DHCP_OPTION_END,
+       DHCP_DISCOVER, DHCP_OFFER, DHCP_REQUEST, DHCP_DECLINE, DHCP_ACK,
+       DHCP_NAK, DHCP_RELEASE, DHCP_INFORM,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -316,6 +327,7 @@ include("protocol/Aodv.jl")
 include("protocol/Pim.jl")
 include("protocol/Bgp.jl")
 include("protocol/Rtp.jl")
+include("protocol/Dhcp.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")

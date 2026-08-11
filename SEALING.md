@@ -107,6 +107,7 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/Pim.jl`
     - ⬜ `protocol/Bgp.jl`
     - ⬜ `protocol/Rtp.jl`
+    - ⬜ `protocol/Dhcp.jl`
   - ⬜ `PeekFields.jl`
   - ⬜ `QualityOps.jl`
   - ⬜ `Tags.jl`
