@@ -22,7 +22,7 @@ The UDP header, 8 bytes. `length` counts this header and the data after it.
 A `checksum` of zero means the sender did not compute one — RFC 768 gives the
 value that second meaning, and `is_absent` asks the question.
 """
-Base.@kwdef struct UdpHeader <: Fields
+@header UdpHeader begin
     source_port      :: Port
     destination_port :: Port
     length           :: U16        = UDP_HEADER_BYTES

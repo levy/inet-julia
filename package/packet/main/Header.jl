@@ -1,0 +1,212 @@
+# ============================================================================
+# `@header` — the two things a type cannot hold.
+#
+# A wire format is an ordinary struct, and `HeaderCodec.jl` reads it. So this
+# macro emits **no codec**. It emits the same struct a hand-written declaration
+# would, plus what the field types have no room for:
+#
+#   a default      what the standard fixes, so a call site states only what a
+#                  packet decides
+#   `derive`       a value the writer computes from the header
+#   `check`        a value that must hold, or the header is not what it claims
+#
+#     @header Ipv4Header begin
+#         version      :: U4 = 4
+#             check(version == 4)
+#         ihl          :: U4 = 5
+#             derive(cld(measure_header(h), 32))
+#         total_length :: U16
+#         source       :: Ipv4Address
+#         @check ihl >= 5
+#     end
+#
+# A clause sits on its own line and applies to the field ABOVE it. Julia will
+# not parse `version :: U4 = 4  check(…)` — two expressions side by side on one
+# line is a syntax error — and a clause of any length wraps better on a line of
+# its own anyway. `@check` on its own line spans fields instead.
+#
+# A header written by hand and a header written through the macro are the same
+# type with the same methods, so a format may start as a bare struct and grow a
+# check later without any caller noticing.
+#
+# Inside a clause, every field is bound by its own name and the header is `h`.
+# Both names are ESCAPED into the caller's scope, because a clause is the
+# caller's code — so a header cannot have a field called `h`.
+#
+# `derive` computes on write and keeps what arrived on read, so a foreign
+# sender's disagreement stays visible. `check` marks on read and throws on
+# write: a packet that arrived malformed is data, and a header the model built
+# wrong is a bug.
+#
+# A value the header cannot see — a length that counts the payload, a checksum
+# over a pseudo-header — has no derive. The model sets it. That is what INET
+# does, and it is what lets a capture round-trip byte for byte.
+# ============================================================================
+
+const HEADER_CLAUSES = (:derive, :check)
+
+# One field of a declaration, after the parse.
+struct HeaderField
+    name::Symbol
+    type::Any
+    default::Any        # an expression, or `nothing` when the field is required
+    derive::Any         # an expression, or `nothing`
+    check::Any          # an expression, or `nothing`
+end
+
+"""
+    derive_field(::Type{H}, ::Val{NAME}, h)
+
+What the writer puts in the `NAME` field of `h`. The fallback is the field
+itself, so a header with no `derive` clause needs no method.
+"""
+derive_field(::Type{H}, ::Val{NAME}, h) where {H, NAME} = getfield(h, NAME)
+
+"""
+    check_field(::Type{H}, ::Val{NAME}, h)::Bool
+
+Whether the `NAME` field of `h` holds what it must. The fallback is `true`.
+`Val(:header)` is the name a `@check` line across fields takes.
+"""
+check_field(::Type{H}, ::Val{NAME}, h) where {H, NAME} = true
+
+"""
+    list_derived(::Type{H})::Tuple
+
+The names of the fields of `H` that a `derive` clause computes.
+"""
+list_derived(::Type{<:Fields}) = ()
+
+"""
+    list_checked(::Type{H})::Tuple
+
+The names a `check` clause guards, plus `:header` when a `@check` line spans
+fields.
+"""
+list_checked(::Type{<:Fields}) = ()
+
+"Parse a `name :: Type` line, with its default when it has one."
+function parse_header_field(line)
+    default = nothing
+    if Meta.isexpr(line, :(=)) && Base.length(line.args) == 2
+        line, default = line.args[1], line.args[2]
+    end
+    Meta.isexpr(line, :(::)) && Base.length(line.args) == 2 ||
+        error("@header: expected `name :: Type`, got $line")
+    return HeaderField(line.args[1]::Symbol, line.args[2], default, nothing, nothing)
+end
+
+"Whether the line is a `derive(…)` or a `check(…)` for the field above it."
+is_header_clause(line) =
+    Meta.isexpr(line, :call) && Base.length(line.args) == 2 && line.args[1] in HEADER_CLAUSES
+
+"The field with the clause attached."
+function attach_clause(field::HeaderField, clause)
+    name = clause.args[1]
+    argument = clause.args[2]
+    if name === :derive
+        field.derive === nothing ||
+            error("@header $(field.name): two `derive` clauses")
+        return HeaderField(field.name, field.type, field.default, argument, field.check)
+    end
+    field.check === nothing ||
+        error("@header $(field.name): two `check` clauses")
+    return HeaderField(field.name, field.type, field.default, field.derive, argument)
+end
+
+macro header(name, block)
+    Meta.isexpr(block, :block) ||
+        error("@header $name: expected a `begin … end` block")
+
+    fields = HeaderField[]
+    header_checks = Any[]
+    for line in block.args
+        line isa LineNumberNode && continue
+        if Meta.isexpr(line, :macrocall) && line.args[1] === Symbol("@check")
+            arguments = filter(a -> !(a isa LineNumberNode), line.args[2:end])
+            Base.length(arguments) == 1 ||
+                error("@header $name: `@check` takes one expression")
+            push!(header_checks, arguments[1])
+            continue
+        end
+        if is_header_clause(line)
+            isempty(fields) &&
+                error("@header $name: `$(line.args[1])` has no field above it")
+            fields[end] = attach_clause(fields[end], line)
+            continue
+        end
+        push!(fields, parse_header_field(line))
+    end
+    isempty(fields) && error("@header $name: no fields")
+
+    M = @__MODULE__
+    header_var = esc(:h)
+    struct_fields = [Expr(:(::), esc(f.name), esc(f.type)) for f in fields]
+
+    # Every field is bound by its own name, so a clause reads `ihl` and not
+    # `h.ihl`. `Base.getfield` and not `.`, because a header may have a field
+    # whose name shadows a function the clause calls.
+    bindings = [:($(esc(f.name)) =
+                    $(M).unwrap_field(Base.getfield($(header_var), $(QuoteNode(f.name)))))
+                for f in fields]
+
+    # A default earns the header a keyword constructor. A field without one
+    # stays required, so a header with two defaults out of ten is still built
+    # by naming the other eight.
+    keyword_arguments = [f.default === nothing ? esc(f.name) :
+                         Expr(:kw, esc(f.name), esc(f.default)) for f in fields]
+    keyword_constructor = any(f -> f.default !== nothing, fields) ?
+        Expr(:(=), Expr(:call, esc(name), Expr(:parameters, keyword_arguments...)),
+             Expr(:call, esc(name), (esc(f.name) for f in fields)...)) :
+        nothing
+
+    # One method per clause, keyed by the field name. A name the declaration
+    # does not have therefore cannot be written: `derive` and `check` sit on
+    # the field, so a typo is a field that does not exist.
+    clause_methods = Expr[]
+    derived = Symbol[]
+    checked = Symbol[]
+    for f in fields
+        if f.derive !== nothing
+            push!(derived, f.name)
+            push!(clause_methods, quote
+                function $(M).derive_field(::Type{$(esc(name))}, ::Val{$(QuoteNode(f.name))},
+                                           $(header_var)::$(esc(name)))
+                    $(bindings...)
+                    return convert($(esc(f.type)), $(esc(f.derive)))
+                end
+            end)
+        end
+        if f.check !== nothing
+            push!(checked, f.name)
+            push!(clause_methods, quote
+                function $(M).check_field(::Type{$(esc(name))}, ::Val{$(QuoteNode(f.name))},
+                                          $(header_var)::$(esc(name)))
+                    $(bindings...)
+                    return $(esc(f.check))
+                end
+            end)
+        end
+    end
+    if !isempty(header_checks)
+        push!(checked, :header)
+        push!(clause_methods, quote
+            function $(M).check_field(::Type{$(esc(name))}, ::Val{:header},
+                                      $(header_var)::$(esc(name)))
+                $(bindings...)
+                return $(Expr(:&&, (esc(c) for c in header_checks)...))
+            end
+        end)
+    end
+
+    return quote
+        # `Base.@__doc__` is what lets a docstring sit in front of `@header`.
+        Base.@__doc__ struct $(esc(name)) <: $(M).Fields
+            $(struct_fields...)
+        end
+        $(keyword_constructor === nothing ? :() : keyword_constructor)
+        $(clause_methods...)
+        $(M).list_derived(::Type{$(esc(name))}) = $(Expr(:tuple, QuoteNode.(derived)...))
+        $(M).list_checked(::Type{$(esc(name))}) = $(Expr(:tuple, QuoteNode.(checked)...))
+    end
+end

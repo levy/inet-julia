@@ -40,8 +40,9 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        MAX_ETHERNET_LENGTH_FIELD, MIN_ETHERNET_TYPE_FIELD,
        IpProtocol, find_ip_protocol_name, Port, Checksum16, is_absent,
        FieldSpec, HeaderLayout, describe_layout, get_field, is_constant, has_bits,
-       byte_order, default_field, measure_header,
+       byte_order, default_field, measure_header, unwrap_field,
        serialize, deserialize, encode_header, decode_header, has,
+       @header, derive_field, check_field, list_derived, list_checked,
        minimum_chunk_length, is_fixed_length,
        ChecksumMode, CHECKSUM_DECLARED, CHECKSUM_COMPUTED, CHECKSUM_DISABLED,
        compute_ones_complement, compute_internet_checksum, set_field,
@@ -74,6 +75,7 @@ include("BitIO.jl")
 include("FieldValue.jl")
 include("FieldTypes.jl")
 include("HeaderCodec.jl")
+include("Header.jl")
 include("Checksum.jl")
 # The wire formats. One file per protocol, each written from the standard.
 include("protocol/Ethernet.jl")

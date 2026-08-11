@@ -52,9 +52,9 @@ end
     # Structure: header at front, FCS at back.
     # build_ethernet_frame(src, dst, …), so dst is the SECOND arg.
     hdr = peek(pk, EthernetMacHeader)
-    @test hdr.src == MacAddress(0x010203040506)
-    @test hdr.dst == MacAddress(0x0A0B0C0D0E0F)
-    @test hdr.ethertype  == ETHERTYPE_IPV4
+    @test hdr.source == MacAddress(0x010203040506)
+    @test hdr.destination == MacAddress(0x0A0B0C0D0E0F)
+    @test hdr.type_or_length == ETHERTYPE_IPV4
 
     # FCS is placeholder (zero) in declared mode.
     fcs = peek(pk, EthernetFcs; from = :back)

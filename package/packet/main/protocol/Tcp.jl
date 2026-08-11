@@ -22,7 +22,7 @@ const TCP_HEADER_BYTES    = 20
 The TCP header, 20 bytes. Every field but the ports and the sequence number
 carries a default, so a segment states only what it decides.
 """
-Base.@kwdef struct TcpHeader <: Fields
+@header TcpHeader begin
     source_port           :: Port
     destination_port      :: Port
     sequence_number       :: U32

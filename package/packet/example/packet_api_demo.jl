@@ -49,7 +49,7 @@ function make_packet(src::UInt32, dest::UInt32, payload_bytes::Int, t_ns::Int64)
     # this datagram decides; version, ihl and the TTL take their defaults.
     ip = Ipv4Header(total_length = UInt16(payload_bytes + 20),
                     protocol = IP_PROTOCOL_UDP,
-                    src_address = src, dst_address = dest)
+                    source = src, destination = dest)
     # Envelope + push header at the front.
     pk = Packet(payload)
     pushfirst!(pk, ip)
@@ -72,12 +72,12 @@ another through the bytes.
 """
 function make_frame(; payload_bytes::Int = 32)
     pk = Packet(Filler(Bytes(payload_bytes); fill = 0x00))
-    pushfirst!(pk, UdpHeader(src_port = 1000, dst_port = 2000,
+    pushfirst!(pk, UdpHeader(source_port = 1000, destination_port = 2000,
                              length = UInt16(payload_bytes + 8)))
     pushfirst!(pk, Ipv4Header(total_length = UInt16(payload_bytes + 28),
                               protocol = IP_PROTOCOL_UDP,
-                              src_address = Ipv4Address("10.0.0.1"),
-                              dst_address = Ipv4Address("10.0.0.2")))
+                              source = Ipv4Address("10.0.0.1"),
+                              destination = Ipv4Address("10.0.0.2")))
     pushfirst!(pk, EthernetMacHeader(MacAddress("0a:00:00:00:00:02"),
                                      MacAddress("0a:00:00:00:00:01"),
                                      ETHERTYPE_IPV4))
@@ -95,13 +95,10 @@ changes; the payload chunk is untouched and stays shared with any duplicate.
 function forward!(pk::Packet)
     # Read the header — type-directed, type-stable, no allocation.
     ip = peek(pk, Ipv4Header)
-    # "Mutate" the header in place: update! rebuilds one Sequence node.
-    # Under the hood this is a functional update — the OLD IP header still
-    # exists, unchanged; a fresh one with ttl-1 is spliced in.
-    new_ip = Ipv4Header(ip.version, ip.ihl, ip.dscp, ip.ecn, ip.total_length,
-                        ip.identification, ip.flags, ip.frag_offset,
-                        UInt8(ip.ttl - 1), ip.protocol, ip.header_checksum,
-                        ip.src_address, ip.dst_address)
+    # "Mutate" the header: `set_field` is a functional update, so the OLD IP
+    # header still exists, unchanged, and a fresh one with one less hop to live
+    # is spliced in.
+    new_ip = set_field(ip, :time_to_live, ip.time_to_live - 1)
     popfirst!(pk, chunk_length(Ipv4Header))
     pushfirst!(pk, new_ip)
     # Bump the hop count tag.
@@ -262,7 +259,7 @@ function packet_api_demo(; io::IO = stdout, receivers::Int = 3,
     for (i, c) in enumerate(copies)
         ip = peek(c, Ipv4Header)
         hc = get_tag(c, HopCountTag)
-        println(io, "  copy #$i: ttl=$(ip.ttl), hop_count=$(hc.n), payload=$(chunk_length(peek(c; at=chunk_length(Ipv4Header)))) bytes")
+        println(io, "  copy #$i: ttl=$(ip.time_to_live), hop_count=$(hc.n), payload=$(chunk_length(peek(c; at=chunk_length(Ipv4Header)))) bytes")
     end
 
     # Bytes-on-the-wire view: same packet as a serialised byte string.

@@ -39,9 +39,11 @@ decides.
 cannot see, so the IP module sets it. `header_checksum` is declared, never
 computed — the same choice INET's `declared` checksum mode makes.
 """
-Base.@kwdef struct Ipv4Header <: Fields
+@header Ipv4Header begin
     version         :: U4         = IPV4_VERSION
+        check(version == IPV4_VERSION)
     ihl             :: U4         = IPV4_MIN_IHL
+        derive(cld(measure_header(h), 32))
     dscp            :: U6         = 0
     ecn             :: U2         = 0
     total_length    :: U16
@@ -53,6 +55,10 @@ Base.@kwdef struct Ipv4Header <: Fields
     time_to_live    :: U8         = IPV4_DEFAULT_TTL
     protocol        :: IpProtocol
     header_checksum :: Checksum16 = 0
+        derive(checksum_mode == CHECKSUM_COMPUTED ? compute_internet_checksum(h, :header_checksum) :
+                                                    header_checksum)
     source          :: Ipv4Address
     destination     :: Ipv4Address
+    checksum_mode   :: Model{ChecksumMode} = CHECKSUM_DECLARED
+    @check ihl >= IPV4_MIN_IHL
 end

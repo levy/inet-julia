@@ -175,7 +175,11 @@ end
         @test layout.name === nameof(T)
         @test layout.length == chunk_length(T)
         @test sum(s.width for s in layout.fields) == chunk_length(T).bits
-        @test [s.name for s in layout.fields] == collect(fieldnames(T))
+        # The layout describes the WIRE, so a model-only field is absent from it
+        # and present in the struct — `Ipv4Header.checksum_mode` is the one here.
+        # Every field the layout names is a field of the struct, in order.
+        @test [s.name for s in layout.fields] ==
+              [n for n in fieldnames(T) if measure_field(fieldtype(T, n)) > 0]
         offset = 0
         for s in layout.fields
             @test s.offset == offset

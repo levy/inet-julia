@@ -35,8 +35,9 @@ The IPv6 base header, 40 bytes.
 included. It is not the length of this header, and it is not the length of the
 datagram, so the IP module sets it.
 """
-Base.@kwdef struct Ipv6Header <: Fields
+@header Ipv6Header begin
     version        :: U4  = IPV6_VERSION
+        check(version == IPV6_VERSION)
     traffic_class  :: U8  = 0
     flow_label     :: U20 = 0
     payload_length :: U16

@@ -338,7 +338,7 @@ function mac_helpers()
         j("""
           function _mac_process_received_frame!(ctx, mac::MacState, packet::Packet)
               hdr = peek(packet, EthernetMacHeader)
-              dst = hdr.dst.value
+              dst = hdr.destination.value
               is_broadcast = dst == 0xFFFFFFFFFFFF
               if mac.promiscuous || dst == mac.address || is_broadcast
                   mac.num_frames_received = mac.num_frames_received + 1

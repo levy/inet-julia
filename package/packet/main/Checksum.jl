@@ -77,7 +77,7 @@ takes its other branch and reads the zero this function just wrote.
 """
 function compute_internet_checksum(h::Fields, field::Symbol = :checksum;
                            mode_field::Symbol = :checksum_mode)
-    zeroed = set_field(h, field, zero(fieldtype(typeof(h), field)))
+    zeroed = set_field(h, field, convert(fieldtype(typeof(h), field), 0))
     if mode_field in fieldnames(typeof(h))
         zeroed = set_field(zeroed, mode_field, CHECKSUM_DECLARED)
     end
@@ -94,7 +94,7 @@ header above them, not in their own.
 function compute_internet_checksum(h::Fields, field::Symbol,
                            pseudo_header::AbstractVector{UInt8};
                            mode_field::Symbol = :checksum_mode)
-    zeroed = set_field(h, field, zero(fieldtype(typeof(h), field)))
+    zeroed = set_field(h, field, convert(fieldtype(typeof(h), field), 0))
     if mode_field in fieldnames(typeof(h))
         zeroed = set_field(zeroed, mode_field, CHECKSUM_DECLARED)
     end

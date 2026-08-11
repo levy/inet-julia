@@ -59,7 +59,7 @@ end
 The physical-layer preamble and start-frame delimiter, 8 bytes. Both fields
 carry their constant as a default, so the header is built with no arguments.
 """
-Base.@kwdef struct EthernetPhyHeader <: Fields
+@header EthernetPhyHeader begin
     preamble :: U56 = ETHERNET_PREAMBLE
     sfd      :: U8  = ETHERNET_SFD
 end
@@ -70,7 +70,7 @@ end
 The 802.1Q VLAN tag, 4 bytes. `tpid` defaults to `0x8100`, which is the value
 that makes the tag recognisable as one.
 """
-Base.@kwdef struct Ieee8021qTag <: Fields
+@header Ieee8021qTag begin
     tpid :: EtherTypeOrLength = ETHERTYPE_VLAN
     pcp  :: U3                = 0
     dei  :: Bool              = false
@@ -84,6 +84,6 @@ The frame check sequence, 4 bytes, carried after the payload. INET's default
 `fcsMode` is `declared`, which means the value is asserted rather than
 computed; this library keeps that and computes nothing.
 """
-Base.@kwdef struct EthernetFcs <: Fields
+@header EthernetFcs begin
     fcs :: U32 = 0
 end

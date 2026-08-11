@@ -265,7 +265,7 @@ end
     texts = _drawn_strings(out)
     # The dissection, at every level: envelope, the sequence under it, the
     # header, one of the header's decoded fields, and the payload.
-    for want in ("Packet(data=60B", "Sequence(2)", "Ipv4Header", "ttl = 64", "Filler(fill=0)")
+    for want in ("Packet(data=60B", "Sequence(2)", "Ipv4Header", "time_to_live = 64", "Filler(fill=0)")
         @test any(t -> occursin(want, t), texts)
     end
     # Chunk lengths travel with the chunks — that is the whole point of the view.

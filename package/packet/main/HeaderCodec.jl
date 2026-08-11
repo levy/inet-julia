@@ -136,6 +136,21 @@ One field of `h`, as a reader wants to see it. The value prints itself.
 """
 format_field(h::Fields, spec::FieldSpec) = format_field(get_field(h, spec))
 
+# ---------- reading a field --------------------------------------------------
+
+"""
+    unwrap_field(value)
+
+The value a reader sees. A `Model` and a `Constant` are boxes the codec needs
+and a reader does not, so `h.checksum_mode` is the mode and not the box.
+"""
+unwrap_field(value) = value
+unwrap_field(value::Model) = value.value
+unwrap_field(::Constant{T, V}) where {T, V} = V
+
+# `getfield` still gives the box, which is what the codec and `set_field` use.
+Base.getproperty(h::Fields, name::Symbol) = unwrap_field(getfield(h, name))
+
 # ---------- the length -------------------------------------------------------
 
 """
@@ -162,8 +177,19 @@ is_fixed_length(::Type{H}) where {H <: Fields} = true
 # ---------- serialize --------------------------------------------------------
 
 function serialize(io::BitWriter, h::H) where {H <: Fields}
+    # A check refuses BEFORE any bits reach the caller's writer: a header the
+    # model built wrong is a bug, and half of it on the wire helps nobody.
+    refuse_bad_header(H, h)
     write_from(io, h, Val(1))
     return io
+end
+
+function refuse_bad_header(::Type{H}, h::H) where {H <: Fields}
+    for name in list_checked(H)
+        check_field(H, Val(name), h) ||
+            error("$(nameof(H)): refusing to serialize — the `$(name)` check failed")
+    end
+    return nothing
 end
 
 # The recursion the whole codec rests on. `Val(index)` makes the index a
@@ -173,13 +199,29 @@ function write_from(io::BitWriter, h::H, ::Val{INDEX}) where {H <: Fields, INDEX
     INDEX > fieldcount(H) && return nothing
     type = fieldtype(H, INDEX)
     width = measure_field(type)
-    width > 0 && write_field(io, type, getfield(h, INDEX), width, byte_order(H))
+    # A derived field is what the header computes, not what the struct holds.
+    value = fieldname(H, INDEX) in list_derived(H) ?
+            derive_field(H, Val(fieldname(H, INDEX)), h) : getfield(h, INDEX)
+    width > 0 && write_field(io, type, value, width, byte_order(H))
     return write_from(io, h, Val(INDEX + 1))
 end
 
 # ---------- deserialize ------------------------------------------------------
 
-deserialize(::Type{H}, io::BitReader) where {H <: Fields} = H(read_from(H, io, Val(1))...)
+function deserialize(::Type{H}, io::BitReader) where {H <: Fields}
+    h = H(read_from(H, io, Val(1))...)
+    # A check that fails on READ marks and hands the header back: a packet that
+    # arrived malformed is data, not a program error. `peek` gates on the mark,
+    # so the caller decides whether to accept it.
+    return mark_bad_header(H, h)
+end
+
+function mark_bad_header(::Type{H}, h::H) where {H <: Fields}
+    for name in list_checked(H)
+        check_field(H, Val(name), h) || return mark_incorrect(h)
+    end
+    return h
+end
 
 function read_from(::Type{H}, io::BitReader, ::Val{INDEX}) where {H <: Fields, INDEX}
     INDEX > fieldcount(H) && return ()

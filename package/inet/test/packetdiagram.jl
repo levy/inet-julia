@@ -21,10 +21,10 @@ using Projectured.ReferenceModule: EmptyReference
 # payload and the FCS — 78 bytes, four declared headers and one opaque run.
 function diagram_test_frame()
     pk = Packet(Filler(Bytes(32)))
-    pushfirst!(pk, UdpHeader(src_port = 1000, dst_port = 2000, length = UInt16(40)))
+    pushfirst!(pk, UdpHeader(source_port = 1000, destination_port = 2000, length = UInt16(40)))
     pushfirst!(pk, Ipv4Header(total_length = UInt16(60), protocol = IP_PROTOCOL_UDP,
-                              src_address = Ipv4Address("10.0.0.1"),
-                              dst_address = Ipv4Address("10.0.0.2")))
+                              source = Ipv4Address("10.0.0.1"),
+                              destination = Ipv4Address("10.0.0.2")))
     pushfirst!(pk, EthernetMacHeader(MacAddress("0a:00:00:00:00:02"),
                                      MacAddress("0a:00:00:00:00:01"),
                                      ETHERTYPE_IPV4))
@@ -63,7 +63,7 @@ end
 
     # The value is stored as raw bits AND as the text a reader sees.
     src = ip.fields[12]
-    @test src.name == "src_address"
+    @test src.name == "source"
     @test src.value == 0x0a000001
     @test src.text == "10.0.0.1"
     @test src.base === :ipv4
@@ -133,7 +133,7 @@ end
 end
 
 @testset "diagram_rows — the last row of a packet may be short" begin
-    pk = Packet(UdpHeader(src_port = 1, dst_port = 2, length = UInt16(8)))
+    pk = Packet(UdpHeader(source_port = 1, destination_port = 2, length = UInt16(8)))
     rows = diagram_rows(diagram_bands(pk), 32)
     @test Base.length(rows) == 2
     @test sum(c.width for c in rows[2].cells) == 32
@@ -175,7 +175,7 @@ end
 
     # A bare chunk draws too — a header on its own is a packet with no envelope.
     header_only = print_document(projection, nothing,
-                                 UdpHeader(src_port = 1, dst_port = 2, length = UInt16(8)),
+                                 UdpHeader(source_port = 1, destination_port = 2, length = UInt16(8)),
                                  PrinterContext())
     @test Base.length(get_iomap_output(header_only).bands) == 1
 end
@@ -187,7 +187,7 @@ end
     @test Base.length(diagram.bands) == 5
 
     # A packet holds no cells, so the announcement is the write to this field.
-    smaller = Packet(UdpHeader(src_port = 1, dst_port = 2, length = UInt16(8)))
+    smaller = Packet(UdpHeader(source_port = 1, destination_port = 2, length = UInt16(8)))
     refresh_packet_diagram!(diagram, smaller)
     @test diagram.packet === smaller
     @test Base.length(diagram.bands) == 1
@@ -262,7 +262,7 @@ end
     wide   = packet_diagram_string(pk; row_bits = 32)
     @test Base.length(split(narrow, '\n')) > Base.length(split(wide, '\n'))
     # At 16 bits per row an Ethernet address still splits, but a port does not.
-    @test occursin("#           src_port            |", wide)
+    @test occursin("#           source_port            |", wide)
 
     # The gutter is optional, and dropping it moves every line left by 8.
     bare = packet_diagram_string(pk; show_offsets = false)
@@ -274,12 +274,12 @@ end
     # `flags` is three bits wide, so its cell holds five characters. A value
     # that needs more than that is cut, and the legend carries it whole.
     pk = Packet(Ipv4Header(total_length = UInt16(20), protocol = IP_PROTOCOL_TCP,
-                           src_address = Ipv4Address("255.255.255.255"),
-                           dst_address = Ipv4Address("255.255.255.255")))
+                           source = Ipv4Address("255.255.255.255"),
+                           destination = Ipv4Address("255.255.255.255")))
     figure = packet_diagram_string(pk; row_bits = 4)
     # At four bits per row a cell holds seven characters, which fits neither the
     # dotted quad, nor the same number in hexadecimal, nor in decimal.
-    @test occursin("Ipv4Header.src_address = 255.255.255.255", figure)
+    @test occursin("Ipv4Header.source = 255.255.255.255", figure)
     @test occursin("*", figure)
 end
 
