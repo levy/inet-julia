@@ -275,6 +275,13 @@ Constant{T, V}(::Constant{T, V}) where {T, V} = Constant{T, V}()
 measure_field(::Type{Constant{T, V}}) where {T, V} = measure_field(T)
 classify_display(::Type{<:Constant}) = :scalar
 Base.show(io::IO, ::Constant{T, V}) where {T, V} = print(io, V)
+# The bits of a constant are the constant. A view asks for them the way it asks
+# any field that fits in a `UInt64` — `has_field_bits` says this one does — and
+# without this it would be the one field type that answers the width and not the
+# value.
+encode_field(::Type{Constant{T, V}}, ::Constant{T, V}) where {T, V} =
+    encode_field(T, convert(T, V))
+decode_field(::Type{Constant{T, V}}, ::UInt64) where {T, V} = Constant{T, V}()
 # The value is the type, so the expression is the type applied to nothing.
 literal_field(::Constant{T, V}) where {T, V} = string("Constant{", T, ", ", repr(V), "}()")
 

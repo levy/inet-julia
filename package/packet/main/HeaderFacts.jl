@@ -5,7 +5,7 @@
 # questions remain, and a view of a header needs all three:
 #
 #   find_declaration        where the declaration is, so a view can show it
-#   describe_construction   the keyword call that rebuilds an instance
+#   describe_construction   the call that rebuilds an instance
 #   describe_update         what one field update does to the bytes
 #
 # All three read `fieldnames`, `fieldtypes` and the clause methods `@header`

@@ -184,4 +184,21 @@ end
     @test literal_field(true) == "true"
 end
 
+@testset "a constant answers with the bits it writes" begin
+    # A view asks any field that fits in a `UInt64` for its bits, and
+    # `has_field_bits` says a constant does. Without an answer it would be the
+    # one field type that gives a view its width and not its value — which is
+    # what stopped the figure being drawn for a header carrying one.
+    @test has_field_bits(Constant{U16, 0x0800})
+    @test encode_field(Constant{U16, 0x0800}, Constant{U16, 0x0800}()) == 0x0800
+    @test decode_field(Constant{U16, 0x0800}, UInt64(7)) === Constant{U16, 0x0800}()
+    # And a header made of them describes every field it has.
+    layout = describe_layout(ArpPacket)
+    header = example_header(ArpPacket)
+    for spec in layout.fields
+        has_bits(spec) || continue
+        @test encode_field(header, spec) isa UInt64
+    end
+end
+
 end # phase 21
