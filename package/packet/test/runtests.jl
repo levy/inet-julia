@@ -18,4 +18,5 @@ using Test
     include("phase11_header_macro.jl")
     include("phase12_draft.jl")
     include("phase13_variable_length.jl")
+    include("phase14_repeated.jl")
 end

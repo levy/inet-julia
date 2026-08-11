@@ -439,3 +439,80 @@ function read_field(io::BitReader, ::Type{Pad{B, F}}, width::Int, ::Symbol) wher
     skip_bits!(io, width)
     return Pad{B, F}()
 end
+
+# ---------- Repeated — a field that is many of the same thing -----------------
+
+"""
+    Repeated{T}(values)
+
+A vector of `T`, as many as a `count(…)` clause says. `T` is a value type or a
+fixed-length header.
+
+This is the IGMPv3 source list, the IPv4 record-route addresses, the RIP
+entries and the OSPF LSA headers: the standard gives a count and then that many
+of the same thing.
+"""
+struct Repeated{T}
+    values::Vector{T}
+end
+
+Repeated{T}(value::Repeated{T}) where {T} = value
+Base.convert(::Type{Repeated{T}}, values::AbstractVector) where {T} =
+    Repeated{T}(Vector{T}(values))
+Base.:(==)(a::Repeated{T}, b::Repeated{T}) where {T} = a.values == b.values
+Base.hash(value::Repeated, seed::UInt) = hash(value.values, hash(:Repeated, seed))
+Base.length(value::Repeated) = Base.length(value.values)
+Base.getindex(value::Repeated, index) = value.values[index]
+Base.iterate(value::Repeated, state...) = iterate(value.values, state...)
+Base.eltype(::Type{Repeated{T}}) where {T} = T
+Base.show(io::IO, value::Repeated) =
+    print(io, "[", join((format_field(v) for v in value.values), ", "), "]")
+
+is_variable_field(::Type{<:Repeated}) = true
+measure_value(value::Repeated{T}, ::Int) where {T} =
+    Base.length(value.values) * measure_field(T)
+has_field_bits(::Type{<:Repeated}) = false
+classify_display(::Type{<:Repeated}) = :composite
+format_field(value::Repeated) = string(value)
+
+function write_field(io::BitWriter, ::Type{Repeated{T}}, value::Repeated{T},
+                     ::Int, order::Symbol) where {T}
+    for element in value.values
+        write_field(io, T, element, measure_field(T), order)
+    end
+    return io
+end
+
+function read_field(io::BitReader, ::Type{Repeated{T}}, width::Int,
+                    order::Symbol) where {T}
+    element_width = measure_field(T)
+    element_width > 0 ||
+        error("Repeated{$(T)}: an element of no width would never end")
+    width % element_width == 0 ||
+        error("Repeated{$(T)}: $(width) bits is not a whole number of $(element_width)-bit " *
+              "elements")
+    values = Vector{T}(undef, width ÷ element_width)
+    for index in eachindex(values)
+        values[index] = read_field(io, T, element_width, order)
+    end
+    return Repeated{T}(values)
+end
+
+# ---------- an embedded header ----------------------------------------------
+#
+# A field whose type is itself a header runs that header's codec in place. That
+# is `EthernetMacHeader` as IEEE 802.3 declares it — an address pair and a type
+# field — and it is what replaces inheritance: Julia has no struct inheritance,
+# and the five-level 802.11 chain is four levels of embedding.
+#
+# `Repeated{H}` follows from the same three methods, which is why an OSPF LSA
+# list needs nothing more.
+
+measure_field(::Type{H}) where {H <: Fields} = bits(chunk_length(H))
+has_field_bits(::Type{<:Fields}) = false
+classify_display(::Type{<:Fields}) = :composite
+
+write_field(io::BitWriter, ::Type{H}, value::H, ::Int, ::Symbol) where {H <: Fields} =
+    serialize(io, value)
+read_field(io::BitReader, ::Type{H}, ::Int, ::Symbol) where {H <: Fields} =
+    deserialize(H, io)

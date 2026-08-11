@@ -43,7 +43,7 @@
 # does, and it is what lets a capture round-trip byte for byte.
 # ============================================================================
 
-const HEADER_CLAUSES = (:derive, :check, :length)
+const HEADER_CLAUSES = (:derive, :check, :length, :count)
 
 # One field of a declaration, after the parse.
 struct HeaderField
@@ -110,11 +110,14 @@ function attach_clause(field::HeaderField, clause)
             error("@header $(field.name): two `derive` clauses")
         return HeaderField(field.name, field.type, field.default, argument,
                            field.check, field.extent)
-    elseif name === :length
+    elseif name === :length || name === :count
         field.extent === nothing ||
-            error("@header $(field.name): two `length` clauses")
+            error("@header $(field.name): two `length` or `count` clauses")
+        # A `count` is a number of elements and a `length` is a number of bits;
+        # `measure_read` wants bits either way, so a count is multiplied by the
+        # element's width where the method is emitted.
         return HeaderField(field.name, field.type, field.default, field.derive,
-                           field.check, argument)
+                           field.check, (name, argument))
     end
     field.check === nothing ||
         error("@header $(field.name): two `check` clauses")
@@ -208,13 +211,19 @@ macro header(name, block)
         end
         if f.extent !== nothing
             read_bindings = read_bindings_above(index)
+            kind, extent = f.extent
+            # `length` gives bits directly; `count` gives elements, so it is
+            # multiplied by the width of one.
+            width = kind === :length ?
+                    :($(M).bits(convert($(M).BitLength, $(esc(extent))))) :
+                    :(Int($(esc(extent))) * $(M).measure_field(eltype($(esc(f.type)))))
             push!(clause_methods, quote
                 function $(M).measure_read(::Type{$(esc(name))},
                                            ::Val{$(QuoteNode(f.name))}, ::Type,
                                            sofar::NamedTuple, $(esc(:offset))::Int,
                                            $(esc(:remaining))::Int)
                     $(read_bindings...)
-                    return $(M).bits(convert($(M).BitLength, $(esc(f.extent))))
+                    return $(width)
                 end
             end)
         end

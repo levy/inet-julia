@@ -17,8 +17,8 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 4 are done, and the repository is green:
-3097 passes with the seven pre-existing capture and runner errors and nothing
+Status: **IN PROGRESS**. Phases 0 to 5 are done, and the repository is green:
+3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
 ## 1. What the plan delivers
@@ -427,9 +427,15 @@ A header with any of these is variable-length: `chunk_length(h)` answers,
 The IGMPv3 source list.
 
 ```julia
-    number_of_sources :: U16                    derive(count_sources(h))
-    source_list       :: Repeated{Ipv4Address}  count(number_of_sources)
+    number_of_sources :: U16
+        derive(Base.length(source_list))
+    source_list       :: Repeated{Ipv4Address}
+        count(number_of_sources)
 ```
+
+`count` gives a number of elements and `length` gives a number of bits; the
+codec wants bits, so a count is multiplied by the width of one element where
+the method is emitted.
 
 ### 9.7 A variant
 
@@ -452,7 +458,12 @@ unknown subtype still re-serializes byte for byte.
 
 The base header is an **embedded field**, not a supertype. Julia has no struct
 inheritance and does not need one — the five-level 802.11 chain is four levels
-of embedding, and `getproperty` forwards through it.
+of embedding.
+
+Embedding landed in Phase 5, because `Repeated{H}` wants it: a field whose type
+is a header runs that header's codec in place, and that is three methods. An
+embedded `EthernetMacHeader` gives byte-identical output to the flat one, which
+is the proof.
 
 ### 9.8 A conditional field
 
@@ -552,9 +563,9 @@ Each phase ends with a green test and a commit. The command is
 | 2 ✅ | `@header`: defaults, `derive`, `check` | `Ipv4Header` without options round-trips; a version of 5 marks incorrect |
 | 3 ✅ | `Draft`, `start_draft`, `build_header` | a required field left unset fails at `build_header`, not on the wire |
 | 4 ✅ | variable length: `Octets`, `Rest`, `Pad` | a byte tail round-trips and `peek` finds it |
-| 5 | `Repeated` | an IGMPv3 report round-trips |
+| 5 ✅ | `Repeated`, and the embedding it needs | an IGMPv3 report round-trips |
 | 6 | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
-| 7 | variants and embedding | an ICMP echo request decodes from an `IcmpHeader` window |
+| 7 | variants | an ICMP echo request decodes from an `IcmpHeader` window |
 | 8 | the round-trip corpus, Wave 1 and Wave 2 | green over about 85 formats |
 | 9 | Wave 3 and Wave 4 | green over the inventory |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
