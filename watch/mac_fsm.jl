@@ -117,8 +117,13 @@ end
 Run to completion in wall-clock slices, refreshing the diagram after each and
 yielding so the editor repaints. `pace` slows the run down to something a human
 can follow (a 500 µs simulation finishes in milliseconds otherwise).
+
+A run that `step_watch!` left paused is resumed first. A paused run idles rather
+than advances, and the driver never resumes one on its own — that decision
+belongs to whoever paused it, and here that is this file.
 """
 function drive_watch!(w; slice::Float64 = 0.05, pace::Float64 = 0.0)
+    simulation_finished(w.execution) || resume_simulation!(w.execution)
     drive_simulation!(w.execution; slice = slice, after_slice = _ -> begin
         refresh_diagram!(w.diagram, w.mac)
         pace > 0 && sleep(pace)
