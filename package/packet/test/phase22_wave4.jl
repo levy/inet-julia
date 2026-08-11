@@ -244,3 +244,37 @@ end
         @test check_round_trip(T)
     end
 end
+
+@testset "Mobile IPv6 — every message is a multiple of eight octets" begin
+    @test chunk_length(MobilityCommon) == Bytes(6)
+    for (T, bytes) in ((Mipv6BindingRefreshRequest, 8), (Mipv6HomeTestInit, 16),
+                       (Mipv6CareOfTestInit, 16), (Mipv6HomeTest, 24),
+                       (Mipv6CareOfTest, 24), (Mipv6BindingUpdate, 16),
+                       (Mipv6BindingAcknowledgement, 16), (Mipv6BindingError, 24))
+        @test chunk_length(T) == Bytes(bytes)
+        # RFC 6275 clause 6.1 makes the whole header a multiple of eight.
+        @test bits(chunk_length(T)) % 64 == 0
+    end
+
+    # A lifetime counts four-second units, so an hour is 900.
+    update = Mipv6BindingUpdate(sequence_number = UInt16(1),
+                                lifetime = build_binding_lifetime(3600),
+                                home_registration = true, acknowledge = true)
+    @test update.lifetime == 900
+    @test measure_binding_seconds(update.lifetime) == 3600
+    bytes = encode_header(update)
+    @test bytes[1] == MIPV6_NO_NEXT_HEADER
+    @test bytes[3] == MIPV6_BINDING_UPDATE
+    # Acknowledge is the top bit of the flags, home registration the next.
+    @test bytes[9] == 0xc0
+
+    for header in (update, Mipv6BindingRefreshRequest(),
+                   Mipv6HomeTestInit(cookie = UInt64(7)),
+                   Mipv6HomeTest(cookie = UInt64(7), key_generation_token = UInt64(9)),
+                   Mipv6BindingAcknowledgement(status = 0),
+                   Mipv6BindingError(home_address = Ipv6Address("2001:db8::1")))
+        got = decode_header(MobilityHeader, encode_header(header))
+        @test !(got isa MarkedFields)
+        @test got == header
+    end
+end

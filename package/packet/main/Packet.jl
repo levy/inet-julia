@@ -270,6 +270,14 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        DHCP_OPTION_CLIENT_ID, DHCP_OPTION_END,
        DHCP_DISCOVER, DHCP_OFFER, DHCP_REQUEST, DHCP_DECLINE, DHCP_ACK,
        DHCP_NAK, DHCP_RELEASE, DHCP_INFORM,
+       MobilityHeader, MobilityCommon, Mipv6BindingRefreshRequest,
+       Mipv6HomeTestInit, Mipv6CareOfTestInit, Mipv6HomeTest, Mipv6CareOfTest,
+       Mipv6BindingUpdate, Mipv6BindingAcknowledgement, Mipv6BindingError,
+       measure_binding_seconds, build_binding_lifetime,
+       MIPV6_BINDING_REFRESH_REQUEST, MIPV6_HOME_TEST_INIT, MIPV6_CARE_OF_TEST_INIT,
+       MIPV6_HOME_TEST, MIPV6_CARE_OF_TEST, MIPV6_BINDING_UPDATE,
+       MIPV6_BINDING_ACKNOWLEDGEMENT, MIPV6_BINDING_ERROR,
+       MIPV6_LIFETIME_UNIT, MIPV6_NO_NEXT_HEADER,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -330,6 +338,7 @@ include("protocol/Pim.jl")
 include("protocol/Bgp.jl")
 include("protocol/Rtp.jl")
 include("protocol/Dhcp.jl")
+include("protocol/Mipv6.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")
