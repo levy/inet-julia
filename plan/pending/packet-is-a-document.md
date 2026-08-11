@@ -601,7 +601,32 @@ Gate: the golden byte vectors of `phase9_protocol_headers.jl` are unchanged. A
 header's wire form has nothing to do with how the struct stores its fields, and
 a changed byte means the codec was disturbed.
 
-### Phase 4 — the envelope — **PENDING**
+### Phase 4 — the envelope — **DONE**
+
+`Packet` is a `@native_document` with `selection::Nothing`. The bare name is the
+plain `mutable struct` it has always been, field for field:
+
+```
+bare name builds    : MPacket
+is a Document       : true
+field holds no cell : true
+sizeof              : 40          (5 fields, and a zero-size selection)
+write               : a setfield!
+dup shares content  : true        (still O(1))
+cell layout         : ACPacket    (what an editor copies into)
+```
+
+It passed on the first attempt, with nothing to fix. `test_packet()`,
+`test_queuing()` and `test_linklayer()` all pass inside the whole suite at
+2923 / 0 / 7 — the same seven — the T1S hash pins reproduce, and every hot-path
+number from phase 0 is unchanged.
+
+That is what a native document is for. The struct the simulation mutates did not
+change at all; what changed is that it is now a `Document`, so a card can render
+it, a reference can name a place inside it, and a generic walk can describe it —
+the three of §1's four workarounds that §4.1 said would go.
+
+### Phase 4 — what it asked for — **DONE**
 
 - [ ] `Packet` becomes `@native_document struct` — the bare name is the plain
       mutable struct it already is.

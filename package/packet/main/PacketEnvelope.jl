@@ -18,12 +18,17 @@
 # collapses into Base verbs + a `from = :front | :back` keyword.
 # ============================================================================
 
-mutable struct Packet
+# `@native_document` binds the bare name to the plain `mutable struct` — the same
+# object, field for field, that a simulation has always mutated. `selection` is
+# typed `Nothing` because the injected union would add a pointer to every packet
+# and nothing on the hot path carries a selection.
+@native_document struct Packet <: Document
     content::Chunk         # immutable, structurally shared
     front::BitLength       # consumed prefix (retained, not discarded)
     back::BitLength        # consumed suffix (retained, not discarded)
     packet_tags::TagSet    # keyed by type, at-most-one (Phase 5)
     region_tags::RegionTagSet   # keyed by (type, bit-range), R6 (Phase 5)
+    selection::Nothing
 end
 
 Packet(content::Chunk = Filler(ZERO_LENGTH)) =

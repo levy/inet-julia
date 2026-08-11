@@ -31,10 +31,15 @@ module PacketModule
 # chunk is on the simulation's hot path, and the injected selection is a union
 # over heap types that would stop it being isbits — a `Filler` would go from 16
 # bytes inline to 24 on the heap. Nothing a simulation touches is reactive.
-using ProjecturedKernel.DocumentModule: Document, @document, copy_document,
-                                        sync_document!
+using ProjecturedKernel.DocumentModule: Document, @document, @document_preset,
+                                        copy_document, sync_document!
 using ProjecturedKernel.ReferenceModule: Reference
 using ProjecturedKernel.CellModule: AbstractCell, ImmutableCell
+
+# The envelope is the one packet type that mutates, and it is the one a
+# simulation touches on every hop. Its bare name is the plain `mutable struct` it
+# has always been; `ACPacket` is the cell layout an editor holds a copy in.
+@document_preset native_document [M, C]
 
 export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        Quality, Q_COMPLETE, Q_INCOMPLETE, Q_INCORRECT, Q_MISREPRESENTED, ⊔,
