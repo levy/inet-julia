@@ -143,6 +143,56 @@ end
     @test raw.options[1].data == Octets(UInt8[0xde, 0xad])
 end
 
+@testset "BGP — nineteen shared octets, and the type says which message" begin
+    @test chunk_length(BgpCommon) == Bytes(BGP_HEADER_BYTES)
+    @test chunk_length(BgpKeepAlive) == Bytes(BGP_HEADER_BYTES)
+    @test chunk_length(BgpCapabilityMultiprotocol) == Bytes(6)
+
+    open_message = BgpOpen(my_as = UInt16(65001), hold_time = UInt16(90),
+                           identifier = Ipv4Address("10.0.0.1"))
+    @test chunk_length(open_message) == Bytes(BGP_OPEN_BYTES)
+    bytes = encode_header(open_message)
+    # The marker is all ones — RFC 4271 clause 4.1.
+    @test all(byte == 0xff for byte in bytes[1:16])
+    @test hex22(bytes[17:19]) == "00 1d 01"      # length 29, type OPEN
+    @test bytes[20] == BGP_VERSION
+    @test hex22(bytes[21:22]) == "fd e9"          # AS 65001
+    @test hex22(bytes[23:24]) == "00 5a"          # hold time 90 seconds
+    @test bytes[29] == 0x00                       # no optional parameters
+
+    # A capability parameter, and the parameter length derives from it.
+    with_capability = BgpOpen(
+        my_as = UInt16(65001), hold_time = UInt16(90),
+        identifier = Ipv4Address("10.0.0.1"),
+        parameters = [BgpParameterCapabilities(
+            capabilities = [BgpCapabilityMultiprotocol()])])
+    @test chunk_length(with_capability) == Bytes(BGP_OPEN_BYTES + 2 + 6)
+    back = decode_header(BgpOpen, encode_header(with_capability))
+    @test back.parameters_length == 8
+    @test Base.length(back.parameters) == 1
+    @test back.parameters[1] isa BgpParameterCapabilities
+    @test back.parameters[1].capabilities[1].address_family == 1
+
+    # A version other than four fails the check. The writer refuses to emit
+    # one, so the octets have to arrive that way — which is what a check is
+    # for: a packet that arrived wrong is data, and a header built wrong is a
+    # bug.
+    wrong = copy(bytes)
+    wrong[20] = 0x03
+    @test decode_header(BgpOpen, wrong) isa MarkedFields
+    @test_throws ErrorException encode_header(BgpOpen(version = 3,
+                                                      identifier = Ipv4Address(0)))
+
+    # RFC 4271 clause 4.5 defines NOTIFICATION. INET's serializer throws on it.
+    notification = BgpNotification(error_code = BGP_ERROR_CEASE)
+    @test chunk_length(notification) == Bytes(21)
+    for header in (notification, BgpKeepAlive())
+        got = decode_header(BgpMessage, encode_header(header))
+        @test !(got isa MarkedFields)
+        @test got == header
+    end
+end
+
 @testset "every declared wire format still round-trips" begin
     for T in filter(H -> parentmodule(H) === PacketModule, list_headers())
         @test check_round_trip(T)

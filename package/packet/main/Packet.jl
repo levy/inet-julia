@@ -240,6 +240,14 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        PIM_ASSERT, PIM_GRAFT, PIM_GRAFT_ACK, PIM_CANDIDATE_RP, PIM_STATE_REFRESH,
        PIM_OPTION_HOLD_TIME, PIM_OPTION_LAN_PRUNE_DELAY, PIM_OPTION_DR_PRIORITY,
        PIM_OPTION_GENERATION_ID, PIM_ADDRESS_FAMILY_INET, PIM_ENCODING_NATIVE,
+       BgpMessage, BgpCommon, BgpKeepAlive, BgpOpen, BgpNotification,
+       BgpParameter, BgpParameterCapabilities, BgpParameterRaw,
+       BgpCapabilityMultiprotocol,
+       BGP_OPEN, BGP_UPDATE, BGP_NOTIFICATION, BGP_KEEPALIVE, BGP_VERSION,
+       BGP_HEADER_BYTES, BGP_OPEN_BYTES, BGP_MAX_MESSAGE_BYTES, BGP_MARKER,
+       BGP_PARAMETER_CAPABILITIES, BGP_CAPABILITY_MULTIPROTOCOL,
+       BGP_ERROR_MESSAGE_HEADER, BGP_ERROR_OPEN_MESSAGE, BGP_ERROR_UPDATE_MESSAGE,
+       BGP_ERROR_HOLD_TIMER, BGP_ERROR_FINITE_STATE, BGP_ERROR_CEASE,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -297,6 +305,7 @@ include("protocol/Tcp.jl")
 include("protocol/Rip.jl")
 include("protocol/Aodv.jl")
 include("protocol/Pim.jl")
+include("protocol/Bgp.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")

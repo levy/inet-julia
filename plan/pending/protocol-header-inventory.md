@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 188 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 195 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -253,8 +253,9 @@ One discrepancy is already known and stays out of scope: INET's
 
 ### 3.7 Wave 4, and the one shape BGP still needs
 
-**Done — 32 formats.** RIP, the eight AODV control packets, the DSDV hello, and
-the eighteen PIM formats.
+**Done — 39 formats.** RIP, the eight AODV control packets, the DSDV hello, the
+eighteen PIM formats, and BGP's header, KEEPALIVE, OPEN and NOTIFICATION with
+its optional parameters.
 
 Three findings, none of which needed a language change:
 
@@ -276,8 +277,9 @@ RTCP (7), DHCP, SCTP, and the small `protocolelement` and `applications`
 headers. Then the IEEE 802.11 management bodies and the twenty-one
 physical-layer formats of Wave 3.
 
-**BGP is the one to declare carefully rather than quickly.** Its UPDATE message
-has two shapes nothing else in the inventory has.
+**BGP's UPDATE is the one still to declare, and carefully.** The header, the
+KEEPALIVE, the OPEN and the NOTIFICATION are in. UPDATE has two shapes nothing
+else in the inventory has.
 
 * **A prefix whose length field counts bits.** A withdrawn route is a length
   octet and then that many BITS of prefix, padded up to a whole octet. The
@@ -793,7 +795,7 @@ Each phase ends with a green test and a commit. The command is
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
 | 8 ✅ | the corpus ✅, Wave 1 ✅, Wave 2 ✅ | green over 91 formats |
-| 9 ◐ | Wave 3 ✅, Wave 4 started — §3.7 | green over 188 formats |
+| 9 ◐ | Wave 3 ✅, Wave 4 started — §3.7 | green over 195 formats |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 
 Phases 1 to 7 are the language. Phases 8 and 9 are the inventory. Do not start
