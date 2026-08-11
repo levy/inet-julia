@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 6 are done, and the repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done — the language is complete, and the repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -441,20 +441,39 @@ the method is emitted.
 
 ICMP. Two small methods, ordinary Julia, no registry and no macro.
 
+A variant is a **family**, the same shape an option family has: an abstract
+type and three methods. The base is a member of it, and it is also the
+fallback.
+
 ```julia
-struct IcmpEchoRequest
+abstract type IcmpMessage <: Fields end
+
+@header IcmpHeader <: IcmpMessage begin        # the base, and the fallback
+    type     :: U8
+    code     :: U8         = 0
+    checksum :: Checksum16 = 0
+end
+
+@header IcmpEchoRequest <: IcmpMessage begin
     base            :: IcmpHeader
     identifier      :: U16
     sequence_number :: U16
 end
 
-list_variants(::Type{IcmpHeader}) = (IcmpEchoRequest, IcmpEchoReply, IcmpPtb)
+list_variants(::Type{IcmpMessage}) = (IcmpEchoRequest, IcmpEchoReply)
+variant_base(::Type{IcmpMessage})  = IcmpHeader
 matches_variant(::Type{IcmpEchoRequest}, base) = base.type == ICMP_ECHO_REQUEST
 ```
 
+The family is abstract so that `peek(pk, IcmpMessage)` can return a member and
+still keep its promise about the type it gives back. That is why the base and
+the family are two names: one abstract type cannot also be a concrete header.
+
 `select_variant` is generic: it walks `list_variants` and takes the first that
-matches. With no match the base type comes back, marked misrepresented, so an
-unknown subtype still re-serializes byte for byte.
+matches. The reader reads the base, rewinds, and reads again as the member —
+so a member declares every field once, the base's included, and no case can
+forget to copy them. With no match the base comes back, marked misrepresented,
+so an unknown subtype still re-serializes byte for byte.
 
 The base header is an **embedded field**, not a supertype. Julia has no struct
 inheritance and does not need one — the five-level 802.11 chain is four levels
@@ -581,7 +600,7 @@ Each phase ends with a green test and a commit. The command is
 | 4 ✅ | variable length: `Octets`, `Rest`, `Pad` | a byte tail round-trips and `peek` finds it |
 | 5 ✅ | `Repeated`, and the embedding it needs | an IGMPv3 report round-trips |
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
-| 7 | variants | an ICMP echo request decodes from an `IcmpHeader` window |
+| 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
 | 8 | the round-trip corpus, Wave 1 and Wave 2 | green over about 85 formats |
 | 9 | Wave 3 and Wave 4 | green over the inventory |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |

@@ -95,6 +95,9 @@ This is the only reflection a view of a packet needs, and it reads the same
 field types the codec does, so the two cannot disagree.
 """
 function describe_layout(::Type{H}) where {H <: Fields}
+    # A variant family describes its base, which is what every member starts
+    # with and all a reader knows before it has one.
+    isabstracttype(H) && return describe_layout(variant_base(H))
     specs = FieldSpec[]
     offset = 0
     for index in 1:fieldcount(H)
@@ -197,6 +200,9 @@ depends on the value or on where the codec is, so the length is a property of
 the value and not of the type.
 """
 function is_fixed_length(::Type{H}) where {H <: Fields}
+    # A variant family is abstract and has no fields of its own: its members
+    # have different lengths, so the family has none.
+    isabstracttype(H) && return false
     for index in 1:fieldcount(H)
         is_variable_field(fieldtype(H, index)) && return false
     end
@@ -210,6 +216,9 @@ The width of the fixed part — the whole of it when the header is fixed-length.
 This is always known, which is what a reader needs before any bytes arrive.
 """
 function minimum_chunk_length(::Type{H}) where {H <: Fields}
+    # The least a variant family can be is its base — the part every member
+    # starts with, and the part a reader needs before it can choose one.
+    isabstracttype(H) && return minimum_chunk_length(variant_base(H))
     total = 0
     for index in 1:fieldcount(H)
         type = fieldtype(H, index)
@@ -264,6 +273,10 @@ end
 # ---------- deserialize ------------------------------------------------------
 
 function deserialize(::Type{H}, io::BitReader) where {H <: Fields}
+    # A variant family reads its base first and then reads again as the member
+    # the base chose. `list_variants` is empty for every other header, so the
+    # branch folds away.
+    isempty(list_variants(H)) || return deserialize_variant(H, io)
     h = H(read_from(H, io, Val(1), NamedTuple(), io.bit_pos)...)
     # A check that fails on READ marks and hands the header back: a packet that
     # arrived malformed is data, not a program error. `peek` gates on the mark,

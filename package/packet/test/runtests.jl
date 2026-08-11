@@ -20,4 +20,5 @@ using Test
     include("phase13_variable_length.jl")
     include("phase14_repeated.jl")
     include("phase15_options.jl")
+    include("phase16_variants.jl")
 end

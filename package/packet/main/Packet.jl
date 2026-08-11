@@ -34,7 +34,9 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        format_field, classify_display, has_field_bits, extend_sign,
        U, I, Constant, Model, Octets, Rest, Pad, Repeated, Options,
        list_options, find_raw_option, option_code, ends_option_list,
-       measure_option_code, find_option_type, store_unsigned, store_signed,
+       measure_option_code, find_option_type,
+       list_variants, variant_base, matches_variant, select_variant,
+       store_unsigned, store_signed,
        is_variable_field, measure_value, measure_read, format_octets,
        MacAddress, list_mac_octets, MAC_BROADCAST, is_multicast, is_broadcast,
        Ipv4Address, list_ipv4_octets, Ipv6Address, list_ipv6_groups,
@@ -83,6 +85,7 @@ include("HeaderCodec.jl")
 include("Header.jl")
 include("Draft.jl")
 include("Options.jl")
+include("Variant.jl")
 include("Checksum.jl")
 # The wire formats. One file per protocol, each written from the standard.
 include("protocol/Ethernet.jl")

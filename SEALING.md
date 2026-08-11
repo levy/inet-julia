@@ -71,6 +71,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `Header.jl`
   - ⬜ `Draft.jl`
   - ⬜ `Options.jl`
+  - ⬜ `Variant.jl`
   - ⬜ `Checksum.jl`
   - *slice `protocol` — the wire formats, one file per protocol*
     - ⬜ `protocol/Ethernet.jl`
@@ -182,6 +183,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `phase13_variable_length.jl`
   - ⬜ `phase14_repeated.jl`
   - ⬜ `phase15_options.jl`
+  - ⬜ `phase16_variants.jl`
 - **`InetQueuingTest`** (`package/queuing/test/`)
   - ⬜ `InetQueuingTest.jl`
   - ⬜ `runtests.jl`
