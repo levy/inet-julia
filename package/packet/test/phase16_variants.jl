@@ -109,7 +109,7 @@ end
     # byte for byte.
     wire = UInt8[PROBE_UNKNOWN, 0x00, 0x00, 0x00]
     marked = decode_header(ProbeMessage, wire)
-    @test marked isa MarkedFields{ProbeBase}
+    @test marked isa MarkedFields && marked.header isa ProbeBase
     @test quality(marked) == Q_MISREPRESENTED
     @test marked.header.type == PROBE_UNKNOWN
     @test encode_header(marked.header) == wire

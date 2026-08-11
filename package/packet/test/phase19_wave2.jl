@@ -60,7 +60,9 @@ end
 
     # The same type with another code is not a Path MTU message.
     other = IcmpHeader(base = IcmpCommon(type = ICMP_DESTINATION_UNREACHABLE, code = 0))
-    @test decode_header(IcmpMessage, encode_header(other)) isa MarkedFields{IcmpHeader}
+    let m = decode_header(IcmpMessage, encode_header(other))
+        @test m isa MarkedFields && m.header isa IcmpHeader
+    end
 end
 
 @testset "ICMP — a type nobody models keeps its bytes" begin
@@ -71,7 +73,7 @@ end
 
     wire = UInt8[ICMP_TIME_EXCEEDED, 0x00, 0x00, 0x00, 0xde, 0xad, 0xbe, 0xef]
     marked = decode_header(IcmpMessage, wire)
-    @test marked isa MarkedFields{IcmpHeader}
+    @test marked isa MarkedFields && marked.header isa IcmpHeader
     @test quality(marked) == Q_MISREPRESENTED
     @test marked.header.base.type == ICMP_TIME_EXCEEDED
     @test marked.header.unused == 0xdeadbeef

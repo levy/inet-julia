@@ -591,7 +591,30 @@ both were checked. The only difference is that an element path reads
 Gate: the normalisation tests of `phase1_chunks.jl` pass unchanged. They are the
 specification of the composites, and this phase must not touch them.
 
-### Phase 3 — the headers — **PENDING**
+### Phase 3 — the headers — **PENDING, and its ground moved**
+
+It was built once and dropped in a rebase. `inet-julia` main rewrote the header
+mechanism underneath it — `3e137cd`, *"Make the struct the wire format, and the
+codec generic"*: a header is an ordinary struct, **`fieldnames` and `fieldtypes`
+are the layout**, and `serialize` / `deserialize` / `chunk_length` /
+`describe_layout` are written once in `HeaderCodec.jl` rather than generated per
+header. `HeaderLayout.jl` is gone.
+
+That is a head-on collision, not a merge conflict to patch. The injected
+`selection::Nothing` would become **part of the wire format**, because the codec
+reads `fieldnames` as the layout. So the question this phase now has to answer is
+how the generic codec knows that the injected field is not a wire field.
+
+What the first attempt learned still applies and is worth keeping:
+
+- `@document` could not be called from another package's macro at all. The kind
+  marker had to be a bare `Symbol` (fixed in `projectured-julia`, `3c38ec69`),
+  and the struct name arrived escaped where the parse wants a symbol, so the
+  emitting macro must build one escaped macrocall with bare parts inside.
+- `::Type{Name}` stops matching once the bare name is a UnionAll, and every
+  caller passes `typeof(h)`. Anything keyed on a header type needs `::Type{<:…}`.
+- `getfield(h, …)` returns the **cell**, so a codec reading fields that way hands
+  itself a cell instead of a value.
 
 - [ ] `@header` emits `@document ImmutableCell [DC] struct`.
 - [ ] Resolve the constructor overlap of §6.

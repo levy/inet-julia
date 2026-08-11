@@ -77,7 +77,7 @@ end
     bad = copy(good)
     bad[1] = 0x55                                  # version 5, which no IPv4 has
     marked = decode_header(Ipv4Header, bad)
-    @test marked isa MarkedFields{Ipv4Header}
+    @test marked isa MarkedFields && marked.header isa Ipv4Header
     @test quality(marked) == Q_INCORRECT
     # The header is still there: a malformed packet is data, not an exception.
     @test marked.header.version == 5

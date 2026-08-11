@@ -111,7 +111,7 @@ end
 
     # An opcode nobody models comes back as the base, marked.
     marked = decode_header(EthernetControlMessage, UInt8[0x00, 0x02])
-    @test marked isa MarkedFields{EthernetControlFrame}
+    @test marked isa MarkedFields && marked.header isa EthernetControlFrame
     @test quality(marked) == Q_MISREPRESENTED
 end
 
