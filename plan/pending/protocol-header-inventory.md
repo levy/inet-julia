@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done — the language is complete — and Wave 1 and Wave 2 are both in. 91 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Wave 1 and Wave 2 are in, and Wave 3 is most of the way. 140 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -194,6 +194,62 @@ Two edges are recorded rather than fixed:
   report that says two records and carries three reads back as three. A `check`
   clause cannot express it: the corpus builds a header whose fields are all
   distinct, so a checked count would fail the check rather than the round trip.
+
+### 3.6 What Wave 3 landed, and what IEEE 802.11 still needs
+
+**Done — 49 formats.**
+
+* The five headers that state their own length: `AckingMacHeader`,
+  `ShortcutMacHeader`, `GenericPhyHeader`, `ShortcutPhyHeader` and
+  `ApskPhyHeader`. The plan called this a language gap and it is not one. The
+  `until` clause gives the offset a field ends at, which is what a filler needs,
+  and the length derives from the octets beside it.
+* The two IEEE 802.1D bridge protocol data units.
+* The IEEE 802.15.4 MAC header, which is the first little-endian header.
+* B-MAC, X-MAC and the CSMA/CA MAC — eleven frames.
+* The seven gPTP messages of IEEE 802.1AS.
+* The seventeen MRP records of IEC 62439-2.
+
+Two facts came out of the work.
+
+1. **A header whose only variable field is padding is not variable.** Padding is
+   as wide as the distance from its offset to a boundary, and that offset is
+   known unless a field above it is variable. `is_fixed_length` and
+   `minimum_chunk_length` now walk with the offset. Before the fix,
+   `chunk_length(MrpOption)` refused an eight-octet record and
+   `minimum_chunk_length` reported six.
+2. **INET keeps two record types in one class where the layout is shared.** MRP
+   Link Down and Link Up, and the two MRP test sub-records, are each one class
+   with two codes. A record type is a record type, so each is two members here.
+
+**Left — IEEE 802.11, 36 MAC formats and 21 physical-layer formats.** It needs
+one thing the language does not have, and the plan should say so plainly.
+
+Section 4.1 states that byte order is a property of the protocol and belongs to
+the header. IEEE 802.11 disproves it. `Ieee80211MacHeaderSerializer` makes ten
+little-endian writes and thirteen big-endian ones **in the same header**: the
+duration field and the sequence control field are little-endian, and the
+addresses and the block acknowledgement fields are not. A per-header
+`byte_order` cannot say that.
+
+The fix that fits the design is a value type, not a clause. Byte order stays out
+of the macro, because it is not an expression over sibling fields; it becomes
+part of what a value is. IEEE 802.11 names both fields, so both get a name:
+`Ieee80211Duration` for the duration and identifier field, and a sequence
+control type for the fragment and sequence numbers. Each answers `write_field`
+and `read_field` with its own order, and the header keeps one declared order for
+everything else.
+
+Two more things IEEE 802.11 will need, both already in the language:
+
+* the fourth address, present only when both distribution-system bits are set,
+  and the quality-of-service control, present only for a QoS subtype — that is
+  the `when` clause and `Optional`;
+* the action frame whose category this library does not model, which keeps its
+  body verbatim — that is a raw member, as an unknown option is.
+
+One discrepancy is already known and stays out of scope: INET's
+`Ieee80211BlockAckReq` is 38 octets where IEEE 802.11 draws 20.
 
 ## 4. The design
 
@@ -681,7 +737,7 @@ Each phase ends with a green test and a commit. The command is
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
 | 8 ✅ | the corpus ✅, Wave 1 ✅, Wave 2 ✅ | green over 91 formats |
-| 9 | Wave 3 and Wave 4 | green over the inventory |
+| 9 ◐ | Wave 3 without IEEE 802.11, Wave 4 | green over 140 formats |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 
 Phases 1 to 7 are the language. Phases 8 and 9 are the inventory. Do not start
