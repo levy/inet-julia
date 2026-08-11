@@ -16,4 +16,7 @@ using Test
     # The packet diagram: a packet drawn as the figure the RFCs use. It needs a
     # packet and the editor stack at once, which only the umbrella has.
     include("packetdiagram.jl")
+    # One protocol header, as a page. It reaches the packet library, the
+    # editor's reflection and the demo catalog at once.
+    include("headergallery.jl")
 end

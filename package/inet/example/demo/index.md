@@ -39,6 +39,17 @@ feature anyone built for the tour.
 - [Reassembly without ceremony](pages/Reassembly.md) — straddling pops, sparse
   segments, and overlap policies as explicit values.
 
+## One protocol, one page
+
+A page per wire format, and no line of any of them written by hand. The
+declaration is quoted from the file that declares it; the call that builds an
+instance, the byte a field update moves, the reflected fields and the bit grid
+are all computed from the type. A page cannot disagree with the code, because
+there is nothing on it that the code did not say.
+
+- [IPv4 — RFC 791](pages/header/Ipv4Header.md) — sub-byte widths, a check, a
+  derive, and an option list that runs to the end of the header.
+
 ## Queuing, element by element
 
 - [The M/M/1/K chain](pages/Mm1kChain.md) — four elements in a row, and a

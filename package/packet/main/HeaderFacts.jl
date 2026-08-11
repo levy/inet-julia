@@ -45,13 +45,28 @@ function declaration_path(::Type{H}) where {H <: Fields}
     site = find_declaration(H)
     site === nothing && return nothing
     isfile(site.file) && return site.file
-    root = pkgdir(@__MODULE__)
+    root = package_source_directory()
     root === nothing && return site.file
     name = basename(site.file)
     for candidate in (joinpath(root, "protocol", name), joinpath(root, name))
         isfile(candidate) && return candidate
     end
     return site.file
+end
+
+"""
+    package_source_directory() -> String or nothing
+
+Where this package's source is, now. `nothing` when the module was not loaded
+as a package.
+
+Not `pkgdir`: that one expects `src/Foo.jl` under the package root, and this
+package's entry file sits in the root itself — which `Project.toml` says with
+`entryfile`, and which `pkgdir` refuses.
+"""
+function package_source_directory()
+    path = pathof(parentmodule(@__MODULE__))
+    return path === nothing ? nothing : dirname(path)
 end
 
 # ---------- an instance to show ----------------------------------------------

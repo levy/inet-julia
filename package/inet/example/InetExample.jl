@@ -82,6 +82,8 @@ export demo_directory, demo_catalog, demo_projection, run_demo
 export precompile_workload
 export FSM_MACHINES, fsm_machines, FsmMachineToWidget, fsm_machine_entry, fsm_diagram_entry
 export PACKET_VIEWS, packet_views, packet_syntax, packet_entry, named_packet
+export GALLERY_HEADERS, gallery_headers, find_gallery_header, header_reason
+export header_page, header_declaration, gallery_loader_context
 
 let _taken = Set{Symbol}()
     for _src in (InetPacketExample, InetQueuingExample)
@@ -103,6 +105,9 @@ include("Machines.jl")
 
 # The packets a page can show as the live objects they are.
 include("Packets.jl")
+# One protocol header, as a page: the declaration, the call that builds one,
+# a field read and written, the instance reflected and the instance drawn.
+include("HeaderPage.jl")
 # The workload body comes last, so it can reach everything above it.
 include("Precompile.jl")
 
@@ -265,6 +270,9 @@ function __init__()
     register_marker_function!(:fsm, marker_fsm)
     register_marker_function!(:packet, marker_packet)
     register_marker_function!(:packet_tree, marker_packet_tree)
+    # `<<header_view("Ipv4Header")>>`. The five views of one wire format, all
+    # of them derived from the type.
+    register_marker_function!(:header_view, marker_header_view)
 end
 
 end # module InetExample

@@ -131,10 +131,20 @@ end
 
 """
     get_field(h::Fields, spec::FieldSpec)
+    get_field(h::Fields, field::Symbol)
 
-The value of one field of `h`.
+The value of one field of `h`, by the layout's own descriptor or by name.
+
+`set_field` writes by name, so this reads by name: a caller holding a field name
+should not have to build a descriptor to see what is in it.
 """
 get_field(h::Fields, spec::FieldSpec) = getfield(h, spec.name)
+
+function get_field(h::H, field::Symbol) where {H <: Fields}
+    field in fieldnames(H) ||
+        error("get_field: $(H) has no field `$(field)`")
+    return getfield(h, field)
+end
 
 """
     encode_field(h::Fields, spec::FieldSpec)::UInt64

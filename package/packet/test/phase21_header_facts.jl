@@ -149,6 +149,15 @@ end
     end
 end
 
+@testset "a field is read by name, as it is written by name" begin
+    header = example_header(Ipv4Header)
+    @test get_field(header, :time_to_live) == getfield(header, :time_to_live)
+    @test get_field(header, :source) == header.source
+    @test_throws ErrorException get_field(header, :no_such_field)
+    # The pair a page shows: read one, write one, read it back.
+    @test get_field(set_field(header, :time_to_live, 63), :time_to_live) == 63
+end
+
 @testset "an update flips one byte of an IPv4 header" begin
     # The first field an update can show on: `version` is checked, `ihl` is
     # derived, so `dscp` is the first that is neither.
