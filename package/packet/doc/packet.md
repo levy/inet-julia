@@ -265,6 +265,42 @@ is **not** the order `Ipv6Header.msg` declares. The two disagree about where
 the addresses go. The serializer is the wire format; a port that reads the
 message file alone gets the header wrong.
 
+## What a header says about itself
+
+`describe_layout` says where the fields lie. `HeaderFacts.jl` answers the three
+questions a view of a header asks next, and each is computed from the type:
+
+    find_declaration(Ipv4Header)      # (file = ".../protocol/Ipv4.jl", line = 44)
+    declaration_path(Ipv4Header)      # that file, as a path that exists now
+    example_header(Ipv4Header)        # an instance: every field distinct, and
+                                      # the header agreeing with its own bytes
+    describe_construction(header)     # the call that rebuilds it
+    describe_update(header)           # one field written, and the byte that moved
+
+`@header` records where it expanded, and a header written as a plain struct
+passes `@__FILE__` to `register_header`. So a view shows the declaration itself
+rather than a copy of it, and a renamed header fails loudly.
+
+`describe_construction` names a field that has no default, and a field whose
+value is not its default. It leaves out the rest, because the declaration
+already decides them. A derived field is left out only when the writer can put
+it back: `ihl` counts the header's own width, so nobody states it, while
+`header_checksum` derives to *itself* unless the mode says to compute one. The
+two are told apart by trying it rather than by reading the declaration's shape.
+
+Two functions answer the two questions about one value:
+
+    format_field(Ipv4Address("10.0.0.1"))    # "10.0.0.1"     — for a reader
+    literal_field(Ipv4Address("10.0.0.1"))   # the constructor call — for the compiler
+
+A field is read and written by name, which is what a caller holding a name has:
+
+    get_field(header, :time_to_live)
+    set_field(header, :time_to_live, 63)     # a header is immutable; this is a copy
+
+`InetExample` puts all of it on a page: the gallery in the demo catalog shows
+ten headers, and `plan/*/protocol-header-gallery.md` says how.
+
 ## R2 duality + R9 guard
 
 Ask for a header type, get one, regardless of the source representation:

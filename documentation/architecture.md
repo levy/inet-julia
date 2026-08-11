@@ -69,6 +69,12 @@ runner draws nothing. That rule is checked, not stated — see below.
   reason the umbrella depends on the editor stack, and the reason a headless
   run of `using Inet` loads it; a split into its own package is the answer if
   that cost ever bites. See [packet-diagram.md](../package/inet/doc/packet-diagram.md).
+  `headerview/` is here for the same reason and costs almost nothing: two
+  methods that tell the editor's reflection how a protocol field value wants to
+  be shown, which needs a header type and the reflection at once. The page that
+  uses them is markdown, and markdown is a domain the umbrella does not reach,
+  so the page lives in `InetExample` — see
+  [header-gallery.md](../package/inet/doc/header-gallery.md).
 - **`runner`** — one simulation, from a command line, to a pair of result
   files. It earns a package on both counts at once: its consumer is a command
   line and not a Julia caller, and its `Project.toml` is a **contract** rather

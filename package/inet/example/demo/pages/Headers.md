@@ -74,6 +74,15 @@ Bytes are not gated this way. Deserialising a header out of raw bytes needs no
 opt-in at all, because bytes carry no claim about what they are; it is only a
 header claiming to be a *different* header that has to be asked for twice.
 
+## One page per format
+
+Every declared header has the same five things to say about itself, and none of
+them has to be written down twice. The gallery under **One protocol, one page**
+shows ten of the ninety-one that way: the declaration quoted from its own file,
+the call that builds an instance, one field read and written with the byte that
+moves, the fields as the instance holds them, and the figure the standard
+draws — all of it computed from the type.
+
 ## What to try
 
 Look at the ninth byte, then look at `ttl :: UInt8` in the declaration above,

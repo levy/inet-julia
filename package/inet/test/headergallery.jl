@@ -23,14 +23,28 @@ using Projectured.ProjectionApiModule: print_document
 using Projectured.TrueTypeModule: truetype_measure_text
 using Inet.PacketDiagramModule: PacketDiagram
 
+# One catalog and one projection for the whole file. A shell built per page
+# reparses the index and every stub, and a projection built per page rebuilds
+# the dispatch table — ten of each turned a ninety-second suite into a
+# quarter-hour one. It is also what a reader does: open the catalog once, then
+# click.
+const _SHELL = Ref{Any}(nothing)
+const _PROJECTION = Ref{Any}(nothing)
+
+function _gallery_shell()
+    _SHELL[] === nothing && (_SHELL[] = demo_catalog())
+    _PROJECTION[] === nothing &&
+        (_PROJECTION[] = demo_projection(measure = truetype_measure_text))
+    return (_SHELL[], _PROJECTION[])
+end
+
 # The page a stub file names, drawn the way `run_demo` draws it.
 function _gallery_drawn(path::AbstractString)
-    shell = demo_catalog()
+    shell, projection = _gallery_shell()
     index = findfirst(e -> e.path == path, collect(shell.entries))
     index === nothing && error("no navigator row for ", path)
     open_page!(shell, index)
-    out = get_iomap_output(print_document(demo_projection(measure = truetype_measure_text),
-                                          shell))
+    out = get_iomap_output(print_document(projection, shell))
     return (shell, out, _drawn_strings(out))
 end
 
@@ -57,11 +71,13 @@ end
     # The declaration arrives as the parsed Julia it is — with its docstring,
     # because `definition` yields a documented definition whole.
     @test :JuliaDocstring in kinds || :JuliaMacroCall in kinds
-    @test :MarkdownCodeBlock in kinds        # the call, and the bytes
+    @test :MarkdownCodeBlock in kinds        # the call, the bytes, the figure
     @test :ReflectedNode in kinds            # the instance, reflected
-    @test :PacketDiagram in kinds            # the instance, as the RFC draws it
     # Four headings: declared, built, read and written, reflected, drawn.
     @test Base.length([k for k in kinds if k === :MarkdownHeading]) >= 4
+    # The figure, as the RFC grid over this header's own bytes.
+    code = [b.code for b in page.elements if b isa MarkdownCodeBlock]
+    @test any(c -> occursin("+-+-+-+", c), code)
 end
 
 @testset "every header in the gallery builds a page" begin
@@ -69,6 +85,46 @@ end
         page = header_page(H)
         @test page isa MarkdownRoot
         @test !isempty(page.elements)
+    end
+end
+
+@testset "every header in the gallery has a row and a page of its own" begin
+    shell, _ = _gallery_shell()
+    paths = [e.path for e in collect(shell.entries) if !e.section]
+    for H in gallery_headers()
+        path = string("pages/header/", nameof(H), ".md")
+        @test path in paths
+        @test isfile(joinpath(demo_directory(), path))
+        # And the stub names the header the row is for, so a page cannot end up
+        # showing a different format from the one its title states.
+        @test occursin(string("header_view(\"", nameof(H), "\")"),
+                       read(joinpath(demo_directory(), path), String))
+    end
+end
+
+@testset "every header page is about the header it is for" begin
+    # Asserted on the DOCUMENT, not on the pixels. `demo.jl`'s walk already
+    # opens all ten pages and forces the canvas, and a header page is expensive
+    # to draw — a parsed declaration, a reflected instance and a bit grid, some
+    # seconds each — so drawing all ten a second time buys nothing. What the
+    # walk cannot say is whether a page is about the header its row names, and
+    # that is what is checked here.
+    #
+    # One page IS drawn and read, below. That is where the five views are proved
+    # to reach the screen.
+    for H in gallery_headers()
+        page = header_page(H)
+        blocks = collect(page.elements)
+        # The call that builds an instance names the type.
+        code = [b.code for b in blocks if b isa MarkdownCodeBlock]
+        @test any(c -> occursin(string(nameof(H), "("), c), code)
+        # The figure is on the page, drawn as the RFC grid over this header's
+        # own bytes: the ruler, and the boxes under it.
+        @test any(c -> occursin("+-+-+-+", c) && occursin(string(nameof(H)), c), code)
+        # A page asked for twice is one document, so a fold a reader opened is
+        # still open when they come back — and a catalog rebuilt is not ten
+        # pages rebuilt.
+        @test header_page(H) === page
     end
 end
 

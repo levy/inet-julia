@@ -122,5 +122,8 @@ peek(pk, Raw; length = Bytes(4))     # materialise only what you look at
 4. [package/inet/doc/packet-diagram.md](package/inet/doc/packet-diagram.md) —
    a packet drawn as the ASCII art figure the RFCs use, and why its first stage
    is a projection.
-5. `plan/done/` — the design documents the code was built from, including the
+5. [package/inet/doc/header-gallery.md](package/inet/doc/header-gallery.md) —
+   one protocol header as a page, with every view on it derived from the
+   declaration.
+6. `plan/done/` — the design documents the code was built from, including the
    requirement-by-requirement derivation from INET's own sources.

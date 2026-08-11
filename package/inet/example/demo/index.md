@@ -47,8 +47,28 @@ instance, the byte a field update moves, the reflected fields and the bit grid
 are all computed from the type. A page cannot disagree with the code, because
 there is nothing on it that the code did not say.
 
+Ten of the ninety-one declared formats are here, one per feature of the
+declaration language.
+
+- [Ethernet MAC — IEEE 802.3](pages/header/EthernetMacHeader.md) — a plain
+  struct with no macro at all.
+- [IEEE 802.2 LLC](pages/header/Ieee8022LlcHeader.md) — a field that is there
+  only when a clause says so.
+- [ARP — RFC 826](pages/header/ArpPacket.md) — constants that hold nothing and
+  still take width.
 - [IPv4 — RFC 791](pages/header/Ipv4Header.md) — sub-byte widths, a check, a
   derive, and an option list that runs to the end of the header.
+- [UDP — RFC 768](pages/header/UdpHeader.md) — the smallest header there is.
+- [TCP — RFC 9293](pages/header/TcpHeader.md) — a length derived from the
+  header's own width.
+- [IPv6 — RFC 8200](pages/header/Ipv6Header.md) — a 128-bit field, and a 20-bit
+  one beside it.
+- [The IPv6 fragment header](pages/header/Ipv6FragmentHeader.md) — eight
+  octets, and most of them reserved.
+- [ICMP echo request — RFC 792](pages/header/IcmpEchoRequest.md) — a variant
+  over an embedded base header.
+- [IGMPv3 report — RFC 3376](pages/header/Igmpv3Report.md) — a list that fills
+  its window, and a count derived from it.
 
 ## Queuing, element by element
 

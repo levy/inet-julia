@@ -15,18 +15,22 @@ each one shows something the others do not. A page is derived from the header
 type, so the ten cost one page builder and not ten pages. Every header is a
 later stage, and it changes one list.
 
-Status: **PENDING**. No stage has started.
+Status: **STAGE 1 AND STAGE 2 DONE**. Ten headers have a page and a navigator
+row. `test_packet()` and `test_inet()` are green. Stage 3 is not started, and
+needs a reader's verdict first. What the work found is recorded in each stage
+below and in §9.
 
 ## 1. What the plan delivers
 
 1. Three facts a header can answer about itself, in `InetPacket`: where it is
    declared, how to construct it, and what one field update does to the bytes.
-2. A page document built from a header type, in `Inet`.
+2. A page document built from a header type, in `InetExample` — see the note
+   under Stage 1 step 4: markdown is a domain `Inet` does not reach.
 3. A bridge from `classify_display` to the editor's generic reflection, which
    closes §15 of
    [protocol-header-inventory.md](protocol-header-inventory.md).
 4. Ten navigator rows, one per header of the subset.
-5. Tests that build all ten pages and render them.
+5. Tests that build all ten pages, and draw one of them in full.
 
 ## 2. What exists already
 
@@ -124,8 +128,10 @@ hand for IPv4, computed instead.
 the demo projection already draws it. What it does not know is that `Ipv4Address`
 is a value and not a container, so §3.3 supplies that.
 
-**View 5 — the RFC bit grid.** `packet_diagram(Packet(h))` — a packet holding one
-header. `_append_band!` already has the method for a bare header
+**View 5 — the RFC bit grid.** `packet_diagram_string(Packet(h))` — the same
+projection over a packet holding one header, rendered to text once at build
+rather than re-derived on every line the page is drawn. §6 says why.
+`_append_band!` already has the method for a bare header
 ([PacketToPacketDiagram.jl:121](../../package/inet/main/packetdiagram/PacketToPacketDiagram.jl#L121)),
 so the grid needs no new code, only a packet to hold the header.
 
@@ -180,7 +186,8 @@ the five views come from the type. Ten stubs are honest; ninety-one are not, and
 | part | package | why there |
 | --- | --- | --- |
 | `find_declaration`, `describe_construction`, `describe_update`, `literal_field`, `example_header` | `InetPacket` (`package/packet/main/`) | facts about a header, computed from the type. No editor, no simulator — the package depends on nothing |
-| `header_page`, the reflection bridge | `Inet` (`package/inet/main/headergallery/`) | needs a header **and** the editor stack, which is what the umbrella already is (`packetdiagram/` is the precedent) |
+| the reflection bridge | `Inet` (`package/inet/main/headerview/`) | needs a header **and** the editor stack, which is what the umbrella already is (`packetdiagram/` is the precedent) |
+| `header_page`, `GALLERY_HEADERS`, the marker | `InetExample` (`package/inet/example/HeaderPage.jl`) | a page is markdown, and markdown is a domain `Inet` does not reach. Found in stage 1 step 4 |
 | the `header_view` marker, the stub pages, the index section | `InetExample` (`package/inet/example/`) | the catalog is the example package's, and a marker registration is runtime state |
 | the `definition` fix | `projectured-julia`, `package/julia/main/` | the marker vocabulary lives there |
 
@@ -241,11 +248,42 @@ then both find the file.
 Three stages. Each one ends green, is committed, and is worth opening on its own.
 Stage 3 is optional and is not started until the ten pages have been read.
 
-| stage | delivers | gate |
-| --- | --- | --- |
-| 1 | the facts, and one page for `Ipv4Header` | the page opens in `run_demo()` and draws all five views |
-| 2 | the other nine, and their rows | ten rows, ten pages, all rendered by the test |
-| 3 | *optional* — every declared header | 91 rows, without 91 stub files |
+| stage | delivers | gate | state |
+| --- | --- | --- | --- |
+| 1 | the facts, and one page for `Ipv4Header` | the page opens in `run_demo()` and draws all five views | **done** |
+| 2 | the other nine, and their rows | ten rows, ten pages, all rendered by the test | **done** |
+| 3 | *optional* — every declared header | 91 rows, without 91 stub files | not started |
+
+**What a page costs, and what the diagram does.** Ten pages turned a
+ninety-second suite into one that ran for over ten minutes. Two independent
+stack samples, from two runs, caught it in the same place:
+
+```
+_line_groups (TextToGraphics)  →  iterate(CellVector)  →  recompute!
+  →  _diagram_spans  →  diagram_rows  →  length(bands)  →  recompute!
+```
+
+**A `PacketDiagram` re-derives its whole span sequence every time the text
+renderer asks it for a line, and re-derives the bands with it.** That is a
+property of `packetdiagram/`, not of anything this plan added — one figure on
+one page costs about a second, which nobody noticed, and ten made it plain.
+
+Four things follow, and all four are in:
+
+* the gallery page carries the figure as TEXT, through `packet_diagram_string`,
+  paid once at build. The figure comes from the same projection over the same
+  packet, so it still cannot disagree with the declaration; what is given up is
+  folding a band on a gallery page, which the catalog's packet pages still have.
+* `header_page` keeps the page it built, so a catalog rebuilt does not rebuild
+  ten pages, and a reader who comes back finds the folds they opened.
+* the gallery test draws ONE page in full and asserts the other nine on their
+  documents. `demo.jl`'s walk already draws all ten.
+* `precompile_workload` draws a header page, so the chain a first click needs is
+  compiled into the image rather than paid for by the reader.
+
+**Worth its own change:** make `_diagram_spans` compute once per figure rather
+than once per line. Every page carrying a live diagram gets faster, and the
+gallery can take the live figure back.
 
 ### Stage 1 — one header, end to end
 
@@ -267,24 +305,60 @@ The whole mechanism, proved on one header. Six steps, one commit each.
 
    Gate: new `package/packet/test/phase21_header_facts.jl`, over the ten of §4
    and then over `list_headers()` — the facts are generic, so run them on all 91
-   even though only ten get a page. `eval` of the construction text gives a header
-   equal to the instance, and exactly the reported bytes change.
+   even though only ten get a page. `eval` of the construction text gives a
+   header that ENCODES the same bytes, and exactly the reported bytes change.
 
    ```
    julia --project=package/packet/test -e 'using InetPacketTest; test_packet()'
    ```
-3. **The block spike.** One thing is not known: whether the natural renderer takes
-   a live document as a **block** of a page directly, or whether the block must be
-   an embed card. Put `packet_diagram(…)` in a `MarkdownRoot` and render it. If it
-   draws, the page is a plain AST and nothing else is needed. If it does not, wrap
-   each live view in the embed card the presentation package already uses, the way
-   `<<realize(…)>>` does. Record the answer in §9 of this plan.
-4. **The page.** New slice `package/inet/main/headergallery/`, one module,
-   exported from `Inet`: `header_page(H)`, and the five view builders.
-5. **The reflection bridge.** The two methods of §3.3. Then update §15 of
-   [protocol-header-inventory.md](protocol-header-inventory.md): the question is
-   answered, and the hook is `is_reflection_leaf`.
-6. **The row.** Register the `header_view` marker in `InetExample.__init__`,
+
+   Three things this step found.
+
+   * **A plain struct has no keyword constructor.** `EthernetMacHeader` is built
+     positionally, and then every field of it is required — a positional call has
+     no default to fall back on. `has_keyword_constructor` asks, and
+     `HeaderConstruction` carries the answer.
+   * **A derive does not always compute.** RFC 791's `header_checksum` derives to
+     *itself* unless the checksum mode says to compute one, so a call that left it
+     out would emit a different datagram; `ihl` counts the header's own width and
+     can be left out. The two are told apart by trying it — set the field to its
+     default and see whether the bytes still match. The declaration's shape does
+     not distinguish them.
+   * **`pkgdir` refuses this layout.** It expects `src/Foo.jl` under the package
+     root, and this package's entry file sits in the root itself.
+     `package_source_directory` is the two lines that do what was meant.
+3. ✅ **The block spike.** Whether the natural renderer takes a live document as
+   a **block** of a page directly, or whether the block must be an embed card.
+
+   **It takes it directly.** A `PacketDiagram` and a `ReflectedNode` put in a
+   `MarkdownRoot` both drew: the page's elements each re-enter the renderer by
+   their own type, which `NaturalProjection.jl` says is what lets "a page hold a
+   live card". So a header page is a plain AST, and needs no embed card, no
+   marker of its own and no conversion first.
+4. ✅ **The page.** `header_page(H)` and the five view builders, in
+   `package/inet/example/HeaderPage.jl`.
+
+   **The page lives in `InetExample`, not in `Inet`.** A page is markdown, and
+   `ProjecturedMarkdown` is a domain package; `Inet` depends on
+   `ProjecturedVisual` alone, which re-exports the kernel and base modules and no
+   domain. `InetExample` already owns the catalog and its markers, and
+   `Packets.jl` is the precedent. What stayed in `Inet` is the reflection bridge,
+   which needs no domain and must hold whenever a header is inspected — not only
+   when the example package is loaded.
+
+   **The docstring travels with the declaration.** `definition` yields a
+   documented definition WITH its documentation, so the page carried the
+   docstring twice: once as prose at the top and once inside the declaration. The
+   prose at the top is gone. The format is described where it was written, and
+   the page adds only what the type computes.
+
+   **`get_field` read by descriptor while `set_field` wrote by name**, so the
+   page's own snippet named a method that did not exist. It reads by name now.
+5. ✅ **The reflection bridge.** The two methods of §3.3, in
+   `package/inet/main/headerview/`. §15 of
+   [protocol-header-inventory.md](protocol-header-inventory.md) is answered: the
+   hook is `is_reflection_leaf`, and `reflection_value` is the second half of it.
+6. ✅ **The row.** Register the `header_view` marker in `InetExample.__init__`,
    beside the markers already there
    ([InetExample.jl:260](../../package/inet/example/InetExample.jl#L260)). Add
    `demo/pages/header/Ipv4Header.md` and one link in
@@ -295,31 +369,44 @@ The whole mechanism, proved on one header. Six steps, one commit each.
    uses `_drawn_strings` from [demo.jl](../../package/inet/test/demo.jl) — it
    forces the tree, which asserting the canvas type does not.
 
-### Stage 2 — the other nine
+### Stage 2 — the other nine ✅
 
-1. **The table.** `GALLERY_HEADERS` in `InetExample`, with the reason string §4
-   asks for. `Ipv4Header` moves into it.
-2. **The nine stubs and the index section.** One three-line page each, under a new
-   `## Every header declares its own bytes` section in `index.md`, in the order of
-   §4 — link layer first, then the internet core, then the message families.
-3. **What the nine break.** Expect three kinds of failure, and fix each where it
-   belongs rather than on the page:
-   * a variant member (`IcmpEchoRequest`) whose declaration is
-     `@header Member <: Family` — G1 covers it, so this is the check that it does;
-   * a variable-length header (`Ipv4Header`, `TcpHeader`, `Igmpv3Report`) whose
-     `describe_layout` needs the instance and not the type
-     ([HeaderCodec.jl:118](../../package/packet/main/HeaderCodec.jl#L118));
-   * an `Optional` field (`Ieee8022LlcHeader`) that is absent in the instance, and
-     must read as absent rather than as a hole.
-4. **The tests.** New `package/inet/test/headergallery.jl`: all ten pages build and
-   their facts hold, and all ten render through `demo_projection`. State the
-   render cost in the file. `demo.jl`'s existing walk picks the ten new rows up on
-   its own, because they are ordinary `.md` pages.
+1. ✅ **The table.** `GALLERY_HEADERS` in `InetExample`, with the reason string
+   §4 asks for. It landed in stage 1, because the marker needs it to resolve a
+   name.
+2. ✅ **The nine stubs and the index section.** One page each — a title, a
+   sentence and the marker — under **One protocol, one page** in `index.md`, in
+   the order of §4.
+3. ✅ **What the nine break.** Nothing broke. All three predicted failures were
+   already handled by what stage 1 built, which is the useful outcome rather than
+   a lucky one:
+   * the variant member (`IcmpEchoRequest`) resolves, because G1 reads the left
+     side of a `<:` exactly as a struct header does;
+   * every variable-length header describes its INSTANCE, because
+     `example_header` hands the page an instance and `describe_layout` has the
+     method for one;
+   * the absent `Optional` field reads as `absent`, because `example_header`
+     round-trips the instance through the codec — so the field is present exactly
+     when its own clause says it is, and not because a filler put something there.
+4. ✅ **The tests.** `package/inet/test/headergallery.jl`: every gallery header
+   builds a page, every one of the ten has a row and a stub that names it, and
+   every one renders through `demo_projection` and is asserted on what it DRAWS.
+   No sampling: ten pages cost about what the rest of the catalog walk does.
+
+   **One catalog and one projection for the whole file.** The first version built
+   a shell and a projection per page — reparsing the index and every stub, and
+   rebuilding the dispatch table, ten times over. That turned a ninety-second
+   suite into a quarter-hour one. Opening the catalog once and then clicking is
+   also what a reader does.
+
+   The test environment does not resolve standalone in a fresh worktree, because
+   `Manifest.toml` is git-ignored and `ProjecturedLlm` is reachable only through
+   the repository root's `[sources]`. Run the suite from the root environment:
 
    ```
-   julia --project=package/inet/test -e 'using InetTest; test_inet()'
+   julia --project=. -e 'using InetTest; test_inet()'
    ```
-5. **The documentation.** `package/packet/doc/packet.md` gains the three facts and
+5. ✅ **The documentation.** `package/packet/doc/packet.md` gains the three facts and
    `literal_field`. `package/inet/doc/` gains a short guide: what a page is made
    of, how to add a header, and how to add a sixth view.
    [Headers.md](../../package/inet/example/demo/pages/Headers.md) keeps its prose
@@ -401,8 +488,10 @@ reads as full coverage.
 
 ## 9. Open
 
-* Whether a live document may be a markdown block directly, or needs the embed
-  card. Stage 1 step 3 answers it, and the answer is recorded here.
+* ~~Whether a live document may be a markdown block directly.~~ **Answered: it
+  may.** Stage 1 step 3. A page's elements each re-enter the renderer by their
+  own type, so a `PacketDiagram` and a `ReflectedNode` are blocks like any other
+  — no embed card, no marker, no conversion.
 * Whether a variant family gets a row of its own beside its members.
   `IcmpEchoRequest` is a member and gets one; the family is abstract and has only
   the base's layout, so the first cut lists members only.

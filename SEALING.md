@@ -74,6 +74,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `Variant.jl`
   - ⬜ `RoundTrip.jl`
   - ⬜ `Checksum.jl`
+  - ⬜ `HeaderFacts.jl`
   - *slice `protocol` — the wire formats, one file per protocol*
     - ⬜ `protocol/Ethernet.jl`
     - ⬜ `protocol/Ieee8021.jl`
@@ -167,6 +168,8 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `packetdiagram/DiagramGeometry.jl`
     - ⬜ `packetdiagram/PacketToPacketDiagram.jl`
     - ⬜ `packetdiagram/PacketDiagramToText.jl`
+  - *slice `headerview` — how a protocol field value reads in the reflection*
+    - ⬜ `headerview/HeaderView.jl` — `HeaderViewModule` root
 
 ### Wave B — tools and watch environments
 
@@ -249,6 +252,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `packet_api_demo.jl`
 - **`InetExample`** (`package/inet/example/`)
   - ⬜ `InetExample.jl`
+  - ⬜ `HeaderPage.jl` — one protocol header, as a page
 
 *The `package/queuing/example/` package (`InetQueuingExample` — the tutorial
 shell, step builders and content) gets its own Wave D group here when the

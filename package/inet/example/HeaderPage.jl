@@ -23,7 +23,7 @@ using Projectured.MarkdownModule: MarkdownRoot, MarkdownHeading, MarkdownParagra
     MarkdownText, MarkdownCodeBlock
 using Projectured.DocumentReflectionModule: reflect_document
 using Projectured.FileProjectModule: LoaderContext
-using Inet.PacketDiagramModule: packet_diagram
+using Inet.PacketDiagramModule: packet_diagram, packet_diagram_string
 using Inet.PacketModule
 
 """
@@ -143,12 +143,32 @@ end
 
 The five views of one header, as a page a reader scrolls.
 
-The live ones — the reflection tree and the bit grid — are blocks of the page
-like any other. A page's elements each re-enter the renderer in their own
-domain, so a document that draws itself needs no card and no marker of its own
-here; the demo projection already knows both types.
+The reflection tree is a live document sitting in the page as a block. A page's
+elements each re-enter the renderer in their own domain, so a document that
+draws itself needs no card and no marker of its own here — the demo projection
+already knows the type. The bit grid would work the same way, and is text
+instead for the reason `_build_header_page` gives.
+
+A header asked for twice gives back the page it was given the first time, which
+is what makes a fold a reader opened still open when they come back.
 """
-function header_page(::Type{H}) where {H <: Fields}
+header_page(::Type{H}) where {H <: Fields} =
+    get!(() -> _build_header_page(H), HEADER_PAGES, H)
+
+"""
+    HEADER_PAGES :: IdDict{Type, Any}
+
+The page each header has been given, so that a header opened twice is one
+document — with the folds a reader left where they were, and with the catalog
+paying for the page once however many times it is rebuilt. `_SIMULATION_WINDOWS`
+keeps a runtime window for the same reason.
+
+`empty!(HEADER_PAGES)` drops them, which is what a session editing the page
+builder wants.
+"""
+const HEADER_PAGES = IdDict{Type, Any}()
+
+function _build_header_page(::Type{H}) where {H <: Fields}
     header = example_header(H)
     construction = describe_construction(header)
     blocks = Any[]
@@ -179,7 +199,22 @@ function header_page(::Type{H}) where {H <: Fields}
     push!(blocks, reflect_document(header; label = string(nameof(H))))
 
     push!(blocks, _heading("The instance, as the standard draws it"))
-    push!(blocks, packet_diagram(Packet(header)))
+    # The figure as TEXT, drawn once here rather than as the live document the
+    # catalog's packet pages carry.
+    #
+    # A `PacketDiagram` re-derives its whole span sequence every time the text
+    # renderer asks it for a line — `_diagram_spans` runs from inside
+    # `TextToGraphics._line_groups`, and re-derives the bands with it. One
+    # figure on one page is a second; ten pages of it made the catalog's own
+    # test suite unusable. Rendering to a string pays that cost once, at build,
+    # and a page is built once.
+    #
+    # Nothing about the figure changes: it comes from the same projection over
+    # the same packet, so it still cannot disagree with the declaration. What is
+    # given up is folding a band and selecting one on THIS page, which the
+    # packet pages still have. Fixing the re-derivation is the way to take it
+    # back — see the plan.
+    push!(blocks, MarkdownCodeBlock("", packet_diagram_string(Packet(header))))
 
     return MarkdownRoot(blocks)
 end
@@ -207,8 +242,13 @@ end
 function _construction_note(construction)
     named = list_named(construction)
     omitted = list_omitted(construction)
+    construction.keyword ||
+        return string("Every field is stated, in order: ", nameof(construction.type),
+                      " is a plain struct, so the only constructor it has is the ",
+                      "positional one Julia gives every struct — and a positional ",
+                      "call has no default to leave anything to.")
     isempty(omitted) &&
-        return string("Every field is stated: ", nameof(construction.type),
+        return string("Every field is named: ", nameof(construction.type),
                       " gives none of them a default.")
     parts = String[]
     for reason in (:default, :derived, :fixed)
@@ -226,11 +266,16 @@ _reason_phrase(reason::Symbol) =
     reason === :derived ? "the writer computes from the header itself" :
     "the type describes completely, so nobody names one"
 
-_update_code(update) = string(
-    "header = example_header(", nameof(update.type), ")\n",
-    "get_field(header, :", update.field, ")            # ", update.before, "\n",
-    "changed = set_field(header, :", update.field, ", ", update.literal, ")\n",
-    "get_field(changed, :", update.field, ")           # ", update.after)
+function _update_code(update)
+    read_before = string("get_field(header, :", update.field, ")")
+    read_after = string("get_field(changed, :", update.field, ")")
+    column = max(Base.length(read_before), Base.length(read_after)) + 2
+    return string(
+        "header = example_header(", nameof(update.type), ")\n",
+        rpad(read_before, column), "# ", update.before, "\n",
+        "changed = set_field(header, :", update.field, ", ", update.literal, ")\n",
+        rpad(read_after, column), "# ", update.after)
+end
 
 # The two byte strings, and a marker under the byte that moved. A diff nobody
 # has to hunt for is the whole reason to print the bytes twice.
