@@ -115,6 +115,7 @@ is_variable_field(::Type{<:Options}) = true
 has_field_bits(::Type{<:Options}) = false
 classify_display(::Type{<:Options}) = :composite
 format_field(value::Options) = string(value)
+literal_field(value::Options) = literal_list(value.values)
 
 # A list with no `until` clause runs to the end of what is there. That is the
 # IPv6 neighbour discovery options: RFC 4861 bounds them by the ICMPv6 message,

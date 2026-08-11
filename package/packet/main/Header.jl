@@ -310,7 +310,10 @@ macro header(declaration, block)
         $(keyword_constructor)
         $(clause_methods...)
         $(option_code_method)
-        $(M).register_header($(esc(name)))
+        # Where the declaration is, recorded by the only thing that knows it:
+        # the macro that expanded it. A view of a header shows the declaration
+        # itself, and a path written anywhere else would be a second copy of it.
+        $(M).register_header($(esc(name)), $(String(__source__.file)), $(__source__.line))
         $(M).list_derived(::Type{$(esc(name))}) = $(Expr(:tuple, QuoteNode.(derived)...))
         $(M).list_checked(::Type{$(esc(name))}) = $(Expr(:tuple, QuoteNode.(checked)...))
     end

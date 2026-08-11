@@ -59,8 +59,10 @@ struct EthernetMacHeader <: Fields
     type_or_length :: EtherTypeOrLength
 end
 
-# A plain struct is a complete header, and the corpus should still walk it.
-register_header(EthernetMacHeader)
+# A plain struct is a complete header, and the corpus should still walk it. The
+# location goes with it: `@header` passes its own, and a header written by hand
+# passes the file and the line it is on, so a view finds this declaration too.
+register_header(EthernetMacHeader, @__FILE__, @__LINE__)
 
 """
     EthernetPhyHeader(; preamble, sfd)

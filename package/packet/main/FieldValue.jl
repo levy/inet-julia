@@ -76,6 +76,18 @@ REPL, the tests, the packet diagram and the editor.
 format_field(value) = string(value)
 
 """
+    literal_field(value)::String
+
+One value, as the Julia expression that rebuilds it. `format_field` answers the
+other question — `10.0.0.1` is what a reader wants to see and is not an
+expression — and a page that shows how a header is built needs code that runs.
+
+The default is `repr`, which is right for a number, a `Bool` and an enum. A
+type whose text form is not its constructor answers for itself.
+"""
+literal_field(value) = repr(value)
+
+"""
     classify_display(::Type{T})::Symbol
 
 How a reflective view treats a `T` field.
@@ -263,6 +275,8 @@ Constant{T, V}(::Constant{T, V}) where {T, V} = Constant{T, V}()
 measure_field(::Type{Constant{T, V}}) where {T, V} = measure_field(T)
 classify_display(::Type{<:Constant}) = :scalar
 Base.show(io::IO, ::Constant{T, V}) where {T, V} = print(io, V)
+# The value is the type, so the expression is the type applied to nothing.
+literal_field(::Constant{T, V}) where {T, V} = string("Constant{", T, ", ", repr(V), "}()")
 
 write_field(io::BitWriter, ::Type{Constant{T, V}}, ::Constant{T, V},
             width::Int, order::Symbol) where {T, V} =
@@ -291,6 +305,8 @@ Model{T}(value::Model{T}) where {T} = value
 measure_field(::Type{Model{T}}) where {T} = 0
 classify_display(::Type{<:Model}) = :scalar
 Base.show(io::IO, value::Model) = print(io, value.value)
+# A model field converts from its own value, so the expression is that value's.
+literal_field(value::Model) = literal_field(value.value)
 Base.:(==)(a::Model{T}, b::Model{T}) where {T} = a.value == b.value
 Base.hash(value::Model, seed::UInt) = hash(value.value, seed)
 Base.convert(::Type{Model{T}}, value) where {T} = Model{T}(convert(T, value))
@@ -376,6 +392,11 @@ measure_value(value::Octets, ::Int) = 8 * Base.length(value.data)
 has_field_bits(::Type{Octets}) = false
 classify_display(::Type{Octets}) = :scalar
 format_field(value::Octets) = format_bytes(value.data)
+literal_field(value::Octets) = string("Octets(", literal_bytes(value.data), ")")
+
+"A run of bytes as the Julia expression that rebuilds it."
+literal_bytes(data::AbstractVector{UInt8}) =
+    string("UInt8[", join((repr(b) for b in data), ", "), "]")
 
 write_field(io::BitWriter, ::Type{Octets}, value::Octets, ::Int, ::Symbol) =
     write_bytes!(io, value.data)
@@ -406,6 +427,7 @@ measure_value(value::Rest, ::Int) = 8 * Base.length(value.data)
 has_field_bits(::Type{Rest}) = false
 classify_display(::Type{Rest}) = :scalar
 format_field(value::Rest) = format_bytes(value.data)
+literal_field(value::Rest) = string("Rest(", literal_bytes(value.data), ")")
 
 write_field(io::BitWriter, ::Type{Rest}, value::Rest, ::Int, ::Symbol) =
     write_bytes!(io, value.data)
@@ -441,6 +463,11 @@ has_field_bits(::Type{<:Pad}) = false
 classify_display(::Type{<:Pad}) = :scalar
 Base.show(io::IO, ::Pad{BOUNDARY, FILL}) where {BOUNDARY, FILL} =
     print(io, "pad to ", BOUNDARY)
+# A `BitLength` prints as `4B`, which is not an expression, so the boundary is
+# written back as the bit count it holds. `Bits(32)` and `Bytes(4)` are one
+# value, so the type this names is the type the declaration names.
+literal_field(::Pad{BOUNDARY, FILL}) where {BOUNDARY, FILL} =
+    string("Pad{Bits(", BOUNDARY.bits, "), ", repr(FILL), "}()")
 
 write_field(io::BitWriter, ::Type{Pad{B, F}}, ::Pad{B, F},
             width::Int, ::Symbol) where {B, F} =
@@ -492,6 +519,10 @@ measure_value(value::Repeated{T}, offset::Int) where {T} =
 has_field_bits(::Type{<:Repeated}) = false
 classify_display(::Type{<:Repeated}) = :composite
 format_field(value::Repeated) = string(value)
+literal_field(value::Repeated) = literal_list(value.values)
+
+"A list of values as the Julia expression that rebuilds it."
+literal_list(values) = string("[", join((literal_field(v) for v in values), ", "), "]")
 
 function write_field(io::BitWriter, ::Type{Repeated{T}}, value::Repeated{T},
                      ::Int, order::Symbol) where {T}
@@ -592,6 +623,8 @@ measure_value(value::Optional{T}, ::Int) where {T} =
 has_field_bits(::Type{<:Optional}) = false
 classify_display(::Type{<:Optional}) = :scalar
 format_field(value::Optional) = string(value)
+literal_field(value::Optional) =
+    value.value === nothing ? "nothing" : literal_field(value.value)
 
 write_field(io::BitWriter, ::Type{Optional{T}}, value::Optional{T},
             width::Int, order::Symbol) where {T} =

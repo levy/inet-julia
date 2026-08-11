@@ -54,6 +54,7 @@ measure_field(::Type{MacAddress}) = 48
 encode_field(::Type{MacAddress}, m::MacAddress) = m.value
 decode_field(::Type{MacAddress}, bits::UInt64) = MacAddress(bits)
 classify_display(::Type{MacAddress}) = :openable
+literal_field(m::MacAddress) = string("MacAddress(", repr(string(m)), ")")
 
 "The broadcast address, `ff:ff:ff:ff:ff:ff`."
 const MAC_BROADCAST = MacAddress(0x0000_ffff_ffff_ffff)
@@ -98,6 +99,7 @@ measure_field(::Type{Ipv4Address}) = 32
 encode_field(::Type{Ipv4Address}, a::Ipv4Address) = UInt64(a.value)
 decode_field(::Type{Ipv4Address}, bits::UInt64) = Ipv4Address(UInt32(bits))
 classify_display(::Type{Ipv4Address}) = :openable
+literal_field(a::Ipv4Address) = string("Ipv4Address(", repr(string(a)), ")")
 
 # ---------- Ipv6Address -----------------------------------------------------
 
@@ -189,6 +191,7 @@ const IPV6_LOOPBACK    = Ipv6Address(0, 1)
 
 measure_field(::Type{Ipv6Address}) = 128
 classify_display(::Type{Ipv6Address}) = :openable
+literal_field(a::Ipv6Address) = string("Ipv6Address(", repr(string(a)), ")")
 
 function write_field(io::BitWriter, ::Type{Ipv6Address}, a::Ipv6Address,
                      width::Int, order::Symbol)
@@ -260,6 +263,10 @@ measure_field(::Type{EtherTypeOrLength}) = 16
 encode_field(::Type{EtherTypeOrLength}, t::EtherTypeOrLength) = UInt64(t.value)
 decode_field(::Type{EtherTypeOrLength}, bits::UInt64) = EtherTypeOrLength(UInt16(bits))
 classify_display(::Type{EtherTypeOrLength}) = :openable
+# The text form is `IPv4 (0x0800)` or `1500 B`, neither of which is an
+# expression, so the number comes back as the hex a standard quotes.
+literal_field(t::EtherTypeOrLength) =
+    string("EtherTypeOrLength(0x", string(t.value, base = 16, pad = 4), ")")
 
 # ---------- IpProtocol ------------------------------------------------------
 
@@ -304,6 +311,7 @@ measure_field(::Type{IpProtocol}) = 8
 encode_field(::Type{IpProtocol}, p::IpProtocol) = UInt64(p.value)
 decode_field(::Type{IpProtocol}, bits::UInt64) = IpProtocol(UInt8(bits))
 classify_display(::Type{IpProtocol}) = :openable
+literal_field(p::IpProtocol) = string("IpProtocol(", Int(p.value), ")")
 
 # ---------- Port ------------------------------------------------------------
 
@@ -330,6 +338,7 @@ measure_field(::Type{Port}) = 16
 encode_field(::Type{Port}, p::Port) = UInt64(p.value)
 decode_field(::Type{Port}, bits::UInt64) = Port(UInt16(bits))
 classify_display(::Type{Port}) = :scalar
+literal_field(p::Port) = string("Port(", Int(p.value), ")")
 
 # ---------- Checksum16 ------------------------------------------------------
 
@@ -359,6 +368,8 @@ measure_field(::Type{Checksum16}) = 16
 encode_field(::Type{Checksum16}, c::Checksum16) = UInt64(c.value)
 decode_field(::Type{Checksum16}, bits::UInt64) = Checksum16(UInt16(bits))
 classify_display(::Type{Checksum16}) = :scalar
+literal_field(c::Checksum16) =
+    string("Checksum16(0x", string(c.value, base = 16, pad = 4), ")")
 
 # ---------- reading a named value as a number --------------------------------
 

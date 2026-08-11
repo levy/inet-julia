@@ -12,6 +12,7 @@
 #   FieldValue.jl   what a field may be: the protocol, U{N}, I{N}, Constant, Model
 #   FieldTypes.jl   the values the standards name: MacAddress, Port, …
 #   HeaderCodec.jl  the codec, written once over `fieldtypes`
+#   HeaderFacts.jl  what a header knows about itself beyond its layout
 #   protocol/       the wire formats, one file per protocol
 #
 # A wire format is an ordinary Julia struct. `fieldnames` and `fieldtypes` are
@@ -31,13 +32,18 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        BitWriter, BitReader, write_bits!, read_bits!, bit_count,
        write_bytes!, read_bytes!, write_byte_repeatedly!, skip_bits!, measure_padding,
        measure_field, encode_field, decode_field, write_field, read_field,
-       format_field, classify_display, has_field_bits, extend_sign,
+       format_field, literal_field, literal_bytes, literal_list,
+       classify_display, has_field_bits, extend_sign,
        U, I, Constant, Model, Octets, Rest, Pad, Repeated, Options, Optional,
        is_present, optional_type,
        list_options, find_raw_option, option_code, ends_option_list,
        measure_option_code, find_option_type,
        list_variants, variant_base, variant_fallback, matches_variant, select_variant,
        list_headers, register_header, fill_field, fill_asymmetric, check_round_trip,
+       find_declaration, declaration_path, example_header,
+       HeaderArgument, HeaderConstruction, describe_construction, construction_text,
+       is_named, list_named, list_omitted, has_keyword_constructor,
+       HeaderUpdate, describe_update, find_updatable_field,
        store_unsigned, store_signed,
        is_variable_field, measure_value, measure_read, measure_default, format_octets,
        MacAddress, list_mac_octets, MAC_BROADCAST, is_multicast, is_broadcast,
@@ -154,6 +160,10 @@ include("Options.jl")
 include("Variant.jl")
 include("RoundTrip.jl")
 include("Checksum.jl")
+# What a header knows about itself: where it is declared, how one is built,
+# and what a field update does. It reads the clause methods `Header.jl` emits
+# and the corpus `RoundTrip.jl` keeps, so it comes after both.
+include("HeaderFacts.jl")
 # The wire formats. One file per protocol, each written from the standard.
 include("protocol/Ethernet.jl")
 include("protocol/Ieee8021.jl")

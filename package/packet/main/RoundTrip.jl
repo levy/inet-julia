@@ -33,15 +33,25 @@ list_headers() = copy(DECLARED_HEADERS)
 const DECLARED_HEADERS = Type[]
 
 """
-    register_header(::Type{H})
+    register_header(::Type{H}, file = "", line = 0)
 
-Add `H` to `list_headers`. `@header` does this; a header written as a plain
-struct calls it to join the corpus.
+Add `H` to `list_headers`, and record where it was declared. `@header` does
+this, and passes its own source location; a header written as a plain struct
+calls it to join the corpus, and passes `@__FILE__` and `@__LINE__`.
+
+The location is what lets a view show the declaration itself rather than a copy
+of it. `find_declaration` reads it back.
 """
-function register_header(::Type{H}) where {H <: Fields}
+function register_header(::Type{H}, file::AbstractString = "",
+                         line::Integer = 0) where {H <: Fields}
     H in DECLARED_HEADERS || push!(DECLARED_HEADERS, H)
+    isempty(file) || (DECLARATION_SITES[H] = (String(file), Int(line)))
     return H
 end
+
+# Where each header was declared, keyed by the type. An `IdDict`, because a
+# type is its own identity and hashing one is slower than comparing it.
+const DECLARATION_SITES = IdDict{Type, Tuple{String, Int}}()
 
 """
     fill_field(::Type{T}, seed::Int)
