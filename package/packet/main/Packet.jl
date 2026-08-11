@@ -36,7 +36,7 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        is_present, optional_type,
        list_options, find_raw_option, option_code, ends_option_list,
        measure_option_code, find_option_type,
-       list_variants, variant_base, matches_variant, select_variant,
+       list_variants, variant_base, variant_fallback, matches_variant, select_variant,
        list_headers, register_header, fill_field, fill_asymmetric, check_round_trip,
        store_unsigned, store_signed,
        is_variable_field, measure_value, measure_read, format_octets,
@@ -79,6 +79,11 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        MplsHeader, MPLS_LABEL_IPV4_EXPLICIT_NULL, MPLS_LABEL_ROUTER_ALERT,
        MPLS_LABEL_IPV6_EXPLICIT_NULL, MPLS_LABEL_IMPLICIT_NULL,
        SequenceNumberHeader, FragmentNumberHeader, ChecksumHeader,
+       ArpPacket, ARP_REQUEST, ARP_REPLY, ARP_RARP_REQUEST, ARP_RARP_REPLY,
+       ARP_HARDWARE_ETHERNET,
+       IcmpMessage, IcmpCommon, IcmpHeader, IcmpEchoRequest, IcmpEchoReply, IcmpPtb,
+       ICMP_ECHO_REPLY, ICMP_DESTINATION_UNREACHABLE, ICMP_ECHO_REQUEST,
+       ICMP_TIME_EXCEEDED, ICMP_PARAMETER_PROBLEM, ICMP_DU_FRAGMENTATION_NEEDED,
        UdpHeader, UDP_HEADER_BYTES,
        TcpHeader, list_tcp_flags, TCP_MIN_DATA_OFFSET, TCP_HEADER_BYTES,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
@@ -112,6 +117,8 @@ include("protocol/ProtocolElement.jl")
 include("protocol/Ppp.jl")
 include("protocol/Mpls.jl")
 include("protocol/Ipv4.jl")
+include("protocol/Arp.jl")
+include("protocol/Icmp.jl")
 include("protocol/Ipv6.jl")
 include("protocol/Udp.jl")
 include("protocol/Tcp.jl")

@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done — the language is complete — and Wave 1 is in, and the repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done — the language is complete — Wave 1 is in, and Wave 2 has begun, and the repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -114,6 +114,10 @@ Ethernet family, the 802.1 tag headers, `Ieee8022LlcHeader`,
 **Wave 2 — the internet core, about 55 formats.** IPv4 with options, IPv6 with
 its six extension headers, UDP, TCP with options, ARP, the ICMP family, the
 ICMPv6 family and the IGMP family.
+
+Done: IPv4 and IPv6 base headers, UDP, TCP, ARP, and the ICMP family — five
+formats, and the library's first real variant. Left: the option lists on IPv4
+and TCP, the six IPv6 extension headers, ICMPv6 (19) and IGMP (10).
 
 **Wave 3 — the wireless and bridged link layers, about 80 formats.** IEEE
 802.11 (36), the 802.11 PHY headers (21), 802.15.4, CSMA/CA, B-MAC, X-MAC,
@@ -608,7 +612,7 @@ Each phase ends with a green test and a commit. The command is
 | 5 ✅ | `Repeated`, and the embedding it needs | an IGMPv3 report round-trips |
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
-| 8 ◐ | the corpus ✅, Wave 1 ✅, Wave 2 | green over about 85 formats |
+| 8 ◐ | the corpus ✅, Wave 1 ✅, Wave 2 started | green over about 85 formats |
 | 9 | Wave 3 and Wave 4 | green over the inventory |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 

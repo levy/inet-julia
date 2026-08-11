@@ -82,6 +82,8 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/Ppp.jl`
     - ⬜ `protocol/Mpls.jl`
     - ⬜ `protocol/Ipv4.jl`
+    - ⬜ `protocol/Arp.jl`
+    - ⬜ `protocol/Icmp.jl`
     - ⬜ `protocol/Ipv6.jl`
     - ⬜ `protocol/Udp.jl`
     - ⬜ `protocol/Tcp.jl`
@@ -192,6 +194,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `phase16_variants.jl`
   - ⬜ `phase17_round_trip.jl`
   - ⬜ `phase18_wave1.jl`
+  - ⬜ `phase19_wave2.jl`
 - **`InetQueuingTest`** (`package/queuing/test/`)
   - ⬜ `InetQueuingTest.jl`
   - ⬜ `runtests.jl`

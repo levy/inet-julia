@@ -58,6 +58,16 @@ the one that comes back when no member claims what arrived.
 function variant_base end
 
 """
+    variant_fallback(::Type{FAMILY})::Type
+
+The member a message comes back as when no member claims it. It is usually the
+base, and it is not always: ICMP's discriminator is four bytes and every
+message is eight, so what a reader looks at and what it falls back to are two
+different types.
+"""
+variant_fallback(::Type{FAMILY}) where {FAMILY} = variant_base(FAMILY)
+
+"""
     matches_variant(::Type{MEMBER}, base)::Bool
 
 Whether this member is what the base says arrived. The first member that says
@@ -74,7 +84,7 @@ function select_variant(::Type{FAMILY}, base) where {FAMILY}
     for member in list_variants(FAMILY)
         matches_variant(member, base) && return member
     end
-    return variant_base(FAMILY)
+    return variant_fallback(FAMILY)
 end
 
 # The read path. It reads the base, rewinds, and reads again as the member the
@@ -86,6 +96,13 @@ function deserialize_variant(::Type{FAMILY}, io::BitReader) where {FAMILY}
     base = deserialize(base_type, io)
     header = base isa MarkedFields ? base.header : base
     member = select_variant(FAMILY, header)
+    if member === variant_fallback(FAMILY)
+        # Nothing claimed it, so read again as the fallback — which may be
+        # wider than the part the reader looked at.
+        io.bit_pos = at
+        fallback = deserialize(variant_fallback(FAMILY), io)
+        return mark_misrepresented(fallback isa MarkedFields ? fallback.header : fallback)
+    end
     if member === base_type
         # Nothing claimed it. The base comes back, marked misrepresented: the
         # bytes are intact and the model does not describe them.
