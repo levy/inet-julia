@@ -1,0 +1,481 @@
+# A packet is a document
+
+Every packet type — the envelope, the chunks, the declared headers — becomes a
+ProjecturEd document. `InetPacket` gains one dependency, `ProjecturedKernel`,
+and gains with it the thing the whole substrate is built on: a value that can be
+looked at, navigated, selected into and edited, without a mirror of it existing
+somewhere else.
+
+This is the everything-is-a-document requirement of the substrate applied to the
+data the network carries. [IR-MACHINES-ARE-DOCUMENTS](../../documentation/requirements.md#ir-machines-are-documents)
+already says it for protocol logic. This plan says it for protocol data.
+
+Status: **PENDING**. Nothing is implemented.
+
+> **Measured on 2026-08-11, and §4 changes because of it.** A reactive field
+> access allocates **16 bytes**; a native or immutable one allocates nothing.
+> The hot path must not get slower, so the envelope cannot be reactive on the
+> simulation side. See §3.2 and §4.
+>
+> The document naming also changed under this plan's feet. `FooMut` is now
+> `MFoo`, `AbstractFoo` is `AFoo`, the cell layout is `ACFoo`, and the spellings
+> are `RCFoo` / `ICFoo` / `MCFoo` / `DCFoo`. A declaration now says what its bare
+> name means. `DocumentMacro.jl` is **no longer sealed**. See
+> `../../../projectured-julia/plan/pending/document-layouts-and-names.md`.
+
+## 1. Why — four workarounds that disappear
+
+The packet diagram of [packet-headers-and-diagram.md](../done/packet-headers-and-diagram.md)
+is finished and works. Four things in it exist only because a packet is not a
+document, and all four go away here.
+
+1. **A page cannot splice a packet.** A marker's value arrives inside a
+   `WidgetCard`, and a card renders its content only when the content is a
+   `Document` — `w.content isa Document` in
+   [`WidgetToGraphics.jl`](../../../projectured-julia/package/visual/main/widget/WidgetToGraphics.jl).
+   So the page splices `packet_diagram(pk)`, a second document that stands for
+   the packet.
+2. **A packet cannot announce a change.** It holds no cells, so §8.3 of that
+   plan had to write a rule down: *a document that holds a packet announces a
+   change by writing the field, not by mutating the packet.* A rule a caller
+   must remember is a mechanism that is missing.
+3. **No edit crosses the first stage.** `map_reference_backward` returns
+   `nothing` because a packet has no reference steps to name (§8.4). Give it
+   steps and editing a header field in the figure becomes ordinary work.
+4. **`dissect` describes what cannot describe itself.**
+   [`Inspect.jl`](../../package/packet/main/Inspect.jl) builds a parallel tree of
+   labels and lengths because the chunk tree is not walkable by the generic
+   machinery. A document tree is.
+
+The gain is larger than the four. **Observability** is the point: a live packet
+in a running simulation becomes a thing an inspector can open, a reference can
+point into, and a projection can watch — with no shadow, no sync and no
+snapshot.
+
+## 2. The requirement this changes
+
+[IAR-PACKET-DEPENDS-ON-NOTHING](../../documentation/architecture-requirements.md#iar-packet-depends-on-nothing)
+says `InetPacket` carries no `[deps]` at all. Rewrite it:
+
+> ### IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE
+>
+> **`InetPacket` depends on `ProjecturedKernel` and nothing else.** No
+> simulator, no external packages — `package/packet/main/Project.toml` names one
+> dependency, and says why. The packet and chunk API is a data model, and in
+> this system a data model is a **document**: its values are navigable,
+> selectable and reactive, so an inspector, a projection and a reference reach
+> them without a mirror. `ProjecturedKernel` is the document substrate and
+> carries no runtime dependencies of its own, so this edge costs one leaf
+> package. A change that needs the *simulator* from inside `InetPacket` is still
+> in the wrong package.
+
+Two facts make the edge cheap, and both belong in the rewritten requirement.
+
+- `ProjecturedKernel`'s own `Project.toml` has no `[deps]` section. The edge
+  adds one package to the graph, not the editor stack. `ProjecturedBase`,
+  `ProjecturedVisual` and the backends stay out.
+- The kernel is the substrate, not the editor: cells, documents, references,
+  operations and the projection interface. Nothing in it opens a window.
+
+Update the dependency table and the `packet` row of
+[architecture.md](../../documentation/architecture.md) in the same change.
+
+## 3. What being a document costs
+
+`@document` rewrites a struct into a **cell layout** `ACFoo` with one cell per
+field, a native `MFoo` layout, and an abstract **family** `AFoo` both share. It also injects a
+`selection` field. Two independent axes decide the cost.
+
+**The cell kind, per field.** `ImmutableCell{T}` is a plain immutable wrapper
+with a concrete field type: it inlines into its parent and is read-only, so a
+field declared with it costs nothing at run time. `MutableCell{T}` is a plain
+box. `ReactiveCell{T}` adds the dependency bookkeeping that makes a write
+invalidate what read it.
+
+**The selection field.** The injected form is `Union{Nothing, Reference}`, and
+a node carrying it is **selectable**. Declaring `selection::Nothing` by hand
+instead keeps the struct isbits and makes it a **value** — a leaf nobody can put
+a caret in. `StyleText` is the worked example:
+
+```julia
+@document ImmutableCell [DC] struct StyleText
+    font::StyleFont
+    color::StyleColor
+    selection::Nothing
+end
+```
+
+### 3.1 What a bare name means now
+
+A declaration says which layouts it emits and which one its bare name is. That is
+what this plan needs, and it did not exist when the plan was written:
+
+```julia
+@document ImmutableCell [DC] struct Filler …    # bare name = the immutable value
+@native_document struct Packet …                # bare name = the plain mutable struct
+```
+
+`[DC]` binds the bare name to the default spelling, so `Filler(64)` builds an
+immutable document and every existing call site keeps its spelling. `StyleText`
+is the worked example and now reads:
+
+```julia
+@document ImmutableCell [DC] struct StyleText
+    font::StyleFont
+    color::StyleColor
+    selection::Nothing
+end
+```
+
+Measured for a leaf of that shape:
+
+```
+bare name builds  : ACPFiller{ImmutableCell{Int64}, ImmutableCell{UInt8}, ImmutableCell{Nothing}}
+isbitstype        : true          ← still inlines, as the plain struct did
+write is refused  : MethodError   ← immutability preserved
+copy_document     : round-trips immutable, and gives a real reactive copy
+sync + invalidate : a reader goes stale on a change and stays valid on a no-op
+```
+
+So §4's whole immutable column is proven: a chunk leaf becomes a document at no
+run-time cost and without weakening its immutability.
+
+### 3.2 The reactive envelope is the expensive one
+
+The instinct in §3.1 below is right about chunks and wrong about the envelope.
+Measured, one million accesses each:
+
+| layout | 1M reads | 1M writes |
+| --- | --- | --- |
+| native / plain mutable struct | 16 bytes | 16 bytes |
+| reactive cell | 16 000 000 bytes | 15 991 824 bytes |
+
+**A reactive field access allocates 16 bytes.** That is the dependency
+bookkeeping, and it is what makes a write invalidate a reader. Allocations count
+exactly, so this is not a flaky wall-clock ratio.
+
+A simulation moves millions of packets, and `pushfirst!`, `trim!` and `peek`
+touch envelope fields on every hop. **The hot path must not get slower**, so the
+envelope the simulation holds cannot be reactive.
+
+### 3.3 The arithmetic that matters
+
+The instinct is that selectable chunks will cost the simulation allocations.
+Check it before believing it: `Sequence.chunks` is a `Vector{Chunk}`, an
+**abstract** element type, so every chunk already sits behind a pointer the
+moment it enters a sequence. A `Filler` in a packet is a heap object today.
+
+So the real question is only about values that never enter a sequence — a header
+peeked in a hot loop, a `Filler` in a local. Phase 0 measures it rather than
+guessing, and the answer decides §4's `selection` column, not the other way
+round.
+
+R1 is safe either way. "A 1500-byte payload costs one integer" is about not
+materialising bytes, and a `Filler` holds a length whether or not it is isbits.
+
+## 4. Type by type
+
+The recommendation, to be confirmed by the phase 0 measurement.
+
+| type | kind | selectable | why |
+| --- | --- | --- | --- |
+| `Filler` | immutable | yes | a chunk a reader points at; already boxed in a sequence |
+| `Raw` | immutable | yes | the same, and its bytes are the thing being inspected |
+| `Slice` | immutable | yes | see §5.1 — it loses its type parameter |
+| `Sequence` | immutable | yes | its children are the tree an inspector walks |
+| `MarkedFields` | immutable | yes | see §5.1 — it loses its type parameter |
+| every `@header` type | immutable | yes | a field of a header is what the figure lets a reader click |
+| `Packet` | **native** | yes | see below — reactive costs 16 bytes per field access |
+| `BitLength`, `Quality` | — | — | stay plain values, like a number. A reference names the field that holds one |
+| `TagSet`, `RegionTagSet` | mutable | yes | phase 5; they are dictionaries and want their own shape |
+
+The chunks are immutable-kind because they are immutable by design: structural
+sharing is what makes `dup` O(1), and a read-only cell states that in the type.
+
+### 4.1 The envelope: what the measurement forces
+
+The row above said **reactive**, so that `pushfirst!` would invalidate whatever
+read it. §3.2 measured what that costs: 16 bytes per field access, on a struct
+the simulator touches on every hop. That is not affordable, and the hot path is
+not negotiable.
+
+So the envelope is `@native_document`: the bare name is the plain `mutable
+struct` it already is, byte for byte, and `ACPacket` is the cell layout an editor
+holds. Three of §1's four workarounds still go away, because a native document is
+still a `Document`:
+
+| §1 | goes away with a native envelope? |
+| --- | --- |
+| 1. a page cannot splice a packet | **yes** — a card renders any `Document` |
+| 2. a packet cannot announce a change | **no** — a native envelope holds no cells |
+| 3. no edit crosses the first stage | **yes** — a reference names a schema, not a layout |
+| 4. `dissect` describes what cannot describe itself | **yes** — a native document is walkable |
+
+Only the second needs cells, and it is the one the editor gets by holding
+`copy_document(ReactiveCell, pk)` and syncing. That is a shadow, which §11
+rejected — but §11 rejected a shadow of a *foreign* object that must be kept in
+step by hand. This one is `sync_document!`, one generic call, and it is what
+every other observed simulation object in these repositories already does.
+
+**Open, and Phase 0 decides it.** If the envelope turns out *not* to be on the
+hot path — if `pushfirst!` and `trim!` run once per hop rather than per event,
+and 16 bytes there is affordable — then the reactive envelope buys observability
+with no shadow at all, and §1.2 goes away too. Phase 0 must count envelope field
+accesses per simulated event before this is settled either way.
+
+## 5. Two constraints in the macro
+
+### 5.1 `@document` does not take type parameters
+
+`cell_struct_plan` reads the struct name as `name_expr.args[1]` and then builds
+`Expr(:curly, plan.name, …)` for the cell parameters. A name that is already a
+`curly` — `Slice{C<:Chunk}` — produces `Slice{C}{C1,C2}`, which is not a type.
+No `@document struct Foo{…}` exists anywhere in `projectured-julia`.
+
+Two types are parametric today:
+
+```julia
+struct Slice{C<:Chunk} <: Chunk       # chunk::C, offset, length
+struct MarkedFields{H<:Fields} <: Chunk   # header::H, quality
+```
+
+**Drop both parameters**: `chunk::Chunk` and `header::Fields`. What is lost is
+the concrete type of one field, and the two places that used it —
+`_try_merge(a::Slice{C}, b::Slice{C})` and the peek that hands a `MarkedFields`
+back as its header type — both already compare `a.chunk === b.chunk` or dispatch
+on the value. As a document the field is read through a cell in any case.
+
+Measured, so the failure mode is known rather than guessed:
+
+```
+@document ImmutableCell [DC] struct PSlice{C <: PChunk} <: PChunk
+REFUSED : MethodError: Cannot `convert` an object of type Expr to an object of type Symbol
+```
+
+It does not degrade quietly — it fails to parse, at the declaration.
+
+Warning: do not extend `@document` to carry type parameters as part of this
+plan. `CellStructPlan.jl`, `CellStruct.jl` and `CellStructModule.jl` are
+**sealed** in `projectured-julia`. `DocumentMacro.jl` is no longer sealed, but it
+is unsealed pending review of a different change, and riding a second one in
+would make that review harder rather than easier. Extending the macro is a
+separate, deliberate change on `projectured-julia`'s own terms.
+
+### 5.2 A sequence's children want to be a collection
+
+`Sequence.chunks::Vector{Chunk}` is the tree an inspector walks, so it should be
+a `CellVector` — a change to the smart constructors in
+[`Chunk.jl`](../../package/packet/main/Chunk.jl), which are the only way a
+`Sequence` is built and so the only place to change.
+
+`offsets` is a derived cache of cumulative bit offsets. Keep it a plain vector
+built by the same constructor: it is not structure a reader navigates, and
+making it a collection would put a caret in a number nobody edits.
+
+## 6. What `@header` emits
+
+One line changes in the macro, and every declared header follows:
+
+```julia
+Base.@__doc__ @document ImmutableCell [DC] struct $(name) <: $(M).Fields
+    $(struct_fields...)
+end
+```
+
+Everything else the macro emits is unchanged — `chunk_length`, `serialize`,
+`deserialize`, `header_layout`, the keyword constructor, `show`.
+
+Two consequences to handle in the same phase:
+
+- `@document` generates its own constructors, and `@header` generates a keyword
+  constructor of its own. Check they do not collide; `@document`'s keyword form
+  may already be what the header wants, in which case `@header` stops emitting
+  one. Do not let two methods of the same signature meet — a method overwrite is
+  fatal at precompile time.
+- A header's fields are read through `getproperty` now. `h.ttl` still works; a
+  `getfield(h, :ttl)` anywhere reads the **cell**, not the value.
+  `field_bits(h, spec)` in [`HeaderLayout.jl`](../../package/packet/main/HeaderLayout.jl)
+  uses `getfield` and must change to `getproperty`.
+
+## 7. What retires
+
+- `refresh_packet_diagram!` and the announcement rule of §8.3 — a write to a
+  packet's cell invalidates what read it.
+- The `packet` back-pointer field on `PacketDiagram`, and with it the
+  `ComputedCellVector` over a packet cell. The diagram becomes an ordinary
+  projection output over a reactive input.
+- `packet_diagram_document_entry` and the two-entry table: a page splices the
+  packet again, and `Packet => …` is the only entry needed.
+- The `marker_packet` conversion in
+  [`Packets.jl`](../../package/inet/example/Packets.jl).
+- `dissect` **may** retire. It is the tree view's source today, and a document
+  tree is walkable by the generic machinery, so `packet_syntax` could project
+  the packet directly. Decide in phase 6, with the demo page as the evidence:
+  `dissect` also carries labels and quality that a generic walk would not
+  produce.
+
+## 8. Staged build
+
+Work in a git worktree, created as a **sibling** of `inet-julia`. Commit at the
+end of each phase and mark it here.
+
+### Phase 0 — measure first — **PENDING**
+
+- [ ] Record the allocation count and time of the hot paths as they are today:
+      `build_ethernet_frame`, `peek(pk, Ipv4Header)`, `pushfirst!`, `dup`, and
+      one full T1S `bestcase` run.
+- [ ] Record `isbits` for every chunk type.
+- [ ] **Count envelope field accesses per simulated event.** This is what decides
+      §4.1: at 16 bytes each, a reactive envelope is affordable only if the count
+      is small. Nothing else settles it.
+- [ ] Write the numbers into this plan.
+
+Gate: none. This is the baseline every later phase is compared against, and it
+is worthless if it is taken after the change.
+
+Beware a folded loop. A microbenchmark of a plain struct whose result is unused
+optimises away completely and reports zero — an earlier attempt at the §3.2
+numbers printed 0.0000 s for two million iterations before the objects were put
+somewhere the compiler could not see through. Measure allocations, keep the
+result, and disbelieve a zero.
+
+### Phase 1 — the chunk leaves — **PENDING**
+
+- [ ] `Filler` and `Raw` become `@document ImmutableCell [DC] struct`, so the
+      bare name stays the immutable value every call site already builds.
+- [ ] Fix every construction site and the smart constructors.
+- [ ] `test_packet()` passes; `Filler` still holds a length rather than bytes.
+
+### Phase 2 — the composites — **PENDING**
+
+- [ ] `Slice` and `MarkedFields` lose their type parameters and become
+      documents.
+- [ ] `Sequence` becomes a document whose `chunks` is a `CellVector`.
+- [ ] The smart constructors keep every normalisation rule they enforce today:
+      no slice-of-slice, no sequence-in-sequence, no singleton, no adjacent
+      mergeables.
+
+Gate: the normalisation tests of `phase1_chunks.jl` pass unchanged. They are the
+specification of the composites, and this phase must not touch them.
+
+### Phase 3 — the headers — **PENDING**
+
+- [ ] `@header` emits `@document ImmutableCell [DC] struct`.
+- [ ] Resolve the constructor overlap of §6.
+- [ ] `field_bits` reads through `getproperty`.
+
+Gate: the golden byte vectors of `phase9_protocol_headers.jl` are unchanged. A
+header's wire form has nothing to do with how the struct stores its fields, and
+a changed byte means the codec was disturbed.
+
+### Phase 4 — the envelope — **PENDING**
+
+- [ ] `Packet` becomes `@native_document struct` — the bare name is the plain
+      mutable struct it already is — unless open question 0 says otherwise.
+- [ ] `dup` stays O(1): a fresh envelope pointing at the same content.
+- [ ] `pushfirst!`, `push!`, `popfirst!`, `trim!` write cells.
+
+Gate: `test_packet()`, `test_queuing()` and `test_linklayer()` pass, and the T1S
+`notraffic` and `bestcase` hash pins reproduce bit for bit.
+
+### Phase 5 — the tags — **PENDING**
+
+- [ ] `TagSet` and `RegionTagSet` become documents.
+
+They are keyed collections rather than trees, so they may want a shape of their
+own. This phase may be deferred without blocking the rest; a packet whose tags
+are plain values is still navigable everywhere else.
+
+### Phase 6 — the diagram, simplified — **PENDING**
+
+- [ ] Delete the `packet` back-pointer, `refresh_packet_diagram!` and the
+      document entry; the marker splices the packet again.
+- [ ] `map_reference_backward` names a place inside the packet, so the wall of
+      §8.4 comes down.
+- [ ] Decide `dissect`'s fate (§7) with the demo page as the evidence.
+- [ ] The demo page's prose says what is true again: nothing converts the packet.
+
+Gate: the golden figure `packetdiagram-figure.txt` is unchanged. The figure is
+drawn from `header_layout`, which this plan does not touch, so a changed
+character means something else moved.
+
+### Phase 7 — what the packet can now do — **PENDING**
+
+- [ ] A test that opens a live packet in an inspector and walks it.
+- [ ] A test that a reference names a header field and evaluates to its value.
+- [ ] A test that writing a field through the reference changes the packet, and
+      that a projection over it re-renders.
+
+This phase is the reason for the whole plan. Without it the change is a
+refactor; with it, observability is a runnable check.
+
+### Phase 8 — documentation and the seal list — **PENDING**
+
+- [ ] Rewrite the requirement (§2) and the architecture table.
+- [ ] Rewrite the `packet.md` sections that say a chunk is a plain struct.
+- [ ] Say in `packet-diagram.md` what came down.
+- [ ] Move this plan to `plan/done/`.
+
+## 9. Gates, in one place
+
+| what | how |
+| --- | --- |
+| behaviour unchanged | the T1S `notraffic` and `bestcase` hash pins reproduce |
+| the wire unchanged | the golden byte vectors of `phase9_protocol_headers.jl` |
+| the figure unchanged | `packetdiagram-figure.txt`, character for character |
+| the cost understood | the phase 0 numbers, re-measured at the end and written down |
+| the composites unchanged | `phase1_chunks.jl` passes without edits |
+| **the hot path is not slower** | **allocations per event, against the phase 0 baseline, must not rise** |
+
+The hot path gate is the hard one. A packet is touched on every hop of every
+event, and this plan is not worth a slower simulation. Allocations are the
+measure: they count exactly, and a reactive access allocates while a native or
+immutable one does not, so the number moves if and only if something went onto
+the hot path that should not have.
+
+Do not gate on wall-clock time. A ratio assertion under load flakes, and what
+this plan can actually change is allocations, which count exactly.
+
+## 10. Open questions
+
+0. **Is the envelope on the hot path?** The one question that has to be answered
+   before anything is written. §3.2 measured the cost of a reactive access at 16
+   bytes; phase 0 must count how many such accesses a simulated event makes. A
+   small count means §4's original reactive envelope is affordable and §1.2 goes
+   away with it. A large one means the envelope is native and the editor holds a
+   synced cell copy, as §4.1 has it.
+1. **Does a header stay cheap enough?** Phase 0 answers it. If a selectable
+   header costs an allocation the simulation cannot afford, the fallback is
+   `selection::Nothing` on headers only: the figure then maps a click through
+   the diagram document rather than into the packet, which is what it does
+   today.
+2. **Does `Sequence` want a `CellVector` or a `ListNode`?** A rope is a list;
+   the collection layer has both, and the packet's own access pattern is binary
+   search over cumulative offsets, which favours the vector.
+3. **Does `dissect` survive?** §7.
+4. **Do the queuing elements notice?** They hold packets and move them between
+   gates. A reactive envelope means a write invalidates readers — check that no
+   element reads a packet inside a cell it did not mean to make reactive.
+
+## 11. Rejected alternatives
+
+**A document mirror of the packet.** What exists today: `PacketDiagram` holds
+the packet in a field and derives bands from it. It works, and it is a second
+description of the same thing — which is the defect this repository's own
+`@header` exists to remove, reintroduced one layer up.
+
+**Reflection into a bounded shadow.** `reflect_document` plus `sync_reflection!`
+would make any packet inspectable with no change to `InetPacket` at all. It is
+the right tool for a foreign object — a C++ handle, a live engine — and the
+wrong one here: a packet is ours, and a shadow that must be synced is a cache
+with an invalidation problem, not a document.
+
+**Teaching `@document` type parameters.** It would keep `Slice{C}` concrete.
+Two of the four files are still sealed, the two parameters buy little once every
+field is read through a cell, and the change belongs to `projectured-julia` on
+its own terms rather than as a rider on this plan.
+
+**A reactive envelope regardless.** Rejected by measurement, not by taste: 16
+bytes per field access on the struct a simulation touches every hop. If phase 0
+shows the access count per event is small, this stops being rejected — which is
+why it is open question 0 rather than a closed door.
