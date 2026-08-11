@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done — the language is complete, and the repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done — the language is complete — and Wave 1 is in, and the repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -487,11 +487,18 @@ is the proof.
 ### 9.8 A conditional field
 
 The 802.11 fourth address, present only when both distribution-system bits are
-set. The value type becomes `Union{MacAddress, Nothing}`.
+set; and the second octet of an IEEE 802.2 control field, present only when the
+low two bits are not both set.
 
 ```julia
-    address4 :: Optional{MacAddress}  when(from_ds && to_ds)
+    control_high :: Optional{U8} = nothing
+        when(control & 0x03 != 0x03)
 ```
+
+The clause decides presence on BOTH sides. A struct that says absent where the
+clause says present is a header the model built wrong, and the writer says so
+rather than emitting a shorter one — the two could otherwise disagree, and the
+reader would then read a field the writer never wrote.
 
 ### 9.9 A list of type-length-value options
 
@@ -601,7 +608,7 @@ Each phase ends with a green test and a commit. The command is
 | 5 ✅ | `Repeated`, and the embedding it needs | an IGMPv3 report round-trips |
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
-| 8 ◐ | the round-trip corpus (done), Wave 1 and Wave 2 | green over about 85 formats |
+| 8 ◐ | the corpus ✅, Wave 1 ✅, Wave 2 | green over about 85 formats |
 | 9 | Wave 3 and Wave 4 | green over the inventory |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 

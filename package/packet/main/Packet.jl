@@ -32,7 +32,8 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        write_bytes!, read_bytes!, write_byte_repeatedly!, skip_bits!, measure_padding,
        measure_field, encode_field, decode_field, write_field, read_field,
        format_field, classify_display, has_field_bits, extend_sign,
-       U, I, Constant, Model, Octets, Rest, Pad, Repeated, Options,
+       U, I, Constant, Model, Octets, Rest, Pad, Repeated, Options, Optional,
+       is_present, optional_type,
        list_options, find_raw_option, option_code, ends_option_list,
        measure_option_code, find_option_type,
        list_variants, variant_base, matches_variant, select_variant,
@@ -46,7 +47,7 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        MAX_ETHERNET_LENGTH_FIELD, MIN_ETHERNET_TYPE_FIELD,
        IpProtocol, find_ip_protocol_name, Port, Checksum16, is_absent,
        FieldSpec, HeaderLayout, describe_layout, get_field, is_constant, has_bits,
-       byte_order, default_field, measure_header, unwrap_field,
+       byte_order, default_field, measure_header, unwrap_field, measure_write,
        serialize, deserialize, encode_header, decode_header, has,
        @header, derive_field, check_field, list_derived, list_checked, find_default,
        Draft, start_draft, build_header, is_set, list_unset, set_field!, unset_field!,
@@ -64,6 +65,20 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        Ipv6Header, IPV6_VERSION, IPV6_HEADER_BYTES, IPV6_DEFAULT_HOP_LIMIT,
        IP_PROTOCOL_NONE, IP_PROTOCOL_IPV6_ROUTING, IP_PROTOCOL_IPV6_FRAGMENT,
        IP_PROTOCOL_ICMPV6, split_dscp, split_ecn, join_traffic_class,
+       EthernetMacAddressFields, EthernetTypeOrLengthField,
+       EthernetControlMessage, EthernetControlFrame, EthernetPauseFrame,
+       ETHERNET_CONTROL_PAUSE,
+       Ieee8021qTagTpidHeader, Ieee8021qTagEpdHeader,
+       Ieee8021aeTagTpidHeader, Ieee8021aeTagEpdHeader,
+       Ieee8021rTagTpidHeader, Ieee8021rTagEpdHeader, Ieee802EpdHeader,
+       ETHERTYPE_MACSEC, ETHERTYPE_RTAG,
+       Ieee8022LlcHeader, Ieee8022SnapHeader, Ieee8022LlcSnapHeader,
+       LLC_SAP_SNAP, LLC_SAP_IP, LLC_CONTROL_UNNUMBERED_INFORMATION,
+       PppHeader, PppTrailer, PPP_FLAG, PPP_ADDRESS, PPP_CONTROL,
+       PPP_PROTOCOL_IPV4, PPP_PROTOCOL_IPV6,
+       MplsHeader, MPLS_LABEL_IPV4_EXPLICIT_NULL, MPLS_LABEL_ROUTER_ALERT,
+       MPLS_LABEL_IPV6_EXPLICIT_NULL, MPLS_LABEL_IMPLICIT_NULL,
+       SequenceNumberHeader, FragmentNumberHeader, ChecksumHeader,
        UdpHeader, UDP_HEADER_BYTES,
        TcpHeader, list_tcp_flags, TCP_MIN_DATA_OFFSET, TCP_HEADER_BYTES,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
@@ -91,6 +106,11 @@ include("RoundTrip.jl")
 include("Checksum.jl")
 # The wire formats. One file per protocol, each written from the standard.
 include("protocol/Ethernet.jl")
+include("protocol/Ieee8021.jl")
+include("protocol/Ieee8022.jl")
+include("protocol/ProtocolElement.jl")
+include("protocol/Ppp.jl")
+include("protocol/Mpls.jl")
 include("protocol/Ipv4.jl")
 include("protocol/Ipv6.jl")
 include("protocol/Udp.jl")

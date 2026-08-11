@@ -35,6 +35,12 @@ const ETHERTYPE_ARP  = EtherTypeOrLength(0x0806)
 const ETHERTYPE_VLAN = EtherTypeOrLength(0x8100)
 const ETHERTYPE_IPV6 = EtherTypeOrLength(0x86DD)
 
+"The opcode of an IEEE 802.3 clause 31 PAUSE frame."
+const ETHERNET_CONTROL_PAUSE = 0x0001
+
+"The MAC control frames — one wire format, and the opcode says which."
+abstract type EthernetControlMessage <: Fields end
+
 # ---------- the headers ------------------------------------------------------
 
 """
@@ -79,6 +85,53 @@ that makes the tag recognisable as one.
     dei  :: Bool              = false
     vid  :: U12
 end
+
+"""
+    EthernetMacAddressFields(; destination, source)
+
+The address pair on its own, 12 bytes. INET declares it as a chunk of its own
+and then repeats its two lines inside the MAC header; here `EthernetMacHeader`
+could embed it, and does not, because IEEE 802.3 clause 3.2 draws one header
+with three fields rather than a header inside a header.
+"""
+@header EthernetMacAddressFields begin
+    destination :: MacAddress
+    source      :: MacAddress
+end
+
+"""
+    EthernetTypeOrLengthField(; type_or_length)
+
+The third field of the MAC header on its own, 2 bytes.
+"""
+@header EthernetTypeOrLengthField begin
+    type_or_length :: EtherTypeOrLength
+end
+
+"""
+    EthernetControlFrame(; op_code)
+
+The MAC control frame, 2 bytes — IEEE 802.3 clause 31. It is the base of a
+variant family: the opcode says which control frame this is.
+"""
+@header EthernetControlFrame <: EthernetControlMessage begin
+    op_code :: U16
+end
+
+"""
+    EthernetPauseFrame(; base, pause_time)
+
+The PAUSE frame, 4 bytes. `pause_time` counts units of 512 bit times.
+"""
+@header EthernetPauseFrame <: EthernetControlMessage begin
+    base       :: EthernetControlFrame =
+                  EthernetControlFrame(op_code = ETHERNET_CONTROL_PAUSE)
+    pause_time :: U16
+end
+
+list_variants(::Type{EthernetControlMessage}) = (EthernetPauseFrame,)
+variant_base(::Type{EthernetControlMessage}) = EthernetControlFrame
+matches_variant(::Type{EthernetPauseFrame}, base) = base.op_code == ETHERNET_CONTROL_PAUSE
 
 """
     EthernetFcs(; fcs)

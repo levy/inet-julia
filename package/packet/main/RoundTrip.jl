@@ -71,6 +71,10 @@ fill_field(::Type{Octets}, seed::Int) = Octets(UInt8[seed % 256])
 fill_field(::Type{Rest}, seed::Int) = Rest(UInt8[seed % 256])
 fill_field(::Type{Repeated{T}}, seed::Int) where {T} = Repeated{T}([fill_field(T, seed)])
 fill_field(::Type{Options{F}}, ::Int) where {F} = Options{F}(F[])
+# An optional field starts present. Whether it REACHES the wire is the `when`
+# clause's answer, and the writer asks the clause — so a value that turns out
+# not to be wanted costs nothing, and one that is wanted is there.
+fill_field(::Type{Optional{T}}, seed::Int) where {T} = Optional{T}(fill_field(T, seed))
 fill_field(::Type{H}, seed::Int) where {H <: Fields} = fill_asymmetric(H, seed)
 
 """

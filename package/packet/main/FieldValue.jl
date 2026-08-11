@@ -518,7 +518,55 @@ measure_field(::Type{H}) where {H <: Fields} = bits(chunk_length(H))
 has_field_bits(::Type{<:Fields}) = false
 classify_display(::Type{<:Fields}) = :composite
 
+# An embedded header may itself be variable-length — an LLC header with a
+# two-octet control field is — so its width comes from the value, and the
+# reader lets the embedded codec take what it needs.
+is_variable_field(::Type{H}) where {H <: Fields} = !is_fixed_length(H)
+measure_value(value::H, ::Int) where {H <: Fields} = bits(chunk_length(value))
+
 write_field(io::BitWriter, ::Type{H}, value::H, ::Int, ::Symbol) where {H <: Fields} =
     serialize(io, value)
 read_field(io::BitReader, ::Type{H}, ::Int, ::Symbol) where {H <: Fields} =
     deserialize(H, io)
+
+# ---------- Optional — a field that is sometimes there ------------------------
+
+"""
+    Optional{T}(value)
+
+A field that is present only when a `when(…)` clause says so, and `nothing`
+when it is not.
+
+That is the 802.11 fourth address, present only when both distribution-system
+bits are set; the 802.11 QoS control, present only for a QoS subtype; and the
+second byte of an IEEE 802.2 control field, present only when the low two bits
+are not both set.
+"""
+struct Optional{T}
+    value::Union{T, Nothing}
+end
+
+Optional{T}(value::Optional{T}) where {T} = value
+Base.convert(::Type{Optional{T}}, value) where {T} = Optional{T}(convert(T, value))
+Base.convert(::Type{Optional{T}}, ::Nothing) where {T} = Optional{T}(nothing)
+Base.:(==)(a::Optional{T}, b::Optional{T}) where {T} = a.value == b.value
+Base.hash(value::Optional, seed::UInt) = hash(value.value, hash(:Optional, seed))
+Base.show(io::IO, value::Optional) =
+    value.value === nothing ? print(io, "absent") : print(io, value.value)
+
+"Whether the field was there."
+is_present(value::Optional) = value.value !== nothing
+
+is_variable_field(::Type{<:Optional}) = true
+measure_value(value::Optional{T}, ::Int) where {T} =
+    value.value === nothing ? 0 : measure_field(T)
+has_field_bits(::Type{<:Optional}) = false
+classify_display(::Type{<:Optional}) = :scalar
+format_field(value::Optional) = string(value)
+
+write_field(io::BitWriter, ::Type{Optional{T}}, value::Optional{T},
+            width::Int, order::Symbol) where {T} =
+    value.value === nothing ? io : write_field(io, T, value.value, width, order)
+
+read_field(io::BitReader, ::Type{Optional{T}}, width::Int, order::Symbol) where {T} =
+    width == 0 ? Optional{T}(nothing) : Optional{T}(read_field(io, T, width, order))

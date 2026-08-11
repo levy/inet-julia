@@ -264,8 +264,9 @@ function write_from(io::BitWriter, h::H, ::Val{INDEX}, start::Int) where {H <: F
     value = fieldname(H, INDEX) in list_derived(H) ?
             derive_field(H, Val(fieldname(H, INDEX)), h) : getfield(h, INDEX)
     # `offset` is how far into THIS header the writer is, which is what padding
-    # measures itself against.
-    width = measure_value(value, bit_count(io) - start)
+    # measures itself against. A `when` clause decides presence on BOTH sides,
+    # so `measure_write` asks the clause where there is one.
+    width = measure_write(H, Val(fieldname(H, INDEX)), h, value, bit_count(io) - start)
     width > 0 && write_field(io, type, value, width, byte_order(H))
     return write_from(io, h, Val(INDEX + 1), start)
 end
@@ -311,6 +312,18 @@ function read_from(::Type{H}, io::BitReader, ::Val{INDEX},
 end
 
 """
+    measure_write(::Type{H}, ::Val{NAME}, h, value, offset::Int)::Int
+
+How many bits the `NAME` field takes, on the way out. The default is the width
+of the value. `@header` defines one for a `when` field, so the clause decides
+presence on the way out as it does on the way in — a struct that says absent
+where the clause says present is a header the model built wrong, and the
+writer says so rather than emitting a shorter one.
+"""
+measure_write(::Type{H}, ::Val{NAME}, h, value, offset::Int) where {H, NAME} =
+    measure_value(value, offset)
+
+"""
     measure_read(::Type{H}, ::Val{NAME}, ::Type{T}, sofar, offset, remaining)::Int
 
 How many bits the `NAME` field takes, on the way in. The default is the type's
@@ -321,6 +334,12 @@ defines that one.
 measure_read(::Type{H}, ::Val{NAME}, ::Type{T}, sofar, offset::Int,
              remaining::Int) where {H, NAME, T} = measure_field(T)
 
+# An embedded variable-length header decides its own size out of the stream, so
+# the reader asks it rather than working the width out first.
+measure_read(::Type{H}, ::Val{NAME}, ::Type{E}, sofar, offset::Int,
+             remaining::Int) where {H, NAME, E <: Fields} =
+    is_fixed_length(E) ? measure_field(E) : 0
+
 measure_read(::Type{H}, ::Val{NAME}, ::Type{Rest}, sofar, offset::Int,
              remaining::Int) where {H, NAME} = remaining
 
@@ -329,6 +348,10 @@ measure_read(::Type{H}, ::Val{NAME}, ::Type{Pad{B, F}}, sofar, offset::Int,
 
 model_type(::Type{Model{T}}) where {T} = T
 model_type(::Type{T}) where {T} = T
+
+"The value type an `Optional` field wraps."
+optional_type(::Type{Optional{T}}) where {T} = T
+optional_type(::Type{T}) where {T} = T
 
 # ---------- the entry points -------------------------------------------------
 

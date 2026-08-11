@@ -43,7 +43,7 @@
 # does, and it is what lets a capture round-trip byte for byte.
 # ============================================================================
 
-const HEADER_CLAUSES = (:derive, :check, :length, :count, :until)
+const HEADER_CLAUSES = (:derive, :check, :length, :count, :until, :when)
 
 # One field of a declaration, after the parse.
 struct HeaderField
@@ -110,6 +110,11 @@ function attach_clause(field::HeaderField, clause)
             error("@header $(field.name): two `derive` clauses")
         return HeaderField(field.name, field.type, field.default, argument,
                            field.check, field.extent)
+    elseif name === :when
+        field.extent === nothing ||
+            error("@header $(field.name): two `when` clauses")
+        return HeaderField(field.name, field.type, field.default, field.derive,
+                           field.check, (:when, argument))
     elseif name === :until
         field.extent === nothing ||
             error("@header $(field.name): two `until` clauses")
@@ -231,9 +236,27 @@ macro header(declaration, block)
                     :($(M).bits(convert($(M).BitLength, $(esc(extent))))) :
                     kind === :count ?
                     :(Int($(esc(extent))) * $(M).measure_field(eltype($(esc(f.type))))) :
+                    kind === :when ?
+                    # Present or absent: the whole width of the type, or none.
+                    :($(esc(extent)) ?
+                      $(M).measure_field($(M).optional_type($(esc(f.type)))) : 0) :
                     # `until` gives the offset the list ENDS at, so the width is
                     # what is left between here and there.
                     :($(M).bits(convert($(M).BitLength, $(esc(extent)))) - $(esc(:offset)))
+            # A `when` clause also decides the width on the way out.
+            kind === :when && push!(clause_methods, quote
+                function $(M).measure_write(::Type{$(esc(name))},
+                                            ::Val{$(QuoteNode(f.name))},
+                                            $(header_var)::$(esc(name)), value, ::Int)
+                    $(bindings...)
+                    $(esc(extent)) || return 0
+                    $(M).is_present(value) ||
+                        error($(string(name, ".", f.name,
+                                       ": the `when` clause says this field is there, ",
+                                       "and the header says it is not")))
+                    return $(M).measure_field($(M).optional_type($(esc(f.type))))
+                end
+            end)
             push!(clause_methods, quote
                 function $(M).measure_read(::Type{$(esc(name))},
                                            ::Val{$(QuoteNode(f.name))}, ::Type,
