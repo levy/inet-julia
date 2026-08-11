@@ -25,6 +25,18 @@ using Projectured.DocumentReflectionModule: reflect_document
 using Projectured.FileProjectModule: LoaderContext
 using Inet.PacketDiagramModule: packet_diagram
 using Inet.PacketModule
+import OmnetppPresentation: is_loadable_doctype
+
+# A wire format is data. It has no behaviour, no identity and nothing running
+# inside it — a page that names one is naming a value, the same way a page
+# naming a `SimulationEmbed` names a value. So the loader may build one, from a
+# `$doctype` object or from the constructor call an embedded fragment carries.
+#
+# The method sits here rather than in `Inet` because it needs the loader and the
+# header at once, and `Inet` reaches the simulator but not the presentation
+# stack. `register_doctype_module!(Inet)` is in this package for the same
+# reason.
+is_loadable_doctype(::Type{<:Fields}) = true
 
 """
     GALLERY_HEADERS :: Vector{Pair{Type, String}}

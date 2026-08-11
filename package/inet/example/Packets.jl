@@ -11,7 +11,8 @@
 # marker language still names data rather than calling arbitrary Julia.
 # ────────────────────────────────────────────────────────────────────────────
 
-using Inet.PacketModule: dissect, Q_COMPLETE
+using Inet.PacketModule: dissect, Q_COMPLETE, Fields, Packet
+using OmnetppPresentation: evaluate_document_expression
 
 """
     PACKET_VIEWS :: Dict{String, Function}
@@ -60,7 +61,21 @@ end
 # The figure is still drawn from the packet, by the same projection that draws
 # one the renderer meets anywhere else — `packet_diagram_entries` registers both
 # ends, so a packet in a document field needs no marker at all.
-marker_packet(_ctx, name::AbstractString) = packet_diagram(named_packet(name))
+#
+# The argument is a name from the table above, or the Julia that builds the
+# thing: `<<packet("UdpHeader(source_port = 5000)")>>` states the datagram the
+# page means, where the page is. `evaluate_document_expression` runs it — a
+# constructor call over literals and nothing else, so a page still cannot call
+# a function or reach a binding.
+function marker_packet(_ctx, source::AbstractString)
+    haskey(PACKET_VIEWS, String(source)) && return packet_diagram(named_packet(source))
+    return marker_packet(_ctx, evaluate_document_expression(source))
+end
+
+# A header of its own becomes a packet with one chunk, which is what the figure
+# draws. A packet says so already.
+marker_packet(_ctx, header::Fields) = packet_diagram(Packet(header))
+marker_packet(_ctx, packet::Packet) = packet_diagram(packet)
 
 # `<<packet_tree("routed_ipv4")>>` shows the same packet as its chunk tree, with
 # a fold marker on every chunk. Two views of one packet, and a page names the
