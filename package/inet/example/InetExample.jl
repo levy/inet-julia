@@ -26,8 +26,8 @@ import InetQueuingExample
 
 using Inet
 using Inet.PacketDiagramModule: packet_diagram, packet_diagram_entries
-using OmnetppSimulator: workbench_refresh!
-using OmnetppPresentation: CatalogShell, CatalogShellToWidget, SimulationEmbed,
+using OmnetppSimulator: attach_editor!
+using OmnetppPresentation: CatalogShell, CatalogShellToWidget,
     catalog_pages, default_topology_engine, open_page!, register_doctype_module!,
     simulation_embed_entry, workbench_document_dispatch
 import Projectured
@@ -200,8 +200,9 @@ With no `backend` the gallery picks one by reflection over the loaded backends,
 so a session that already has `ProjecturedSdl` loaded needs no argument. Every
 gallery keyword works here too — `width`, `height`, …
 
-`on_frame` refreshes whichever simulation the open page is showing; a page with
-no running simulation costs nothing.
+Each simulation the reader opens gets a watch, which is what drives it and hands
+what it reached back to this editor. The editor is given to the shell rather than
+to each page, because a page is opened long after the window was.
 
 When both example umbrellas are loaded in one REPL, qualify:
 `InetExample.run_demo()`.
@@ -210,50 +211,7 @@ function run_demo(; backend = nothing, dir::AbstractString = demo_directory(),
                   kwargs...)
     shell = demo_catalog(; dir = dir)
     run_example(shell, demo_projection(); name = "inet-julia demo", backend = backend,
-                on_frame = _ -> _refresh_open_page!(shell), kwargs...)
-end
-
-# A page holds its embeds as resolved stubs; the ones that are simulations need
-# the same per-frame sync the workbench does — an idle simulation is still
-# observed, and a chart fills only because something asked it to. Anything else
-# on the page is static and is left alone.
-function _refresh_open_page!(shell)
-    page = shell.page
-    page === nothing && return nothing
-    for embed in _page_embeds(page)
-        wb = embed.workbench
-        wb === nothing || workbench_refresh!(wb)
-    end
-    nothing
-end
-
-function _page_embeds(page)
-    embeds = Any[]
-    _collect_embeds!(embeds, Projectured.content(page), 0)
-    embeds
-end
-
-function _collect_embeds!(embeds, node, depth)
-    depth > 16 && return
-    node isa Projectured.CellModule.AbstractCell &&
-        return _collect_embeds!(embeds, node[], depth)
-    if node isa Projectured.FileProjectModule.ReferenceStub
-        resolved = node.resolved
-        resolved isa SimulationEmbed && push!(embeds, resolved)
-        return
-    end
-    node isa SimulationEmbed && return push!(embeds, node)
-    for field in (:elements, :items, :content)
-        hasproperty(node, field) || continue
-        value = getproperty(node, field)
-        value isa AbstractString && continue
-        value isa Projectured.CellModule.AbstractCell && (value = value[])
-        if value isa AbstractVector || value isa Projectured.CollectionModule.CellVector
-            for child in value
-                _collect_embeds!(embeds, child, depth + 1)
-            end
-        end
-    end
+                on_start = editor -> attach_editor!(shell, editor), kwargs...)
 end
 
 # A step file naming `QueuingModel` or `T1sModel` has to be able to find it, and
