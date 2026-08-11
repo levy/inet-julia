@@ -4,6 +4,8 @@
 # carries its own [sources] so its environment can be activated standalone; when
 # working from here, these win.
 [deps]
+ProjecturedLlm = "7bcfe799-d9db-4ade-8cf5-c076331403f9"
+ProjecturedAdaptagrams = "c86b9063-147e-43d0-b3a0-65343fae9a66"
 Inet = "e0528acb-81c4-485d-8c9f-a32e8325f910"
 InetCommon = "3e5f522d-74dd-49cc-880c-be4fb7395c4f"
 InetExample = "36dabbcc-7d99-425e-af93-62d296f18444"
@@ -15,50 +17,52 @@ InetPacketTest = "772aa187-4962-422d-ab89-8597970a7f70"
 InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
 InetQueuingExample = "f0a6f2c1-7b3d-4f2e-9a58-6c4d1e2b8a37"
 InetQueuingTest = "f714c29c-95bc-4097-b59d-ac4adcca3229"
+InetRepl = "e3a16932-2029-4525-a1bf-1ae6cc457e47"
 InetRunner = "3726c817-9e30-456a-b794-f8b80627f404"
 InetRunnerTest = "662bf8b9-11a9-45ea-80db-3f87185b7221"
-InetRepl = "e3a16932-2029-4525-a1bf-1ae6cc457e47"
 InetTest = "2f44235d-4d1e-46a7-bad9-542c69a24442"
 OmnetppPresentation = "87a68c42-f795-440d-9b5e-f3293ccf51cf"
 OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
 Projectured = "92922de3-b970-4d9a-8b2a-9d6f361397b5"
+ProjecturedCollection = "8bcd16db-087d-4f4f-9083-436e400a73ed"
 ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
+ProjecturedProjection = "a1f769f1-b8c6-4a84-a219-e21aa25c8d5d"
+ProjecturedReflection = "0807f717-a2ae-4bc5-a9a1-1eb2de00c335"
+ProjecturedStyle = "dbc249a4-36d3-4338-9eae-7cc9f61f07b1"
+ProjecturedText = "2d3f4b4d-5576-4044-8c5c-d91689d6f4b3"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 OmnetppUnits = "9affc4b9-111a-4929-bbfb-901be4983719"
-ProjecturedAdaptagrams = "c86b9063-147e-43d0-b3a0-65343fae9a66"
-ProjecturedBase = "b83f0000-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
-ProjecturedLlm = "7bcfe799-d9db-4ade-8cf5-c076331403f9"
 ProjecturedExample = "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"
 # The demo catalog opens a window, so the environment a demo is opened from
 # needs a backend. Only this environment does — no package depends on SDL.
 ProjecturedSdl = "f0002b97-94ba-416c-b93c-86cdc095626f"
-ProjecturedVisual = "c94a1234-2b3c-4d5e-8f6a-7b8c9d0e1f23"
 [sources]
 Inet = {path = "package/inet/main"}
-InetExample = {path = "package/inet/example"}
-InetRepl = {path = "package/repl"}
-InetTest = {path = "package/inet/test"}
 InetCommon = {path = "package/common/main"}
+InetExample = {path = "package/inet/example"}
 InetLinkLayer = {path = "package/linklayer/main"}
 InetLinkLayerTest = {path = "package/linklayer/test"}
 InetPacket = {path = "package/packet/main"}
 InetPacketExample = {path = "package/packet/example"}
 InetPacketTest = {path = "package/packet/test"}
 InetQueuing = {path = "package/queuing/main"}
-InetRunner = {path = "package/runner/main"}
-InetRunnerTest = {path = "package/runner/test"}
 InetQueuingExample = {path = "package/queuing/example"}
 InetQueuingTest = {path = "package/queuing/test"}
+InetRepl = {path = "package/repl"}
+InetRunner = {path = "package/runner/main"}
+InetRunnerTest = {path = "package/runner/test"}
+InetTest = {path = "package/inet/test"}
 OmnetppPresentation = {path = "../omnetpp-julia/package/presentation/main"}
 OmnetppSimulator = {path = "../omnetpp-julia/package/simulator/main"}
-Projectured = {path = "../projectured-julia/package/projectured/main"}
-ProjecturedKernel = {path = "../projectured-julia/package/kernel/main"}
 OmnetppUnits = {path = "../omnetpp-julia/package/units/main"}
-ProjecturedAdaptagrams = {path = "../projectured-julia/package/adaptagrams/main"}
-ProjecturedBase = {path = "../projectured-julia/package/base/main"}
-ProjecturedLlm = {path = "../projectured-julia/package/llm/main"}
+Projectured = {path = "../projectured-julia/package/projectured/main"}
+ProjecturedCollection = {path = "../projectured-julia/package/collection/main"}
 ProjecturedExample = {path = "../projectured-julia/package/projectured/example"}
+ProjecturedKernel = {path = "../projectured-julia/package/kernel/main"}
+ProjecturedProjection = {path = "../projectured-julia/package/projection/main"}
+ProjecturedReflection = {path = "../projectured-julia/package/reflection/main"}
 ProjecturedSdl = {path = "../projectured-julia/package/sdl/main"}
-ProjecturedVisual = {path = "../projectured-julia/package/visual/main"}
+ProjecturedStyle = {path = "../projectured-julia/package/style/main"}
+ProjecturedText = {path = "../projectured-julia/package/text/main"}

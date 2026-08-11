@@ -23,29 +23,29 @@ module PacketDiagramModule
 
 using InetPacket.PacketModule
 
-import ProjecturedVisual.CellModule: Cell, ComputedCell, AbstractCell,
+import ProjecturedKernel.CellModule: Cell, ComputedCell, AbstractCell,
     ReactiveCell, MutableCell
-import ProjecturedVisual.CollectionModule: CellVector, ComputedCellVector
-import ProjecturedVisual.DocumentModule: Document, var"@document"
-import ProjecturedVisual.ReferenceModule: Reference
-import ProjecturedVisual.IoMapModule: IoMap, var"@iomap", SimpleIoMap
-import ProjecturedVisual.ProjectionApiModule: Projection, print_document,
+import ProjecturedCollection.CollectionModule: CellVector, ComputedCellVector
+import ProjecturedKernel.DocumentModule: Document, var"@document"
+import ProjecturedKernel.ReferenceModule: Reference
+import ProjecturedKernel.IoMapModule: IoMap, var"@iomap", SimpleIoMap
+import ProjecturedKernel.ProjectionApiModule: Projection, print_document,
     map_reference_forward, map_reference_backward
-import ProjecturedVisual.ProjectionModule: var"@projection"
-import ProjecturedVisual.ReferenceModule: EmptyReference
-import ProjecturedVisual.ReferenceBuilderModule: var"@reference"
-import ProjecturedVisual.ReferenceCaseModule: var"@reference_case"
-import ProjecturedVisual.CellStructModule: ImmutableCell
-import ProjecturedVisual.ChainingProjectionModule: ChainingProjection
-import ProjecturedVisual.ColorModule: DCStyleColor, color_solarized_blue,
+import ProjecturedKernel.ProjectionModule: var"@projection"
+import ProjecturedKernel.ReferenceModule: EmptyReference
+import ProjecturedKernel.ReferenceModule: var"@reference"
+import ProjecturedKernel.ReferenceModule: var"@reference_case"
+import ProjecturedKernel.CellStructModule: ImmutableCell
+import ProjecturedProjection.ChainingProjectionModule: ChainingProjection
+import ProjecturedStyle.ColorModule: DCStyleColor, color_solarized_blue,
     color_solarized_gray, color_solarized_green, color_solarized_magenta
-import ProjecturedVisual.FontModule: DCStyleFont, font_ubuntu_monospace_regular_20
-import ProjecturedVisual.TextModule: TextDocument, TextBlock, TextString, TextNewline
-import ProjecturedVisual.TextToGraphicsModule: TextToGraphics
-import ProjecturedVisual.TextToStringModule: TextToString
-import ProjecturedVisual.TrueTypeModule: truetype_measure_text
-import ProjecturedVisual.RecursiveProjectionModule: RecursiveProjection
-import ProjecturedVisual.PrinterContextModule: PrinterContext
+import ProjecturedStyle.FontModule: DCStyleFont, font_ubuntu_monospace_regular_20
+import ProjecturedText.TextModule: TextDocument, TextBlock, TextString, TextNewline
+import ProjecturedText.TextToGraphicsModule: TextToGraphics
+import ProjecturedText.TextToStringModule: TextToString
+import ProjecturedStyle.TrueTypeModule: truetype_measure_text
+import ProjecturedProjection.RecursiveProjectionModule: RecursiveProjection
+import ProjecturedKernel.PrinterContextModule: PrinterContext
 
 export
     # the projected documents

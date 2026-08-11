@@ -25,7 +25,7 @@ module HeaderViewModule
 
 using InetPacket.PacketModule
 
-import ProjecturedVisual.DocumentReflectionModule: is_reflection_leaf, reflection_value
+import ProjecturedReflection.DocumentReflectionModule: is_reflection_leaf, reflection_value
 
 # The field values a reflection must not open.
 #

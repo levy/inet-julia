@@ -24,16 +24,17 @@ const RUNNER_MAIN = normpath(joinpath(@__DIR__, "..", "main"))
 
 # What must never be reachable, and what each one would drag in.
 const FORBIDDEN = [
-    "ProjecturedVisual" => "syntax, text, widget, layout, font and colour",
-    "ProjecturedDomain" => "the domains, Markdown and Base64",
-    "Projectured"       => "the umbrella, which names both of the above",
+    "ProjecturedSyntax"   => "syntax, text, layout, font and colour",
+    "ProjecturedWidget"   => "the widget system and everything it draws with",
+    "ProjecturedMarkdown" => "a source domain, Markdown and Base64",
+    "Projectured"         => "the umbrella, which names all of the above",
     "OmnetppLegacy"     => "the projections and the C++ launcher",
     "DataFrames"        => "the result reader, which the runner does not use",
     "Revise"            => "a development tool",
 ]
 
 # What must be reachable, so that an empty walk cannot pass the test.
-const REQUIRED = ["InetQueuing", "OmnetppSimulator", "ProjecturedKernel", "ProjecturedBase"]
+const REQUIRED = ["InetQueuing", "OmnetppSimulator", "ProjecturedKernel", "ProjecturedCollection"]
 
 """
     dependency_closure(project_dir) -> Set{String}
