@@ -386,3 +386,22 @@ end
     @test chunk_length(header) == Bytes(24)
     @test Base.length(encode_header(header)) == 24
 end
+
+@testset "the application payloads state their own length too" begin
+    payload = ApplicationPacket(sequence_number = UInt32(7),
+                                filler = build_filler(Bytes(32),
+                                                      Bytes(APPLICATION_PACKET_BYTES)))
+    @test chunk_length(payload) == Bytes(32)
+    # The length counts octets here, where the physical-layer headers count bits.
+    @test decode_header(ApplicationPacket, encode_header(payload)).packet_length == 32
+    @test decode_header(ApplicationPacket, encode_header(payload)).sequence_number == 7
+
+    for T in (EtherAppRequest, EtherAppResponse)
+        @test minimum_chunk_length(T) == Bytes(ETHER_APP_PACKET_BYTES)
+        @test check_round_trip(T)
+    end
+
+    request = EtherAppRequest(request_id = UInt32(1), response_bytes = UInt32(1000))
+    @test chunk_length(request) == Bytes(ETHER_APP_PACKET_BYTES)
+    @test decode_header(EtherAppRequest, encode_header(request)).response_bytes == 1000
+end
