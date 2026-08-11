@@ -11,36 +11,38 @@
 # cannot hold a code it does not know. Both losses break a byte round trip, so
 # the tests below press exactly those two properties.
 #
-# The family below is TCP's, in miniature.
+# The family below is TCP's in miniature, under names of its own: the library
+# declares the real one in `protocol/TcpOption.jl`, and a fixture that took its
+# names would shadow it.
 # ============================================================================
 using Test
 using InetPacket.PacketModule
 
 hex15(bytes) = join((string(b, base = 16, pad = 2) for b in bytes), " ")
 
-const TCPOPTION_END = 0x00
-const TCPOPTION_NOP = 0x01
-const TCPOPTION_MSS = 0x02
+const PROBE_END = 0x00
+const PROBE_NOP = 0x01
+const PROBE_MSS = 0x02
 
-abstract type TcpOption <: Fields end
+abstract type ProbeOption <: Fields end
 
-@header TcpOptionEnd <: TcpOption begin
-    kind :: Constant{U8, TCPOPTION_END}
+@header ProbeOptionEnd <: ProbeOption begin
+    kind :: Constant{U8, PROBE_END}
 end
 
-@header TcpOptionNop <: TcpOption begin
-    kind :: Constant{U8, TCPOPTION_NOP}
+@header ProbeOptionNop <: ProbeOption begin
+    kind :: Constant{U8, PROBE_NOP}
 end
 
-@header TcpOptionMss <: TcpOption begin
-    kind             :: Constant{U8, TCPOPTION_MSS}
+@header ProbeOptionMss <: ProbeOption begin
+    kind             :: Constant{U8, PROBE_MSS}
     length           :: Constant{U8, 0x04}
     max_segment_size :: U16
 end
 
 # The catch-all. Without one, an option the library does not know would be
 # dropped and the list would not round-trip.
-@header TcpOptionUnknown <: TcpOption begin
+@header ProbeOptionRaw <: ProbeOption begin
     kind   :: U8
     length :: U8
         derive(Base.length(data) + 2)
@@ -48,15 +50,15 @@ end
         length(Bytes(length - 2))
 end
 
-PacketModule.list_options(::Type{TcpOption}) = (TcpOptionEnd, TcpOptionNop, TcpOptionMss)
-PacketModule.find_raw_option(::Type{TcpOption}) = TcpOptionUnknown
-PacketModule.ends_option_list(::Type{TcpOption}, code) = code == TCPOPTION_END
+PacketModule.list_options(::Type{ProbeOption}) = (ProbeOptionEnd, ProbeOptionNop, ProbeOptionMss)
+PacketModule.find_raw_option(::Type{ProbeOption}) = ProbeOptionRaw
+PacketModule.ends_option_list(::Type{ProbeOption}, code) = code == PROBE_END
 
 @header SegmentProbe begin
     data_offset :: U4
         derive(cld(measure_header(h), 32))
     reserved    :: U4 = 0
-    options     :: Options{TcpOption}
+    options     :: Options{ProbeOption}
         until(Bytes(4) * data_offset)
     padding     :: Pad{Bytes(4), 0x00}
 end
@@ -64,28 +66,28 @@ end
 # --- the family --------------------------------------------------------------
 
 @testset "a member states its own code, through its first constant" begin
-    @test option_code(TcpOptionEnd) == TCPOPTION_END
-    @test option_code(TcpOptionMss) == TCPOPTION_MSS
-    @test find_option_type(TcpOption, TCPOPTION_MSS) === TcpOptionMss
-    @test find_option_type(TcpOption, 0x07) === TcpOptionUnknown
-    @test ends_option_list(TcpOption, TCPOPTION_END)
-    @test !ends_option_list(TcpOption, TCPOPTION_NOP)
-    @test measure_option_code(TcpOption) == 8
+    @test option_code(ProbeOptionEnd) == PROBE_END
+    @test option_code(ProbeOptionMss) == PROBE_MSS
+    @test find_option_type(ProbeOption, PROBE_MSS) === ProbeOptionMss
+    @test find_option_type(ProbeOption, 0x07) === ProbeOptionRaw
+    @test ends_option_list(ProbeOption, PROBE_END)
+    @test !ends_option_list(ProbeOption, PROBE_NOP)
+    @test measure_option_code(ProbeOption) == 8
 
     # A member is a header of its family, and a header of the library.
-    @test TcpOptionMss <: TcpOption
-    @test TcpOptionMss <: Fields
-    @test chunk_length(TcpOptionMss) == Bytes(4)
-    @test chunk_length(TcpOptionEnd) == Bytes(1)
+    @test ProbeOptionMss <: ProbeOption
+    @test ProbeOptionMss <: Fields
+    @test chunk_length(ProbeOptionMss) == Bytes(4)
+    @test chunk_length(ProbeOptionEnd) == Bytes(1)
 end
 
 # --- a list the library knows ------------------------------------------------
 
 @testset "a list of known options round-trips, in order" begin
     probe = SegmentProbe(data_offset = 0,
-                         options = TcpOption[TcpOptionMss(max_segment_size = 1460),
-                                             TcpOptionNop(),
-                                             TcpOptionEnd()])
+                         options = ProbeOption[ProbeOptionMss(max_segment_size = 1460),
+                                             ProbeOptionNop(),
+                                             ProbeOptionEnd()])
     bytes = encode_header(probe)
     @test hex15(bytes) == "20 02 04 05 b4 01 00 00"
     @test chunk_length(probe) == Bytes(8)
@@ -93,7 +95,7 @@ end
 
     read_back = decode_header(SegmentProbe, bytes)
     @test [nameof(typeof(o)) for o in read_back.options] ==
-          [:TcpOptionMss, :TcpOptionNop, :TcpOptionEnd]
+          [:ProbeOptionMss, :ProbeOptionNop, :ProbeOptionEnd]
     @test read_back.options[1].max_segment_size == 1460
     @test encode_header(read_back) == bytes
 end
@@ -102,18 +104,18 @@ end
     # The property INET's DHCP, SCTP and MIPv6 models lack: two lists with the
     # same options in a different order are two different lists.
     one = SegmentProbe(data_offset = 0,
-                       options = TcpOption[TcpOptionNop(),
-                                           TcpOptionMss(max_segment_size = 536)])
+                       options = ProbeOption[ProbeOptionNop(),
+                                           ProbeOptionMss(max_segment_size = 536)])
     other = SegmentProbe(data_offset = 0,
-                         options = TcpOption[TcpOptionMss(max_segment_size = 536),
-                                             TcpOptionNop()])
+                         options = ProbeOption[ProbeOptionMss(max_segment_size = 536),
+                                             ProbeOptionNop()])
     @test encode_header(one) != encode_header(other)
     # The padding after the options is zeros, and a zero IS an End of Option
     # List — so the list reads back with the terminator the padding spelled.
     # What matters is that the ORDER survived.
     @test [nameof(typeof(o)) for o in decode_header(SegmentProbe,
                                                     encode_header(one)).options] ==
-          [:TcpOptionNop, :TcpOptionMss, :TcpOptionEnd]
+          [:ProbeOptionNop, :ProbeOptionMss, :ProbeOptionEnd]
     @test encode_header(decode_header(SegmentProbe, encode_header(one))) ==
           encode_header(one)
 end
@@ -126,7 +128,7 @@ end
     read_back = decode_header(SegmentProbe, wire)
 
     @test [nameof(typeof(o)) for o in read_back.options] ==
-          [:TcpOptionUnknown, :TcpOptionNop, :TcpOptionEnd]
+          [:ProbeOptionRaw, :ProbeOptionNop, :ProbeOptionEnd]
     @test read_back.options[1].kind == 0x07
     @test read_back.options[1].data == Octets(UInt8[0xde, 0xad])
 
@@ -140,7 +142,7 @@ end
     wire = UInt8[0x20,  0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
     read_back = decode_header(SegmentProbe, wire)
     @test [nameof(typeof(o)) for o in read_back.options] ==
-          [:TcpOptionNop, :TcpOptionEnd]
+          [:ProbeOptionNop, :ProbeOptionEnd]
 
     # It does NOT come back byte for byte, and that is worth stating plainly.
     # `data_offset` is derived, so re-encoding writes the header the options
@@ -151,16 +153,16 @@ end
     @test encode_header(read_back) == UInt8[0x10, 0x01, 0x00, 0x00]
     @test [nameof(typeof(o)) for o in
            decode_header(SegmentProbe, encode_header(read_back)).options] ==
-          [:TcpOptionNop, :TcpOptionEnd]
+          [:ProbeOptionNop, :ProbeOptionEnd]
 end
 
 @testset "an empty list still meets the padding" begin
-    probe = SegmentProbe(data_offset = 0, options = TcpOption[])
+    probe = SegmentProbe(data_offset = 0, options = ProbeOption[])
     @test hex15(encode_header(probe)) == "10 00 00 00"
     # Three zero bytes of padding, and a zero is an End of Option List — so the
     # list reads back with one entry, and the bytes are unchanged.
     read_back = decode_header(SegmentProbe, encode_header(probe))
-    @test [nameof(typeof(o)) for o in read_back.options] == [:TcpOptionEnd]
+    @test [nameof(typeof(o)) for o in read_back.options] == [:ProbeOptionEnd]
     @test encode_header(read_back) == encode_header(probe)
 end
 
@@ -190,15 +192,15 @@ end
 end
 
 @testset "what an Options field says about itself" begin
-    @test is_variable_field(Options{TcpOption})
-    @test !has_field_bits(Options{TcpOption})
-    @test classify_display(Options{TcpOption}) === :composite
-    @test eltype(Options{TcpOption}) === TcpOption
+    @test is_variable_field(Options{ProbeOption})
+    @test !has_field_bits(Options{ProbeOption})
+    @test classify_display(Options{ProbeOption}) === :composite
+    @test eltype(Options{ProbeOption}) === ProbeOption
     @test !is_fixed_length(SegmentProbe)
     @test minimum_chunk_length(SegmentProbe) == Bytes(1)
 
-    list = Options{TcpOption}(TcpOption[TcpOptionNop(), TcpOptionEnd()])
+    list = Options{ProbeOption}(ProbeOption[ProbeOptionNop(), ProbeOptionEnd()])
     @test measure_value(list, 0) == 16
     @test Base.length(list) == 2
-    @test format_field(list) == "[TcpOptionNop, TcpOptionEnd]"
+    @test format_field(list) == "[ProbeOptionNop, ProbeOptionEnd]"
 end

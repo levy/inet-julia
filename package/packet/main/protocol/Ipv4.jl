@@ -1,10 +1,13 @@
 # ============================================================================
 # IPv4 — RFC 791, section 3.1.
 #
-# Twenty bytes, with `ihl` fixed at 5: this library declares no options yet, so
-# every IPv4 header it builds is the minimum one. A header that carries options
-# has an `ihl` above 5 and a tail whose width that field decides, which arrives
-# with the `Options` field of a later phase.
+# Twenty bytes with no options, and `ihl` counts what there is: it derives from
+# the header's own width, so a datagram that carries options gets the right
+# value without anyone setting it.
+#
+# The option list runs to the end of the header, which is what `until` says,
+# and `padding` takes the header up to a whole number of 32-bit words. An
+# option this library does not know survives in `Ipv4OptionRaw`.
 #
 # The declaration follows RFC 791 and not INET. Two consequences:
 #
@@ -59,6 +62,9 @@ computed — the same choice INET's `declared` checksum mode makes.
                                                     header_checksum)
     source          :: Ipv4Address
     destination     :: Ipv4Address
+    options         :: Options{Ipv4Option} = Ipv4Option[]
+        until(Bytes(4) * ihl)
+    padding         :: Pad{Bytes(4), 0x00}
     checksum_mode   :: Model{ChecksumMode} = CHECKSUM_DECLARED
     @check ihl >= IPV4_MIN_IHL
 end

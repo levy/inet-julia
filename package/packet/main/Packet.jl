@@ -84,6 +84,17 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        IcmpMessage, IcmpCommon, IcmpHeader, IcmpEchoRequest, IcmpEchoReply, IcmpPtb,
        ICMP_ECHO_REPLY, ICMP_DESTINATION_UNREACHABLE, ICMP_ECHO_REQUEST,
        ICMP_TIME_EXCEEDED, ICMP_PARAMETER_PROBLEM, ICMP_DU_FRAGMENTATION_NEEDED,
+       Ipv4Option, Ipv4OptionEnd, Ipv4OptionNop, Ipv4OptionStreamId,
+       Ipv4OptionRouterAlert, Ipv4OptionRecordRoute, Ipv4OptionRaw,
+       IPOPTION_END_OF_OPTIONS, IPOPTION_NO_OPTION, IPOPTION_RECORD_ROUTE,
+       IPOPTION_TIMESTAMP, IPOPTION_SECURITY, IPOPTION_LOOSE_SOURCE_ROUTING,
+       IPOPTION_STREAM_ID, IPOPTION_STRICT_SOURCE_ROUTING, IPOPTION_ROUTER_ALERT,
+       TcpOption, TcpOptionEnd, TcpOptionNop, TcpOptionMaxSegmentSize,
+       TcpOptionWindowScale, TcpOptionSackPermitted, TcpOptionTimestamp,
+       TcpOptionRaw,
+       TCPOPTION_END_OF_OPTION_LIST, TCPOPTION_NO_OPERATION,
+       TCPOPTION_MAXIMUM_SEGMENT_SIZE, TCPOPTION_WINDOW_SCALE,
+       TCPOPTION_SACK_PERMITTED, TCPOPTION_SACK, TCPOPTION_TIMESTAMP,
        UdpHeader, UDP_HEADER_BYTES,
        TcpHeader, list_tcp_flags, TCP_MIN_DATA_OFFSET, TCP_HEADER_BYTES,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
@@ -116,11 +127,13 @@ include("protocol/Ieee8022.jl")
 include("protocol/ProtocolElement.jl")
 include("protocol/Ppp.jl")
 include("protocol/Mpls.jl")
+include("protocol/Ipv4Option.jl")
 include("protocol/Ipv4.jl")
 include("protocol/Arp.jl")
 include("protocol/Icmp.jl")
 include("protocol/Ipv6.jl")
 include("protocol/Udp.jl")
+include("protocol/TcpOption.jl")
 include("protocol/Tcp.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")

@@ -170,6 +170,13 @@ macro header(declaration, block)
 
     M = @__MODULE__
     header_var = esc(:h)
+
+    # A `Pad` or a `Constant` field is a singleton the type fully describes, so
+    # it defaults to itself and a caller never names it. The macro tells by the
+    # name in the declaration, which is the only thing it can read.
+    fills_itself(type) = Meta.isexpr(type, :curly) && type.args[1] in (:Pad, :Constant)
+    default_of(f) = f.default !== nothing ? esc(f.default) :
+                    fills_itself(f.type) ? :($(esc(f.type))()) : nothing
     struct_fields = [Expr(:(::), esc(f.name), esc(f.type)) for f in fields]
 
     # Every field is bound by its own name, so a clause reads `ihl` and not
@@ -189,13 +196,6 @@ macro header(declaration, block)
     # Every header gets a keyword constructor. A field with a default may be
     # omitted; a field without one stays a required keyword, so a header with
     # two defaults out of ten is still built by naming the other eight.
-    #
-    # A `Pad` or a `Constant` field is a singleton the type fully describes, so
-    # it defaults to itself and a caller never names it. The macro tells by the
-    # name in the declaration, which is the only thing it can read.
-    fills_itself(type) = Meta.isexpr(type, :curly) && type.args[1] in (:Pad, :Constant)
-    default_of(f) = f.default !== nothing ? esc(f.default) :
-                    fills_itself(f.type) ? :($(esc(f.type))()) : nothing
     keyword_arguments = [default_of(f) === nothing ? esc(f.name) :
                          Expr(:kw, esc(f.name), default_of(f)) for f in fields]
     keyword_constructor =
@@ -210,10 +210,13 @@ macro header(declaration, block)
     checked = Symbol[]
     # A default is also what a `Draft` starts a field at, so record each one.
     for f in fields
-        f.default === nothing && continue
+        # `default_of` also answers for a `Pad` or a `Constant`, which the type
+        # fully describes — so a draft never waits for one.
+        value = default_of(f)
+        value === nothing && continue
         push!(clause_methods, quote
             $(M).find_default(::Type{$(esc(name))}, ::Val{$(QuoteNode(f.name))}) =
-                convert($(esc(f.type)), $(esc(f.default)))
+                convert($(esc(f.type)), $(value))
         end)
     end
     for (index, f) in enumerate(fields)

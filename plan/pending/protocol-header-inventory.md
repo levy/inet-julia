@@ -115,9 +115,14 @@ Ethernet family, the 802.1 tag headers, `Ieee8022LlcHeader`,
 its six extension headers, UDP, TCP with options, ARP, the ICMP family, the
 ICMPv6 family and the IGMP family.
 
-Done: IPv4 and IPv6 base headers, UDP, TCP, ARP, and the ICMP family — five
-formats, and the library's first real variant. Left: the option lists on IPv4
-and TCP, the six IPv6 extension headers, ICMPv6 (19) and IGMP (10).
+Done: IPv4 and IPv6, UDP, TCP, ARP, the ICMP family, and the IPv4 and TCP
+option lists — 21 formats. Left: the six IPv6 extension headers, ICMPv6 (19)
+and IGMP (10).
+
+IPv4 and TCP are now variable-length, and `ihl` and `data_offset` derive from
+the header's own width — so a datagram that carries options gets the right
+value without anyone setting it. `has(pk, T)` and the packet-level `peek`
+therefore ask `minimum_chunk_length` rather than `chunk_length`.
 
 **Wave 3 — the wireless and bridged link layers, about 80 formats.** IEEE
 802.11 (36), the 802.11 PHY headers (21), 802.15.4, CSMA/CA, B-MAC, X-MAC,

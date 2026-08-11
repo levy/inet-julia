@@ -29,7 +29,7 @@ hex11(bytes) = join((string(b, base = 16, pad = 2) for b in bytes), " ")
                                               source = "10.0.0.1",
                                               destination = "10.0.0.2")
     # The positional constructor is still there, and still takes every field.
-    @test Base.length(fieldnames(Ipv4Header)) == 16
+    @test Base.length(fieldnames(Ipv4Header)) == 18
 end
 
 # --- derive ------------------------------------------------------------------
@@ -47,7 +47,10 @@ end
 
     # The reader keeps the wire value, so a foreign sender's disagreement is
     # visible instead of silently corrected.
-    arrived = copy(encode_header(ip))
+    # `ihl` says seven words, so the header is 28 bytes and the reader needs
+    # them: a datagram that claims more than it carries is truncated, not a
+    # round-trip subject.
+    arrived = vcat(copy(encode_header(ip)), zeros(UInt8, 8))
     arrived[1] = 0x47                              # version 4, ihl 7
     @test decode_header(Ipv4Header, arrived).ihl == 7
 end
@@ -113,7 +116,7 @@ end
     @test ip.checksum_mode isa ChecksumMode
     @test getfield(ip, :checksum_mode) isa Model{ChecksumMode}
 
-    @test chunk_length(Ipv4Header) == Bytes(20)
+    @test minimum_chunk_length(Ipv4Header) == Bytes(20)
     names = [f.name for f in describe_layout(Ipv4Header).fields]
     @test !(:checksum_mode in names)               # the layout describes the wire
     @test Base.length(names) == 15
@@ -144,9 +147,13 @@ end
     # `EthernetMacHeader` is a plain struct, `Ipv4Header` comes from the macro.
     for H in (EthernetMacHeader, Ipv4Header, UdpHeader, Ipv6Header, TcpHeader)
         @test H <: Fields
-        @test is_fixed_length(H)
-        @test describe_layout(H).length == chunk_length(H)
+        # IPv4 and TCP carry option lists, so their length is a property of the
+        # value; the others are the same width every time.
+        @test describe_layout(H).length == minimum_chunk_length(H)
     end
+    @test is_fixed_length(EthernetMacHeader)
+    @test is_fixed_length(UdpHeader)
+    @test !is_fixed_length(Ipv4Header)
     # A plain struct simply has no clause, and needs no method for one.
     @test list_derived(EthernetMacHeader) == ()
     @test list_checked(EthernetMacHeader) == ()

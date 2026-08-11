@@ -151,8 +151,12 @@ function peek(pk::Packet, ::Type{T}; at = nothing, length = nothing,
     # remains of the data window.
     l = if length !== nothing
         length::BitLength
-    elseif T <: Fields
+    elseif T <: Fields && is_fixed_length(T)
         chunk_length(T)
+    elseif T <: Fields
+        # A variable-length header decides its own size out of the window, so
+        # give it what is left and let it take what it needs.
+        data_length(pk) - off
     else
         data_length(pk) - off
     end
@@ -201,10 +205,11 @@ end
     has(pk::Packet, T) -> Bool
 
 Cheap "have I received at least a full T at the front?" check. Doesn't
-deserialise; just measures the data window against `chunk_length(T)`.
+deserialise; just measures the data window against the least a `T` can be —
+which for a header with an option list is its fixed part.
 """
 has(pk::Packet, ::Type{T}) where {T<:Fields} =
-    data_length(pk) >= chunk_length(T)
+    data_length(pk) >= minimum_chunk_length(T)
 
 # ---------- packet-level tag helpers (thin sugar over the tag sets) ---------
 

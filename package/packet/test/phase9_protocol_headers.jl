@@ -18,15 +18,17 @@ hex(bytes) = join((string(b, base = 16, pad = 2) for b in bytes), " ")
     @test chunk_length(EthernetMacHeader) == Bytes(14)
     @test chunk_length(Ieee8021qTag)      == Bytes(4)
     @test chunk_length(EthernetFcs)       == Bytes(4)
-    @test chunk_length(Ipv4Header)        == Bytes(20)
+    # IPv4 and TCP carry option lists now, so their length is a property of
+    # the value. Without options they are the twenty bytes they always were.
+    @test minimum_chunk_length(Ipv4Header) == Bytes(20)
     @test chunk_length(UdpHeader)         == Bytes(8)
-    @test chunk_length(TcpHeader)         == Bytes(20)
+    @test minimum_chunk_length(TcpHeader)  == Bytes(20)
 
     # The named constants agree with the declarations.
     @test chunk_length(EthernetPhyHeader) == Bytes(ETHERNET_PHY_HEADER_LEN_BYTES)
-    @test chunk_length(Ipv4Header) == Bytes(IPV4_HEADER_BYTES)
+    @test minimum_chunk_length(Ipv4Header) == Bytes(IPV4_HEADER_BYTES)
     @test chunk_length(UdpHeader)  == Bytes(UDP_HEADER_BYTES)
-    @test chunk_length(TcpHeader)  == Bytes(TCP_HEADER_BYTES)
+    @test minimum_chunk_length(TcpHeader)  == Bytes(TCP_HEADER_BYTES)
 end
 
 # --- Ethernet ----------------------------------------------------------------
@@ -173,13 +175,16 @@ end
               Ipv4Header, UdpHeader, TcpHeader)
         layout = describe_layout(T)
         @test layout.name === nameof(T)
-        @test layout.length == chunk_length(T)
-        @test sum(s.width for s in layout.fields) == chunk_length(T).bits
+        # For a header with an option list the TYPE layout stops at the list,
+        # which is exactly the fixed part.
+        @test layout.length == minimum_chunk_length(T)
+        @test sum(s.width for s in layout.fields) == minimum_chunk_length(T).bits
         # The layout describes the WIRE, so a model-only field is absent from it
         # and present in the struct — `Ipv4Header.checksum_mode` is the one here.
         # Every field the layout names is a field of the struct, in order.
         @test [s.name for s in layout.fields] ==
-              [n for n in fieldnames(T) if measure_field(fieldtype(T, n)) > 0]
+              [n for n in fieldnames(T)
+               if !is_variable_field(fieldtype(T, n)) && measure_field(fieldtype(T, n)) > 0]
         offset = 0
         for s in layout.fields
             @test s.offset == offset
@@ -209,7 +214,7 @@ end
     # Decapsulate, and the next header is where it should be.
     popfirst!(pk, chunk_length(EthernetMacHeader))
     @test peek(pk, Ipv4Header).protocol == IP_PROTOCOL_UDP
-    popfirst!(pk, chunk_length(Ipv4Header))
+    popfirst!(pk, minimum_chunk_length(Ipv4Header))
     @test peek(pk, UdpHeader).destination_port == Port(2000)
 
     # Reading one header as another stays refused: here the front really is a

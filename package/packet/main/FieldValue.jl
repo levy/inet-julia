@@ -427,6 +427,10 @@ struct Pad{BOUNDARY, FILL}
 end
 
 Pad{BOUNDARY, FILL}(::Pad{BOUNDARY, FILL}) where {BOUNDARY, FILL} = Pad{BOUNDARY, FILL}()
+# The identity case first, or it is ambiguous with the catch-all below — a
+# padding field takes whatever it is given, because the type already says
+# everything about it.
+Base.convert(::Type{Pad{B, F}}, ::Pad{B, F}) where {B, F} = Pad{B, F}()
 Base.convert(::Type{Pad{B, F}}, ::Any) where {B, F} = Pad{B, F}()
 
 is_variable_field(::Type{<:Pad}) = true

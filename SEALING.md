@@ -81,11 +81,13 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/ProtocolElement.jl`
     - ⬜ `protocol/Ppp.jl`
     - ⬜ `protocol/Mpls.jl`
+    - ⬜ `protocol/Ipv4Option.jl`
     - ⬜ `protocol/Ipv4.jl`
     - ⬜ `protocol/Arp.jl`
     - ⬜ `protocol/Icmp.jl`
     - ⬜ `protocol/Ipv6.jl`
     - ⬜ `protocol/Udp.jl`
+    - ⬜ `protocol/TcpOption.jl`
     - ⬜ `protocol/Tcp.jl`
   - ⬜ `PeekFields.jl`
   - ⬜ `QualityOps.jl`

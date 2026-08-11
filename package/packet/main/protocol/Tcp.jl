@@ -1,8 +1,9 @@
 # ============================================================================
 # TCP — RFC 9293, section 3.1.
 #
-# Twenty bytes, with `data_offset` fixed at 5: this library declares no options
-# yet, so every TCP header it builds is the minimum one.
+# Twenty bytes with no options, and `data_offset` counts what there is: it
+# derives from the header's own width, so a segment that carries options gets
+# the right value without anyone setting it.
 #
 # The eight control bits are eight `Bool` fields rather than one byte with a
 # mask. That is what §3.1 draws, it is what makes `syn` and `ack` readable at a
@@ -28,6 +29,7 @@ carries a default, so a segment states only what it decides.
     sequence_number       :: U32
     acknowledgment_number :: U32        = 0
     data_offset           :: U4         = TCP_MIN_DATA_OFFSET
+        derive(cld(measure_header(h), 32))
     reserved              :: U4         = 0
     cwr                   :: Bool       = false
     ece                   :: Bool       = false
@@ -40,6 +42,9 @@ carries a default, so a segment states only what it decides.
     window                :: U16        = 0xffff
     checksum              :: Checksum16 = 0
     urgent_pointer        :: U16        = 0
+    options               :: Options{TcpOption} = TcpOption[]
+        until(Bytes(4) * data_offset)
+    padding               :: Pad{Bytes(4), 0x00}
 end
 
 """
