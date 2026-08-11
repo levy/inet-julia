@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 5 are done, and the repository is green:
+Status: **IN PROGRESS**. Phases 0 to 6 are done, and the repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -490,9 +490,25 @@ struct TcpOptionMaxSegmentSize <: TcpOption
 end
 
 list_options(::Type{TcpOption})           = (TcpOptionEnd, TcpOptionNop, …)
-find_option_type(::Type{TcpOption}, code) = …     # falls back to the raw member
+find_raw_option(::Type{TcpOption})        = TcpOptionUnknown
 ends_option_list(::Type{TcpOption}, code) = code == TCPOPTION_END_OF_OPTION_LIST
 ```
+
+A member states its own code through its first `Constant` field, so nothing
+says it twice: `option_code` comes from the declaration. `find_option_type` is
+generic — it walks `list_options` and falls back to the raw member.
+
+`until` gives the offset the list ENDS at, counted from the start of the
+header, not a predicate. The width is then what is left between here and there,
+which is a number the reader has before it starts.
+
+**Phase 6 found one thing the plan did not say.** A derived length normalises
+padding. A TCP segment whose sender padded to eight bytes where four would do
+re-encodes to four, because `data_offset` is derived from what the options
+need. Byte preservation therefore holds where the padding is minimal and not
+otherwise; preserving it needs the length read from the wire rather than
+derived, which is the choice `total_length` already makes. Decide that per
+format, when the format arrives.
 
 An option the library does not know becomes a raw member that keeps its code,
 its length and its bytes, so the list round-trips in the order the sender used.
@@ -564,7 +580,7 @@ Each phase ends with a green test and a commit. The command is
 | 3 ✅ | `Draft`, `start_draft`, `build_header` | a required field left unset fails at `build_header`, not on the wire |
 | 4 ✅ | variable length: `Octets`, `Rest`, `Pad` | a byte tail round-trips and `peek` finds it |
 | 5 ✅ | `Repeated`, and the embedding it needs | an IGMPv3 report round-trips |
-| 6 | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
+| 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 | variants | an ICMP echo request decodes from an `IcmpHeader` window |
 | 8 | the round-trip corpus, Wave 1 and Wave 2 | green over about 85 formats |
 | 9 | Wave 3 and Wave 4 | green over the inventory |

@@ -19,4 +19,5 @@ using Test
     include("phase12_draft.jl")
     include("phase13_variable_length.jl")
     include("phase14_repeated.jl")
+    include("phase15_options.jl")
 end

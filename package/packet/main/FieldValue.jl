@@ -141,6 +141,9 @@ Base.promote_rule(::Type{U{N, T}}, ::Type{S}) where {N, T, S <: Integer} =
 Base.promote_rule(::Type{U{N, T}}, ::Type{U{M, S}}) where {N, T, M, S} =
     promote_type(T, S)
 (::Type{S})(value::U) where {S <: Integer} = S(value.value)
+# `U8(::U8)` matches both the narrowing constructor and the conversion above,
+# so say which: a narrowed value converts through its own number.
+U{N, T}(value::U) where {N, T} = U{N, T}(value.value)
 
 Base.typemin(::Type{U{N, T}}) where {N, T} = U{N, T}(0)
 Base.typemax(::Type{U{N, T}}) where {N, T} = U{N, T}(_widest(N))
@@ -203,6 +206,9 @@ function extend_sign(bits::UInt64, width::Int)
 end
 
 Base.convert(::Type{I{N, T}}, value::Integer) where {N, T} = I{N, T}(value)
+I{N, T}(value::I) where {N, T} = I{N, T}(value.value)
+I{N, T}(value::U) where {N, T} = I{N, T}(value.value)
+U{N, T}(value::I) where {N, T} = U{N, T}(value.value)
 Base.promote_rule(::Type{I{N, T}}, ::Type{S}) where {N, T, S <: Integer} =
     promote_type(T, S)
 Base.promote_rule(::Type{I{N, T}}, ::Type{I{M, S}}) where {N, T, M, S} =

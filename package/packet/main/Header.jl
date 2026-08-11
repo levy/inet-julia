@@ -43,7 +43,7 @@
 # does, and it is what lets a capture round-trip byte for byte.
 # ============================================================================
 
-const HEADER_CLAUSES = (:derive, :check, :length, :count)
+const HEADER_CLAUSES = (:derive, :check, :length, :count, :until)
 
 # One field of a declaration, after the parse.
 struct HeaderField
@@ -110,6 +110,11 @@ function attach_clause(field::HeaderField, clause)
             error("@header $(field.name): two `derive` clauses")
         return HeaderField(field.name, field.type, field.default, argument,
                            field.check, field.extent)
+    elseif name === :until
+        field.extent === nothing ||
+            error("@header $(field.name): two `until` clauses")
+        return HeaderField(field.name, field.type, field.default, field.derive,
+                           field.check, (:until, argument))
     elseif name === :length || name === :count
         field.extent === nothing ||
             error("@header $(field.name): two `length` or `count` clauses")
@@ -125,9 +130,17 @@ function attach_clause(field::HeaderField, clause)
                        argument, field.extent)
 end
 
-macro header(name, block)
+macro header(declaration, block)
     Meta.isexpr(block, :block) ||
-        error("@header $name: expected a `begin … end` block")
+        error("@header $declaration: expected a `begin … end` block")
+
+    # `@header Member <: Family` puts the member under its family, which is how
+    # an option family and a variant name their members. Without one a header
+    # sits directly under `Fields`.
+    name, supertype = declaration, nothing
+    if Meta.isexpr(declaration, :(<:)) && Base.length(declaration.args) == 2
+        name, supertype = declaration.args[1], declaration.args[2]
+    end
 
     fields = HeaderField[]
     header_checks = Any[]
@@ -216,7 +229,11 @@ macro header(name, block)
             # multiplied by the width of one.
             width = kind === :length ?
                     :($(M).bits(convert($(M).BitLength, $(esc(extent))))) :
-                    :(Int($(esc(extent))) * $(M).measure_field(eltype($(esc(f.type)))))
+                    kind === :count ?
+                    :(Int($(esc(extent))) * $(M).measure_field(eltype($(esc(f.type))))) :
+                    # `until` gives the offset the list ENDS at, so the width is
+                    # what is left between here and there.
+                    :($(M).bits(convert($(M).BitLength, $(esc(extent)))) - $(esc(:offset)))
             push!(clause_methods, quote
                 function $(M).measure_read(::Type{$(esc(name))},
                                            ::Val{$(QuoteNode(f.name))}, ::Type,
@@ -249,13 +266,24 @@ macro header(name, block)
         end)
     end
 
+    # A member of an option family selects itself by a code, and the code is
+    # the constant its first field already states. Nothing else has to say it.
+    first_is_constant = Meta.isexpr(fields[1].type, :curly) &&
+                        fields[1].type.args[1] === :Constant &&
+                        Base.length(fields[1].type.args) == 3
+    option_code_method = supertype !== nothing && first_is_constant ?
+        :($(M).option_code(::Type{$(esc(name))}) = $(esc(fields[1].type.args[3]))) :
+        :()
+
     return quote
         # `Base.@__doc__` is what lets a docstring sit in front of `@header`.
-        Base.@__doc__ struct $(esc(name)) <: $(M).Fields
+        Base.@__doc__ struct $(esc(name)) <: $(supertype === nothing ?
+                                                 :($(M).Fields) : esc(supertype))
             $(struct_fields...)
         end
         $(keyword_constructor)
         $(clause_methods...)
+        $(option_code_method)
         $(M).list_derived(::Type{$(esc(name))}) = $(Expr(:tuple, QuoteNode.(derived)...))
         $(M).list_checked(::Type{$(esc(name))}) = $(Expr(:tuple, QuoteNode.(checked)...))
     end

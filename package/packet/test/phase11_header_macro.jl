@@ -169,6 +169,6 @@ end
     # A clause the macro does not know is a typo.
     @test_throws LoadError @eval @header BadClauseName begin
         value :: U8
-        until(true)
+        whenever(true)
     end
 end
