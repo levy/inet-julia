@@ -85,6 +85,7 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/WirelessMac.jl`
     - ⬜ `protocol/Gptp.jl`
     - ⬜ `protocol/Mrp.jl`
+    - ⬜ `protocol/Ieee80211.jl`
     - ⬜ `protocol/ProtocolElement.jl`
     - ⬜ `protocol/Ppp.jl`
     - ⬜ `protocol/Mpls.jl`

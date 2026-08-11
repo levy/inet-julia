@@ -74,11 +74,16 @@ fill_field(::Type{EtherTypeOrLength}, seed::Int) = EtherTypeOrLength(0x8000 + se
 fill_field(::Type{IpProtocol}, seed::Int) = IpProtocol(seed)
 fill_field(::Type{Port}, seed::Int) = Port(1000 + seed)
 fill_field(::Type{Checksum16}, seed::Int) = Checksum16(0x1000 + seed)
+fill_field(::Type{Ieee80211Duration}, seed::Int) = Ieee80211Duration(100 + seed)
+fill_field(::Type{Ieee80211SequenceControl}, seed::Int) =
+    Ieee80211SequenceControl(fragment_number = seed % 16, sequence_number = 100 + seed)
 fill_field(::Type{Constant{T, V}}, ::Int) where {T, V} = Constant{T, V}()
 fill_field(::Type{Pad{B, F}}, ::Int) where {B, F} = Pad{B, F}()
 fill_field(::Type{Model{T}}, ::Int) where {T} = Model{T}(default_field(T))
 fill_field(::Type{Octets}, seed::Int) = Octets(UInt8[seed % 256])
 fill_field(::Type{Rest}, seed::Int) = Rest(UInt8[seed % 256])
+fill_field(::Type{FixedOctets{N}}, seed::Int) where {N} =
+    FixedOctets{N}(UInt8[(seed + index) % 256 for index in 1:N])
 fill_field(::Type{Repeated{T}}, seed::Int) where {T} = Repeated{T}([fill_field(T, seed)])
 fill_field(::Type{Options{F}}, ::Int) where {F} = Options{F}(F[])
 # An optional field starts present. Whether it REACHES the wire is the `when`

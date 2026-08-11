@@ -380,3 +380,107 @@ for named in (:Port, :Checksum16, :EtherTypeOrLength, :IpProtocol, :Ipv4Address,
     @eval (::Type{S})(value::$named) where {S <: Integer} = S(value.value)
     @eval Base.convert(::Type{S}, value::$named) where {S <: Integer} = S(value.value)
 end
+
+# ---------- the two IEEE 802.11 fields that are not in network order ---------
+#
+# Byte order is a property of the protocol, and a header declares one. IEEE
+# 802.11 is the exception that proves it is not the whole rule: its MAC header
+# writes the duration and the sequence control little-endian and its addresses
+# and block acknowledgement fields big-endian, in the same header.
+#
+# So the order belongs to these two fields, and a field's own type is where
+# what-a-value-is lives. Neither becomes a clause: byte order is not an
+# expression over sibling fields, so it stays out of the macro.
+
+"""
+    Ieee80211Duration(value)
+
+The Duration/ID field of an IEEE 802.11 MAC header, sixteen bits and
+little-endian — IEEE 802.11 clause 9.2.4.2.
+
+It is one field with two readings, as an EtherType field is. In a PS-Poll frame
+the top two bits are set and the rest is an association identifier; in every
+other frame the value is a duration in microseconds.
+"""
+struct Ieee80211Duration
+    value::UInt16
+    Ieee80211Duration(value::Integer) = new(UInt16(value))
+end
+
+Ieee80211Duration(v::Ieee80211Duration) = v
+
+"The bit pattern that makes the field an association identifier — clause 9.2.4.2."
+const IEEE80211_AID_MARK = 0xc000
+
+is_association_id(d::Ieee80211Duration) = (d.value & IEEE80211_AID_MARK) == IEEE80211_AID_MARK
+is_duration(d::Ieee80211Duration) = !is_association_id(d)
+
+"The association identifier a PS-Poll frame carries — the low fourteen bits."
+read_association_id(d::Ieee80211Duration) = d.value & 0x3fff
+
+"The duration in microseconds, or `nothing` when the field is an identifier."
+read_microseconds(d::Ieee80211Duration) = is_duration(d) ? Int(d.value) : nothing
+
+function Base.show(io::IO, d::Ieee80211Duration)
+    is_association_id(d) ? print(io, "AID ", Int(read_association_id(d))) :
+                           print(io, Int(d.value), " us")
+end
+
+Base.convert(::Type{Ieee80211Duration}, value::Integer) = Ieee80211Duration(value)
+Base.:(==)(a::Ieee80211Duration, b::Ieee80211Duration) = a.value == b.value
+Base.hash(d::Ieee80211Duration, seed::UInt) = hash(d.value, seed)
+
+measure_field(::Type{Ieee80211Duration}) = 16
+encode_field(::Type{Ieee80211Duration}, d::Ieee80211Duration) = UInt64(d.value)
+decode_field(::Type{Ieee80211Duration}, bits::UInt64) = Ieee80211Duration(UInt16(bits))
+classify_display(::Type{Ieee80211Duration}) = :openable
+
+# The header's declared order is refused: this field has one of its own.
+write_field(io::BitWriter, ::Type{Ieee80211Duration}, d::Ieee80211Duration,
+            width::Int, ::Symbol) = write_bits!(io, UInt64(d.value), 16, :le)
+read_field(io::BitReader, ::Type{Ieee80211Duration}, width::Int, ::Symbol) =
+    Ieee80211Duration(UInt16(read_bits!(io, 16, :le)))
+
+"""
+    Ieee80211SequenceControl(; fragment_number, sequence_number)
+
+The Sequence Control field, sixteen bits and little-endian — IEEE 802.11 clause
+9.2.4.4. The low four bits are the fragment number and the high twelve are the
+sequence number.
+
+It is one type rather than two bit-fields because the packing and the byte
+order have to happen together: two big-endian bit-fields would put the octets
+the other way round.
+"""
+struct Ieee80211SequenceControl
+    value::UInt16
+    Ieee80211SequenceControl(value::Integer) = new(UInt16(value))
+end
+
+Ieee80211SequenceControl(v::Ieee80211SequenceControl) = v
+
+Ieee80211SequenceControl(; fragment_number::Integer = 0, sequence_number::Integer = 0) =
+    Ieee80211SequenceControl((UInt16(fragment_number) & 0x000f) |
+                             ((UInt16(sequence_number) & 0x0fff) << 4))
+
+read_fragment_number(s::Ieee80211SequenceControl) = Int(s.value & 0x000f)
+read_sequence_number(s::Ieee80211SequenceControl) = Int((s.value >> 4) & 0x0fff)
+
+Base.show(io::IO, s::Ieee80211SequenceControl) =
+    print(io, "seq ", read_sequence_number(s), " frag ", read_fragment_number(s))
+
+Base.convert(::Type{Ieee80211SequenceControl}, value::Integer) =
+    Ieee80211SequenceControl(value)
+Base.:(==)(a::Ieee80211SequenceControl, b::Ieee80211SequenceControl) = a.value == b.value
+Base.hash(s::Ieee80211SequenceControl, seed::UInt) = hash(s.value, seed)
+
+measure_field(::Type{Ieee80211SequenceControl}) = 16
+encode_field(::Type{Ieee80211SequenceControl}, s::Ieee80211SequenceControl) = UInt64(s.value)
+decode_field(::Type{Ieee80211SequenceControl}, bits::UInt64) =
+    Ieee80211SequenceControl(UInt16(bits))
+classify_display(::Type{Ieee80211SequenceControl}) = :openable
+
+write_field(io::BitWriter, ::Type{Ieee80211SequenceControl}, s::Ieee80211SequenceControl,
+            width::Int, ::Symbol) = write_bits!(io, UInt64(s.value), 16, :le)
+read_field(io::BitReader, ::Type{Ieee80211SequenceControl}, width::Int, ::Symbol) =
+    Ieee80211SequenceControl(UInt16(read_bits!(io, 16, :le)))

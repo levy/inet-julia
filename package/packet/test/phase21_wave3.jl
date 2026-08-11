@@ -263,3 +263,126 @@ end
                                        other_manager_source = MacAddress("0a:00:00:00:00:02"))
     @test decode_header(MrpSubTlvTestPropagate, encode_header(propagate)) == propagate
 end
+
+# --- IEEE 802.11 --------------------------------------------------------------
+
+@testset "IEEE 802.11 — a frame control field, and two fields of its own order" begin
+    @test chunk_length(Ieee80211FrameControl) == Bytes(2)
+    for (T, bytes) in ((Ieee80211Ack, IEEE80211_ACK_BYTES),
+                       (Ieee80211Cts, IEEE80211_CTS_BYTES),
+                       (Ieee80211Rts, IEEE80211_RTS_BYTES),
+                       (Ieee80211PsPoll, IEEE80211_PS_POLL_BYTES),
+                       (Ieee80211MgmtHeader, IEEE80211_MANAGEMENT_BYTES),
+                       (Ieee80211BlockAckRequest, IEEE80211_BLOCK_ACK_REQUEST_BYTES),
+                       (Ieee80211CompressedBlockAck, 28),
+                       (Ieee80211BasicBlockAck, 148),
+                       (Ieee80211MacTrailer, 4))
+        @test chunk_length(T) == Bytes(bytes)
+    end
+
+    control(type, subtype; kwargs...) =
+        Ieee80211FrameControl(; frame_type = type, subtype = subtype, kwargs...)
+
+    ack = Ieee80211Ack(base = Ieee80211Common(
+        frame_control = control(IEEE80211_TYPE_CONTROL, IEEE80211_SUBTYPE_ACK),
+        duration = 0, receiver = MacAddress("0a:00:00:00:00:01")))
+    # The first octet is subtype, type and version: 0xd, 1, 0 is 0xd4.
+    @test hex21(encode_header(ack)) == "d4 00 00 00 0a 00 00 00 00 01"
+    @test decode_header(Ieee80211MacHeader, encode_header(ack)) isa Ieee80211Ack
+
+    # The duration is little-endian where the addresses are not.
+    data = Ieee80211DataHeader(
+        base = Ieee80211Common(
+            frame_control = control(IEEE80211_TYPE_DATA, IEEE80211_SUBTYPE_DATA),
+            duration = 100, receiver = MacAddress("0a:00:00:00:00:01")),
+        transmitter = MacAddress("0a:00:00:00:00:02"),
+        address3 = MacAddress("0a:00:00:00:00:03"),
+        sequence_control = Ieee80211SequenceControl(fragment_number = 1,
+                                                    sequence_number = 0x123))
+    bytes = encode_header(data)
+    @test chunk_length(data) == Bytes(24)
+    @test hex21(bytes[3:4]) == "64 00"                    # duration, low octet first
+    @test hex21(bytes[5:10]) == "0a 00 00 00 00 01"       # address, as it is
+    # Sequence control packs the fragment low and the sequence high, then goes
+    # out little-endian: 0x1231 becomes 31 12.
+    @test hex21(bytes[23:24]) == "31 12"
+
+    back = decode_header(Ieee80211MacHeader, bytes)
+    @test back isa Ieee80211DataHeader
+    @test back == data
+    @test read_sequence_number(back.sequence_control) == 0x123
+    @test read_fragment_number(back.sequence_control) == 1
+    @test read_microseconds(back.base.duration) == 100
+
+    # The fourth address is there only between two access points, and the
+    # quality-of-service control only for a QoS subtype.
+    both = Ieee80211DataHeader(
+        base = Ieee80211Common(
+            frame_control = control(IEEE80211_TYPE_DATA, IEEE80211_SUBTYPE_QOS_DATA,
+                                    to_ds = true, from_ds = true),
+            receiver = MacAddress(0)),
+        transmitter = MacAddress(0), address3 = MacAddress(0),
+        address4 = MacAddress("0a:00:00:00:00:04"), qos_control = UInt16(7))
+    @test chunk_length(both) == Bytes(24 + 6 + 2)
+    read_back = decode_header(Ieee80211MacHeader, encode_header(both))
+    @test read_back == both
+    @test read_back.address4 == MacAddress("0a:00:00:00:00:04")
+    @test has_fourth_address(both.base.frame_control)
+    @test has_qos_control(both.base.frame_control)
+
+    # A PS-Poll reads its duration field as an association identifier.
+    poll = Ieee80211PsPoll(base = Ieee80211Common(
+        frame_control = control(IEEE80211_TYPE_CONTROL, IEEE80211_SUBTYPE_PS_POLL),
+        duration = IEEE80211_AID_MARK | 42, receiver = MacAddress(0)),
+        transmitter = MacAddress(0))
+    @test is_association_id(poll.base.duration)
+    @test read_association_id(poll.base.duration) == 42
+    @test read_microseconds(poll.base.duration) === nothing
+
+    # The block acknowledgement request is the standard's twenty octets.
+    request = Ieee80211BlockAckRequest(
+        base = Ieee80211Common(
+            frame_control = control(IEEE80211_TYPE_CONTROL,
+                                    IEEE80211_SUBTYPE_BLOCK_ACK_REQUEST),
+            receiver = MacAddress(0)),
+        transmitter = MacAddress(0), starting_sequence = 0x123)
+    @test chunk_length(request) == Bytes(20)
+    @test decode_header(Ieee80211MacHeader, encode_header(request)) == request
+
+    # An action frame this library does not model keeps its body.
+    other = Ieee80211ActionOther(
+        header = Ieee80211MgmtHeader(
+            base = Ieee80211Common(
+                frame_control = control(IEEE80211_TYPE_MANAGEMENT,
+                                        IEEE80211_SUBTYPE_ACTION),
+                receiver = MacAddress(0)),
+            transmitter = MacAddress(0), bssid = MacAddress(0)),
+        body = UInt8[0x7f, 1, 2, 3])
+    @test chunk_length(other) == Bytes(28)
+    @test decode_header(Ieee80211ActionOther, encode_header(other)) == other
+end
+
+@testset "FixedOctets — a run the standard states, not one a field decides" begin
+    # A field of a stated width is not variable, so the header stays fixed.
+    @test measure_field(FixedOctets{128}) == 1024
+    @test !is_variable_field(FixedOctets{128})
+    @test chunk_length(Ieee80211BasicBlockAck) == Bytes(148)
+    @test chunk_length(GptpPdelayReq) == Bytes(54)
+    @test_throws ErrorException FixedOctets{4}(UInt8[1, 2])
+end
+
+@testset "a header's length is what it writes, not what it holds" begin
+    # A `when` clause can say a field is absent while the struct still holds a
+    # value. The length has to follow the clause, or a packet would reserve room
+    # for octets that never go out.
+    header = Ieee80211DataHeader(
+        base = Ieee80211Common(
+            frame_control = Ieee80211FrameControl(frame_type = IEEE80211_TYPE_DATA,
+                                                  subtype = IEEE80211_SUBTYPE_DATA),
+            receiver = MacAddress(0)),
+        transmitter = MacAddress(0), address3 = MacAddress(0),
+        address4 = MacAddress("0a:00:00:00:00:04"))
+    @test !has_fourth_address(header.base.frame_control)
+    @test chunk_length(header) == Bytes(24)
+    @test Base.length(encode_header(header)) == 24
+end

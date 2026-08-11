@@ -639,3 +639,47 @@ write_field(io::BitWriter, ::Type{Optional{T}}, value::Optional{T},
 
 read_field(io::BitReader, ::Type{Optional{T}}, width::Int, order::Symbol) where {T} =
     width == 0 ? Optional{T}(nothing) : Optional{T}(read_field(io, T, width, order))
+
+# ---------- FixedOctets — a byte run of a width the standard states ----------
+
+"""
+    FixedOctets{N}(data)
+
+Exactly `N` octets. `Octets` is the run whose width another field decides;
+this is the run the standard fixes.
+
+Three formats need it and each says so plainly: the one hundred and
+twenty-eight octet bitmap of an IEEE 802.11 basic block acknowledgement, the
+twenty reserved octets of a gPTP Pdelay_Req, and the boot file name of a DHCP
+message. A field of a stated width is not variable, so a header that carries
+one still answers `chunk_length` from its type.
+"""
+struct FixedOctets{N}
+    data::Vector{UInt8}
+    function FixedOctets{N}(data::AbstractVector{UInt8}) where {N}
+        Base.length(data) == N ||
+            error("FixedOctets{$(N)}: got $(Base.length(data)) octets")
+        return new{N}(Vector{UInt8}(data))
+    end
+end
+
+FixedOctets{N}(value::FixedOctets{N}) where {N} = value
+Base.convert(::Type{FixedOctets{N}}, data::AbstractVector{UInt8}) where {N} =
+    FixedOctets{N}(data)
+Base.:(==)(a::FixedOctets{N}, b::FixedOctets{N}) where {N} = a.data == b.data
+Base.hash(value::FixedOctets, seed::UInt) = hash(value.data, hash(:FixedOctets, seed))
+Base.length(value::FixedOctets) = Base.length(value.data)
+Base.getindex(value::FixedOctets, index) = value.data[index]
+Base.iterate(value::FixedOctets, state...) = iterate(value.data, state...)
+Base.show(io::IO, value::FixedOctets) = print(io, format_octets(value.data))
+
+measure_field(::Type{FixedOctets{N}}) where {N} = 8 * N
+has_field_bits(::Type{<:FixedOctets}) = false
+classify_display(::Type{<:FixedOctets}) = :composite
+format_field(value::FixedOctets) = format_octets(value.data)
+default_field(::Type{FixedOctets{N}}) where {N} = FixedOctets{N}(zeros(UInt8, N))
+
+write_field(io::BitWriter, ::Type{FixedOctets{N}}, value::FixedOctets{N},
+            ::Int, ::Symbol) where {N} = write_bytes!(io, value.data)
+read_field(io::BitReader, ::Type{FixedOctets{N}}, ::Int, ::Symbol) where {N} =
+    FixedOctets{N}(read_bytes!(io, N))

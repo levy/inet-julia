@@ -177,6 +177,10 @@ and a reader does not, so `h.checksum_mode` is the mode and not the box.
 unwrap_field(value) = value
 unwrap_field(value::Model) = value.value
 unwrap_field(::Constant{T, V}) where {T, V} = V
+# An optional field reads as the value it holds, or as `nothing`. A caller that
+# wants to know whether it reaches the wire asks the `when` clause, not the
+# struct — the clause is what both codecs obey.
+unwrap_field(value::Optional) = value.value
 
 # `getfield` still gives the box, which is what the codec and `set_field` use.
 Base.getproperty(h::Fields, name::Symbol) = unwrap_field(getfield(h, name))
@@ -197,7 +201,15 @@ measure_header(h::Fields) = bits(chunk_length(h))
 function chunk_length(h::H) where {H <: Fields}
     offset = 0
     for index in 1:fieldcount(H)
-        offset += measure_value(getfield(h, index), offset)
+        name = fieldname(H, index)
+        # Ask the writer, not the value. A `when` clause can say a field is
+        # absent while the struct still holds one, and the length of a header
+        # is what it puts on the wire.
+        #
+        # The value is the STORED one, never the derived one. A derive may call
+        # `measure_header`, which asks this function, and a derived field is as
+        # wide either way — it is a fixed-width number in every declaration.
+        offset += measure_write(H, Val(name), h, getfield(h, index), offset)
     end
     return Bits(offset)
 end

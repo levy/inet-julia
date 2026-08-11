@@ -158,16 +158,15 @@ end
 
 A Pdelay_Req message, fifty-four octets — IEEE 802.1AS clause 11.4.5.
 
-The clause reserves its last twenty octets, and they sit where the response
-puts a timestamp and a port identity. They are declared with those widths and
-sent as zeros, which is what the clause requires.
+The clause reserves its last twenty octets, which sit where the response puts a
+timestamp and a port identity. A reserved run has no fields, so it is one run of
+a stated width.
 """
 @header GptpPdelayReq <: GptpMessage begin
     base                   :: GptpCommon =
         GptpCommon(message_type = GPTP_TYPE_PDELAY_REQUEST,
                    message_length = GPTP_PDELAY_REQUEST_BYTES)
-    reserved_timestamp     :: GptpTimestamp = GptpTimestamp()
-    reserved_port_identity :: GptpPortIdentity = GptpPortIdentity()
+    reserved               :: FixedOctets{20} = zeros(UInt8, 20)
 end
 
 """
