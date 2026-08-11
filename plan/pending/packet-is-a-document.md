@@ -12,10 +12,17 @@ already says it for protocol logic. This plan says it for protocol data.
 
 Status: **PENDING**. Nothing is implemented.
 
-> **Measured on 2026-08-11, and §4 changes because of it.** A reactive field
-> access allocates **16 bytes**; a native or immutable one allocates nothing.
-> The hot path must not get slower, so the envelope cannot be reactive on the
-> simulation side. See §3.2 and §4.
+> **Two constraints from the owner, 2026-08-11, and §4 changes to meet them.**
+>
+> 1. **No reactive envelope on the hot path.** A reactive field access allocates
+>    **16 bytes**; a native or immutable one allocates nothing.
+> 2. **No selection field on the hot path.** The injected
+>    `Union{Nothing, Reference, SelectionDocument}` takes a chunk leaf from
+>    **isbits at 16 bytes to a heap object at 24**, and adds 8 bytes to the
+>    envelope. Every hot-path type declares `selection::Nothing`.
+>
+> Both are measured in §3.2. The second costs selectability, which §4.2 works
+> through — it is not free, and it is not negotiable either.
 >
 > The document naming also changed under this plan's feet. `FooMut` is now
 > `MFoo`, `AbstractFoo` is `AFoo`, the cell layout is `ACFoo`, and the spellings
@@ -154,6 +161,21 @@ Measured, one million accesses each:
 bookkeeping, and it is what makes a write invalidate a reader. Allocations count
 exactly, so this is not a flaky wall-clock ratio.
 
+And the injected `selection` field costs more than it looks:
+
+| | isbits | sizeof |
+| --- | --- | --- |
+| chunk leaf, injected selection | **false** | 24 |
+| chunk leaf, `selection::Nothing` | **true** | 16 |
+| envelope, injected selection | — | 24 |
+| envelope, `selection::Nothing` | — | 16 |
+
+The injected field is `Union{Nothing, Reference, SelectionDocument}`, a union over
+heap types, and a struct carrying it cannot be isbits. A chunk with it stops
+inlining into its parent and becomes a heap object — the opposite of what R1 and
+structural sharing are for. So every hot-path type declares `selection::Nothing`
+by hand.
+
 A simulation moves millions of packets, and `pushfirst!`, `trim!` and `peek`
 touch envelope fields on every hop. **The hot path must not get slower**, so the
 envelope the simulation holds cannot be reactive.
@@ -177,20 +199,38 @@ materialising bytes, and a `Filler` holds a length whether or not it is isbits.
 
 The recommendation, to be confirmed by the phase 0 measurement.
 
-| type | kind | selectable | why |
+| type | kind | selection | why |
 | --- | --- | --- | --- |
-| `Filler` | immutable | yes | a chunk a reader points at; already boxed in a sequence |
-| `Raw` | immutable | yes | the same, and its bytes are the thing being inspected |
-| `Slice` | immutable | yes | see §5.1 — it loses its type parameter |
-| `Sequence` | immutable | yes | its children are the tree an inspector walks |
-| `MarkedFields` | immutable | yes | see §5.1 — it loses its type parameter |
-| every `@header` type | immutable | yes | a field of a header is what the figure lets a reader click |
-| `Packet` | **native** | yes | see below — reactive costs 16 bytes per field access |
+| `Filler` | immutable | `::Nothing` | isbits or nothing: the injected field takes it to 24 bytes on the heap |
+| `Raw` | immutable | `::Nothing` | the same |
+| `Slice` | immutable | `::Nothing` | the same; and see §5.1 — it loses its type parameter |
+| `Sequence` | immutable | `::Nothing` | the same |
+| `MarkedFields` | immutable | `::Nothing` | the same; and see §5.1 |
+| every `@header` type | immutable | `::Nothing` | a header is peeked in a hot loop |
+| `Packet` | **native** | `::Nothing` | reactive costs 16 bytes per access; the field costs 8 per packet |
 | `BitLength`, `Quality` | — | — | stay plain values, like a number. A reference names the field that holds one |
 | `TagSet`, `RegionTagSet` | mutable | yes | phase 5; they are dictionaries and want their own shape |
 
 The chunks are immutable-kind because they are immutable by design: structural
 sharing is what makes `dup` O(1), and a read-only cell states that in the type.
+
+### 4.2 What no selection field costs
+
+A type with `selection::Nothing` is a **value**: it can be read, navigated,
+copied and drawn, but it cannot *hold* a selection. Nothing in the packet tree
+can, because every type in it is on the hot path.
+
+That does not stop a reference from *naming* a place inside a packet —
+`pk.content.chunks[2].ttl` is still a path, and §1.3's wall still comes down.
+What it stops is the packet tree storing "what is selected inside me". That state
+has to live in the document that **holds** the packet: a diagram, a page, or
+whatever the editor opens the packet from. `StyleText` is the precedent — a value
+document, not selectable, and a projection maps a click to the field that holds
+one.
+
+This wants deciding before phase 6, because §1's promise that "an edit crosses
+the first stage" now depends on the holder's selection rather than the packet's.
+It is the same shape as `StyleText`, so it is a known problem, not a new one.
 
 ### 4.1 The envelope: what the measurement forces
 
