@@ -28,8 +28,17 @@
 # ---------- Packet tags ------------------------------------------------------
 
 "Packet-scope tags: keyed by type, at most one per packet."
-struct TagSet
+# The `Dict` is mutated in place and never reassigned, so the envelope around it
+# is immutable — as it always was. `selection::Nothing` because a packet's tags
+# are read on the hot path, in the region-shift loops of `push!` and `pushfirst!`.
+# `[DC]` binds the bare name to the default spelling, which is concrete. A
+# `Packet` declares `packet_tags::TagSet`, and a field typed with a UnionAll
+# holds an abstract value that a read has to box — it cost 48 bytes on every
+# `dup`. Nothing here builds a non-default spelling: the constructor takes a
+# `Dict{DataType,Any}`, which is the declared type.
+@document ImmutableCell [DC] struct TagSet <: Document
     entries::Dict{DataType,Any}
+    selection::Nothing
 end
 TagSet() = TagSet(Dict{DataType,Any}())
 
@@ -53,16 +62,23 @@ tryget(t::TagSet, ::Type{T}) where {T} =
 # ---------- Region tags ------------------------------------------------------
 
 "A region tag: a value of some type, scoped to a bit-range [first, last]."
-struct RegionTag
+# `[DC]` for the same reason as `TagSet`, and one more: `RegionTagSet.tags` is a
+# `Vector{RegionTag}`, and a vector of a concrete isbits-shaped type stores its
+# elements inline where a vector of a UnionAll stores pointers.
+@document ImmutableCell [DC] struct RegionTag <: Document
     type::DataType         # cached typeof(value); duplicated for indexing
     first::Int64           # inclusive
     last::Int64            # inclusive
     value::Any
+    selection::Nothing
 end
 
 "Set of region tags. Ranges are in BITS, relative to the enclosing content."
-mutable struct RegionTagSet
+# `tags` is reassigned when a region is dropped, so this one is native: the bare
+# name is the plain `mutable struct` it has always been.
+@native_document struct RegionTagSet <: Document
     tags::Vector{RegionTag}
+    selection::Nothing
 end
 RegionTagSet() = RegionTagSet(RegionTag[])
 

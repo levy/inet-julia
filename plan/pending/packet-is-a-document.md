@@ -636,7 +636,34 @@ the three of §1's four workarounds that §4.1 said would go.
 Gate: `test_packet()`, `test_queuing()` and `test_linklayer()` pass, and the T1S
 `notraffic` and `bestcase` hash pins reproduce bit for bit.
 
-### Phase 5 — the tags — **PENDING**
+### Phase 5 — the tags — **DONE**
+
+| type | kind | binding | why |
+| --- | --- | --- | --- |
+| `TagSet` | immutable | `[DC]` | its `Dict` is mutated in place and never reassigned |
+| `RegionTag` | immutable | `[DC]` | a value, and the element type of a `Vector` |
+| `RegionTagSet` | native | — | `tags` **is** reassigned when a region is dropped |
+
+Whole suite 2923 / 0 / 7 — the same seven — and every hot-path number restored.
+
+**The phase 2 trap again, one level up, and it cost more here.** A field declared
+with a document's bare name holds an abstract value, because the bare name is a
+UnionAll. `Packet.packet_tags::TagSet` cost **48 bytes on every `dup`**, and
+`Vector{RegionTag}` cost **16 on every frame built** — a vector of a UnionAll
+stores pointers where a vector of a concrete type stores its elements inline.
+
+`[DC]` is the answer here and was the wrong answer for a chunk (§ phase 2). The
+difference is who builds the value. A chunk's smart constructor deliberately
+makes a *typed* cell, so binding the bare name to the default spelling made
+`x isa Slice` false for its own output. Nothing builds a non-default `TagSet` or
+`RegionTag`: their constructors take the declared types, so the default spelling
+is the only one there is.
+
+That is the rule this phase adds: **bind a document's bare name to `[DC]` when
+every value of it is the default spelling and something declares a field with
+it.** Leave it on `[C]` when a constructor makes typed cells.
+
+### Phase 5 — what it asked for — **DONE**
 
 - [ ] `TagSet` and `RegionTagSet` become documents.
 
