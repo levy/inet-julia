@@ -225,6 +225,9 @@ Base.promote_rule(::Type{I{N, T}}, ::Type{S}) where {N, T, S <: Integer} =
     promote_type(T, S)
 Base.promote_rule(::Type{I{N, T}}, ::Type{I{M, S}}) where {N, T, M, S} =
     promote_type(T, S)
+# A signed narrow field converts the same way. Without this, anything that asks
+# for the plain number of an `I64` — a literal, a display — has no method.
+(::Type{S})(value::I) where {S <: Integer} = S(value.value)
 
 Base.typemin(::Type{I{N, T}}) where {N, T} = I{N, T}(-(Int64(1) << (N - 1)))
 Base.typemax(::Type{I{N, T}}) where {N, T} = I{N, T}((Int64(1) << (N - 1)) - 1)
@@ -671,12 +674,14 @@ Base.hash(value::FixedOctets, seed::UInt) = hash(value.data, hash(:FixedOctets, 
 Base.length(value::FixedOctets) = Base.length(value.data)
 Base.getindex(value::FixedOctets, index) = value.data[index]
 Base.iterate(value::FixedOctets, state...) = iterate(value.data, state...)
-Base.show(io::IO, value::FixedOctets) = print(io, format_octets(value.data))
+Base.show(io::IO, value::FixedOctets) = print(io, format_bytes(value.data))
 
 measure_field(::Type{FixedOctets{N}}) where {N} = 8 * N
 has_field_bits(::Type{<:FixedOctets}) = false
 classify_display(::Type{<:FixedOctets}) = :composite
-format_field(value::FixedOctets) = format_octets(value.data)
+format_field(value::FixedOctets) = format_bytes(value.data)
+literal_field(value::FixedOctets{N}) where {N} =
+    string("FixedOctets{", N, "}(", literal_bytes(value.data), ")")
 default_field(::Type{FixedOctets{N}}) where {N} = FixedOctets{N}(zeros(UInt8, N))
 
 write_field(io::BitWriter, ::Type{FixedOctets{N}}, value::FixedOctets{N},

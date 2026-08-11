@@ -427,6 +427,9 @@ function Base.show(io::IO, d::Ieee80211Duration)
 end
 
 Base.convert(::Type{Ieee80211Duration}, value::Integer) = Ieee80211Duration(value)
+# `show` prints "103 us", which reads well and is not Julia. A literal has to be
+# the call that rebuilds the value.
+literal_field(d::Ieee80211Duration) = string("Ieee80211Duration(", Int(d.value), ")")
 Base.:(==)(a::Ieee80211Duration, b::Ieee80211Duration) = a.value == b.value
 Base.hash(d::Ieee80211Duration, seed::UInt) = hash(d.value, seed)
 
@@ -471,6 +474,8 @@ Base.show(io::IO, s::Ieee80211SequenceControl) =
 
 Base.convert(::Type{Ieee80211SequenceControl}, value::Integer) =
     Ieee80211SequenceControl(value)
+literal_field(s::Ieee80211SequenceControl) =
+    string("Ieee80211SequenceControl(", Int(s.value), ")")
 Base.:(==)(a::Ieee80211SequenceControl, b::Ieee80211SequenceControl) = a.value == b.value
 Base.hash(s::Ieee80211SequenceControl, seed::UInt) = hash(s.value, seed)
 
