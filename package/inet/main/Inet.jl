@@ -35,6 +35,10 @@ include("Catalog.jl")            # inet_simulation_catalog — the kernel's, ext
 # a packet and the editor stack at once, and no component below has both.
 include("packetdiagram/PacketDiagram.jl")
 using .PacketDiagramModule
+# What the editor's reflection asks a protocol field value. Same reason as
+# above: it needs a header and the editor stack at once.
+include("headerview/HeaderView.jl")
+using .HeaderViewModule
 
 export
     # packet & chunk API — a submodule, so `using Inet.PacketModule` to get its names
@@ -60,6 +64,8 @@ export
     inet_simulation_catalog,
     # a packet as the ASCII art figure the RFCs draw — a submodule, so
     # `using Inet.PacketDiagramModule` to get its names
-    PacketDiagramModule
+    PacketDiagramModule,
+    # how a protocol field value reads in the editor's reflection — a submodule
+    HeaderViewModule
 
 end # module Inet
