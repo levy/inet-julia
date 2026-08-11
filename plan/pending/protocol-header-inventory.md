@@ -528,7 +528,7 @@ Each phase ends with a green test and a commit. The command is
 | phase | delivers | gate |
 | --- | --- | --- |
 | 0 ✅ | the inventory tool and its generated inventory | the inventory reproduces §2 |
-| 1 | the value types, and the generic codec over `fieldtypes` | `EthernetMacHeader` is a plain struct that round-trips |
+| 1 ◐ | the value types, and the generic codec over `fieldtypes` | `EthernetMacHeader` is a plain struct that round-trips |
 | 2 | `@header`: defaults, `derive`, `check` | `Ipv4Header` without options round-trips; a version of 5 marks incorrect |
 | 3 | `Draft`, `start_draft`, `build_header` | a required field left unset fails at `build_header`, not on the wire |
 | 4 | variable length: `Bytes`, `Rest`, `@pad` | a byte tail round-trips and `peek` finds it |
@@ -542,6 +542,21 @@ Each phase ends with a green test and a commit. The command is
 Phases 1 to 7 are the language. Phases 8 and 9 are the inventory. Do not start
 Phase 8 before Phase 7 is green: a header declared against a language that then
 changes is a header written twice.
+
+**Phase 1 is part done.** `InetPacket` is green at 1918 assertions: the value
+types, the generic codec and the five rewritten wire formats all work, and
+`EthernetMacHeader` is a plain struct that round-trips. What remains is the
+rename downstream. The field names followed the standards — `dst` became
+`destination`, `src_address` became `source`, `ttl` became `time_to_live` — and
+three places still read the old ones:
+
+- `package/linklayer/main/t1s/MacFsm.jl` reads `hdr.dst`. That file is
+  generated, so the change belongs in `tool/generate_mac_fsm.jl`.
+- `package/linklayer/test/` builds frames through the old names.
+- `package/inet/test/packetdiagram.jl` and its golden figure name
+  `src_address`; the figure has to be re-recorded.
+
+Finish that before Phase 2.
 
 ## 13. How to test
 
