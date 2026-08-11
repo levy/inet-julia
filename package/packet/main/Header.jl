@@ -243,8 +243,10 @@ macro header(declaration, block)
                     # Present or absent: the whole width of the type, or none.
                     :($(esc(extent)) ?
                       $(M).measure_field($(M).optional_type($(esc(f.type)))) : 0) :
-                    # `until` gives the offset the list ENDS at, so the width is
-                    # what is left between here and there.
+                    # `until` gives the offset the field ENDS at, so the width
+                    # is what is left between here and there. That is an option
+                    # list bounded by a header length, and it is equally the
+                    # filler that takes a header up to the length it declares.
                     :($(M).bits(convert($(M).BitLength, $(esc(extent)))) - $(esc(:offset)))
             # A `when` clause also decides the width on the way out.
             kind === :when && push!(clause_methods, quote

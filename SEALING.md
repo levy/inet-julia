@@ -76,6 +76,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `Checksum.jl`
   - ⬜ `HeaderFacts.jl`
   - *slice `protocol` — the wire formats, one file per protocol*
+    - ⬜ `protocol/SimulationHeader.jl`
     - ⬜ `protocol/Ethernet.jl`
     - ⬜ `protocol/Ieee8021.jl`
     - ⬜ `protocol/Ieee8022.jl`

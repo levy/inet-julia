@@ -82,6 +82,8 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        minimum_chunk_length, is_fixed_length,
        ChecksumMode, CHECKSUM_DECLARED, CHECKSUM_COMPUTED, CHECKSUM_DISABLED,
        compute_ones_complement, compute_internet_checksum, set_field,
+       AckingMacHeader, ShortcutMacHeader, GenericPhyHeader, ShortcutPhyHeader,
+       ApskPhyHeader, build_filler, SIMULATION_FILLER, ACKING_MAC_HEADER_BYTES,
        EthernetPhyHeader, EthernetMacHeader, Ieee8021qTag, EthernetFcs,
        MIN_ETHERNET_FRAME_BYTES, MAX_ETHERNET_FRAME_BYTES, INTERFRAME_GAP_BITS,
        JAM_SIGNAL_BYTES, ETHERNET_PHY_HEADER_LEN_BYTES, ETHERNET_PHY_ESD_LEN_BYTES,
@@ -186,6 +188,7 @@ include("Checksum.jl")
 # and the corpus `RoundTrip.jl` keeps, so it comes after both.
 include("HeaderFacts.jl")
 # The wire formats. One file per protocol, each written from the standard.
+include("protocol/SimulationHeader.jl")
 include("protocol/Ethernet.jl")
 include("protocol/Ieee8021.jl")
 include("protocol/Ieee8022.jl")
