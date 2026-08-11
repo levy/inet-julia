@@ -248,6 +248,15 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        BGP_PARAMETER_CAPABILITIES, BGP_CAPABILITY_MULTIPROTOCOL,
        BGP_ERROR_MESSAGE_HEADER, BGP_ERROR_OPEN_MESSAGE, BGP_ERROR_UPDATE_MESSAGE,
        BGP_ERROR_HOLD_TIMER, BGP_ERROR_FINITE_STATE, BGP_ERROR_CEASE,
+       RtpHeader, RtpMpegHeader, RTP_VERSION, RTP_HEADER_BYTES,
+       RtcpPacket, RtcpCommon, RtcpReceptionReport, RtcpSenderReport,
+       RtcpReceiverReport, RtcpSourceDescription, RtcpBye,
+       RtcpSdesItem, RtcpSdesCname, RtcpSdesItemRaw,
+       RTCP_SENDER_REPORT, RTCP_RECEIVER_REPORT, RTCP_SOURCE_DESCRIPTION,
+       RTCP_BYE, RTCP_APPLICATION,
+       RTCP_SDES_END, RTCP_SDES_CNAME, RTCP_SDES_NAME, RTCP_SDES_EMAIL,
+       RTCP_SDES_PHONE, RTCP_SDES_LOCATION, RTCP_SDES_TOOL, RTCP_SDES_NOTE,
+       RTCP_SDES_PRIVATE,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -306,6 +315,7 @@ include("protocol/Rip.jl")
 include("protocol/Aodv.jl")
 include("protocol/Pim.jl")
 include("protocol/Bgp.jl")
+include("protocol/Rtp.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")

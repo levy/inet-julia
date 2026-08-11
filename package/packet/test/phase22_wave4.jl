@@ -193,6 +193,52 @@ end
     end
 end
 
+@testset "RTP and RTCP — RFC 3550" begin
+    @test chunk_length(RtcpCommon) == Bytes(4)
+    @test chunk_length(RtcpReceptionReport) == Bytes(24)
+    @test chunk_length(RtcpBye) == Bytes(8)
+    @test chunk_length(RtpMpegHeader) == Bytes(4)
+
+    header = RtpHeader(payload_type = 96, sequence_number = UInt16(1),
+                       timestamp = UInt32(160), ssrc = UInt32(0x11223344))
+    @test chunk_length(header) == Bytes(RTP_HEADER_BYTES)
+    # Version 2 with no flags is 0x80; payload type 96 is 0x60.
+    @test hex22(encode_header(header)) == "80 60 00 01 00 00 00 a0 11 22 33 44"
+    @test decode_header(RtpHeader, encode_header(header)) == header
+
+    # A contributing source list adds four octets each, and the count derives.
+    mixed = RtpHeader(payload_type = 96, ssrc = UInt32(1),
+                      contributing_sources = UInt32[2, 3])
+    @test chunk_length(mixed) == Bytes(RTP_HEADER_BYTES + 8)
+    back = decode_header(RtpHeader, encode_header(mixed))
+    @test back.contributing_count == 2
+    @test back.contributing_sources[2] == 3
+
+    # A version other than two comes back marked.
+    wrong = copy(encode_header(header))
+    wrong[1] = 0x40
+    @test decode_header(RtpHeader, wrong) isa MarkedFields
+
+    # Each RTCP packet comes back as itself.
+    report = RtcpSenderReport(ssrc = UInt32(1),
+                              reports = [RtcpReceptionReport(ssrc = UInt32(2))])
+    @test chunk_length(report) == Bytes(4 + 24 + 24)
+    for header2 in (report, RtcpReceiverReport(ssrc = UInt32(1)), RtcpBye(ssrc = UInt32(1)))
+        got = decode_header(RtcpPacket, encode_header(header2))
+        @test !(got isa MarkedFields)
+        @test got == header2
+    end
+
+    # A source description's items end at the zero octet, and the chunk pads to
+    # a multiple of four.
+    description = RtcpSourceDescription(ssrc = UInt32(1),
+        items = [RtcpSdesCname(content = Vector{UInt8}("me"))])
+    @test bits(chunk_length(description)) % 32 == 0
+    read_back = decode_header(RtcpPacket, encode_header(description))
+    @test read_back isa RtcpSourceDescription
+    @test encode_header(read_back) == encode_header(description)
+end
+
 @testset "every declared wire format still round-trips" begin
     for T in filter(H -> parentmodule(H) === PacketModule, list_headers())
         @test check_round_trip(T)
