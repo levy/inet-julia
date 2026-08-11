@@ -69,6 +69,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `FieldTypes.jl`
   - ⬜ `HeaderCodec.jl`
   - ⬜ `Header.jl`
+  - ⬜ `Draft.jl`
   - ⬜ `Checksum.jl`
   - *slice `protocol` — the wire formats, one file per protocol*
     - ⬜ `protocol/Ethernet.jl`
@@ -176,6 +177,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `phase8_field_types.jl`
   - ⬜ `phase9_protocol_headers.jl`
   - ⬜ `phase11_header_macro.jl`
+  - ⬜ `phase12_draft.jl`
 - **`InetQueuingTest`** (`package/queuing/test/`)
   - ⬜ `InetQueuingTest.jl`
   - ⬜ `runtests.jl`

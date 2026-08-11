@@ -17,8 +17,9 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **PENDING**. This is a redesign of the plan that phases 0 to 3
-implemented. §11 says which of the landed commits survive it.
+Status: **IN PROGRESS**. Phases 0 to 3 are done, and the repository is green:
+3040 passes with the seven pre-existing capture and runner errors and nothing
+else. §12 marks each phase as it lands.
 
 ## 1. What the plan delivers
 
@@ -288,10 +289,17 @@ round-trip byte for byte.
 
 The only one of the three with expressions.
 
+A clause sits on its own line, under the field it belongs to. Julia will not
+parse two expressions side by side on one line, so the one-line form this plan
+first proposed is a syntax error; a clause of any length wraps better on a line
+of its own anyway. Found in Phase 2.
+
 ```julia
 @header Ipv4Header begin
-    version         :: U4          = 4     check(version == 4)
-    ihl             :: U4          = 5     derive(cld(measure_header(h), 32))
+    version         :: U4          = 4
+        check(version == 4)
+    ihl             :: U4          = 5
+        derive(cld(measure_header(h), 32))
     dscp            :: U6          = 0
     ecn             :: U2          = 0
     total_length    :: U16
@@ -302,13 +310,14 @@ The only one of the three with expressions.
     fragment_offset :: U13         = 0
     time_to_live    :: U8          = 64
     protocol        :: IpProtocol
-    header_checksum :: Checksum16  = 0     derive(checksum_mode == CHECKSUM_COMPUTED ?
-                                                  compute_internet_checksum(h) :
-                                                  header_checksum)
+    header_checksum :: Checksum16  = 0
+        derive(checksum_mode == CHECKSUM_COMPUTED ?
+               compute_internet_checksum(h, :header_checksum) : header_checksum)
     checksum_mode   :: Model{ChecksumMode} = CHECKSUM_DECLARED
     source          :: Ipv4Address
     destination     :: Ipv4Address
-    options         :: Options{Ipv4Option} until(offset == Bytes(4) * ihl)
+    options         :: Options{Ipv4Option}
+        until(offset == Bytes(4) * ihl)
     @check ihl >= 5
 end
 ```
@@ -528,9 +537,9 @@ Each phase ends with a green test and a commit. The command is
 | phase | delivers | gate |
 | --- | --- | --- |
 | 0 ✅ | the inventory tool and its generated inventory | the inventory reproduces §2 |
-| 1 ◐ | the value types, and the generic codec over `fieldtypes` | `EthernetMacHeader` is a plain struct that round-trips |
-| 2 | `@header`: defaults, `derive`, `check` | `Ipv4Header` without options round-trips; a version of 5 marks incorrect |
-| 3 | `Draft`, `start_draft`, `build_header` | a required field left unset fails at `build_header`, not on the wire |
+| 1 ✅ | the value types, and the generic codec over `fieldtypes` | `EthernetMacHeader` is a plain struct that round-trips |
+| 2 ✅ | `@header`: defaults, `derive`, `check` | `Ipv4Header` without options round-trips; a version of 5 marks incorrect |
+| 3 ✅ | `Draft`, `start_draft`, `build_header` | a required field left unset fails at `build_header`, not on the wire |
 | 4 | variable length: `Bytes`, `Rest`, `@pad` | a byte tail round-trips and `peek` finds it |
 | 5 | `Repeated` | an IGMPv3 report round-trips |
 | 6 | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
@@ -543,20 +552,13 @@ Phases 1 to 7 are the language. Phases 8 and 9 are the inventory. Do not start
 Phase 8 before Phase 7 is green: a header declared against a language that then
 changes is a header written twice.
 
-**Phase 1 is part done.** `InetPacket` is green at 1918 assertions: the value
-types, the generic codec and the five rewritten wire formats all work, and
-`EthernetMacHeader` is a plain struct that round-trips. What remains is the
-rename downstream. The field names followed the standards — `dst` became
-`destination`, `src_address` became `source`, `ttl` became `time_to_live` — and
-three places still read the old ones:
-
-- `package/linklayer/main/t1s/MacFsm.jl` reads `hdr.dst`. That file is
-  generated, so the change belongs in `tool/generate_mac_fsm.jl`.
-- `package/linklayer/test/` builds frames through the old names.
-- `package/inet/test/packetdiagram.jl` and its golden figure name
-  `src_address`; the figure has to be re-recorded.
-
-Finish that before Phase 2.
+Phases 1 to 3 landed together with the rename they forced. The field names now
+follow the standards — `dst` became `destination`, `src_address` became
+`source`, `ttl` became `time_to_live` — and the MAC FSM generator, the
+linklayer tests, the packet demo and the packet diagram all read the new ones.
+The golden figure was re-recorded: it draws RFC 791's three flag bits as
+`r|d|m`, and `version` as `4` rather than `0100`, because a `U4` prints as the
+number it is.
 
 ## 13. How to test
 

@@ -42,7 +42,9 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        FieldSpec, HeaderLayout, describe_layout, get_field, is_constant, has_bits,
        byte_order, default_field, measure_header, unwrap_field,
        serialize, deserialize, encode_header, decode_header, has,
-       @header, derive_field, check_field, list_derived, list_checked,
+       @header, derive_field, check_field, list_derived, list_checked, find_default,
+       Draft, start_draft, build_header, is_set, list_unset, set_field!, unset_field!,
+       header_type,
        minimum_chunk_length, is_fixed_length,
        ChecksumMode, CHECKSUM_DECLARED, CHECKSUM_COMPUTED, CHECKSUM_DISABLED,
        compute_ones_complement, compute_internet_checksum, set_field,
@@ -76,6 +78,7 @@ include("FieldValue.jl")
 include("FieldTypes.jl")
 include("HeaderCodec.jl")
 include("Header.jl")
+include("Draft.jl")
 include("Checksum.jl")
 # The wire formats. One file per protocol, each written from the standard.
 include("protocol/Ethernet.jl")

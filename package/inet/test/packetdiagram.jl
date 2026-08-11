@@ -62,15 +62,25 @@ end
     @test [f.offset for f in ip.fields][1:4] == [0, 4, 8, 14]
 
     # The value is stored as raw bits AND as the text a reader sees.
-    src = ip.fields[12]
-    @test src.name == "source"
-    @test src.value == 0x0a000001
-    @test src.text == "10.0.0.1"
-    @test src.base === :ipv4
+    # RFC 791's order: version, ihl, dscp, ecn, total_length, identification,
+    # the three flag bits, fragment_offset, time_to_live, protocol, checksum,
+    # source, destination.
+    source = ip.fields[14]
+    @test source.name == "source"
+    @test source.value == 0x0a000001
+    @test source.text == "10.0.0.1"
+    @test source.base === :openable            # how a view treats an address
 
-    protocol = ip.fields[10]
+    protocol = ip.fields[12]
+    @test protocol.name == "protocol"
     @test protocol.text == "UDP (17)"
-    @test ip.fields[1].text == "0100"          # four bits, as bits
+    # A `U4` prints as the number it is. The old declaration said a sub-byte
+    # field reads as bits; the value type now decides, and 4 is a version.
+    @test ip.fields[1].text == "4"
+
+    # RFC 791 names the three flag bits one at a time, so the figure does too.
+    @test [f.name for f in ip.fields][7:9] ==
+          ["reserved", "dont_fragment", "more_fragments"]
 
     mac = bands[1]
     @test mac.fields[1].text == "0a:00:00:00:00:02"
@@ -240,8 +250,9 @@ end
     @test any(l -> occursin("10.0.0.1", l), lines)            # an IPv4 address
     @test any(l -> occursin("UDP (17)", l), lines)            # a protocol number
     @test any(l -> occursin("0x0000", l), lines)              # a checksum, in hex
-    # Four bits, printed as bits, in the cell after the header boundary.
-    @test any(l -> occursin("# 0100  |", l), lines)
+    # Four bits, printed as the number they are: the value type decides how a
+    # field reads, and a version is a number.
+    @test any(l -> occursin("#   4   |", l), lines)
 
     # The byte offset gutter counts in bytes, and the header names float above
     # the row they start in.
@@ -262,7 +273,7 @@ end
     wide   = packet_diagram_string(pk; row_bits = 32)
     @test Base.length(split(narrow, '\n')) > Base.length(split(wide, '\n'))
     # At 16 bits per row an Ethernet address still splits, but a port does not.
-    @test occursin("#           source_port            |", wide)
+    @test occursin("#          source_port          |", wide)
 
     # The gutter is optional, and dropping it moves every line left by 8.
     bare = packet_diagram_string(pk; show_offsets = false)

@@ -293,9 +293,27 @@ Base.convert(::Type{Model{T}}, value) where {T} = Model{T}(convert(T, value))
 # so a generic walk over the field types needs no special case.
 write_field(::BitWriter, ::Type{<:Model}, _value, ::Int, ::Symbol) = nothing
 
-# Two values of the same `U` or `I` type do not promote — Julia short-circuits
-# same-type promotion — so arithmetic on a pair falls through to the storage.
-for operator in (:+, :-, :*, :div, :rem)
+# `U` and `I` are `Integer`s, so Base expects the Integer interface of them.
+# Everything below delegates to the storage and returns a plain number: a
+# narrowed value is a wire fact, and arithmetic on one is arithmetic.
+#
+# Two values of the same type do not promote — Julia short-circuits same-type
+# promotion — so a pair needs its own method as well.
+for operator in (:+, :-, :*, :div, :rem, :mod, :&, :|, :xor)
     @eval Base.$operator(a::U, b::U) = $operator(a.value, b.value)
     @eval Base.$operator(a::I, b::I) = $operator(a.value, b.value)
 end
+for operator in (:-, :+, :~, :abs, :sign, :trailing_zeros, :leading_zeros, :count_ones)
+    @eval Base.$operator(a::U) = $operator(a.value)
+    @eval Base.$operator(a::I) = $operator(a.value)
+end
+for operator in (:<<, :>>, :>>>)
+    @eval Base.$operator(a::U, n::Integer) = $operator(a.value, n)
+    @eval Base.$operator(a::I, n::Integer) = $operator(a.value, n)
+end
+Base.zero(::Type{U{N, T}}) where {N, T} = U{N, T}(0)
+Base.one(::Type{U{N, T}}) where {N, T} = U{N, T}(1)
+Base.zero(::Type{I{N, T}}) where {N, T} = I{N, T}(0)
+Base.one(::Type{I{N, T}}) where {N, T} = I{N, T}(1)
+Base.iszero(a::U) = iszero(a.value)
+Base.iszero(a::I) = iszero(a.value)

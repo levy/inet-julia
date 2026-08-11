@@ -166,6 +166,14 @@ macro header(name, block)
     clause_methods = Expr[]
     derived = Symbol[]
     checked = Symbol[]
+    # A default is also what a `Draft` starts a field at, so record each one.
+    for f in fields
+        f.default === nothing && continue
+        push!(clause_methods, quote
+            $(M).find_default(::Type{$(esc(name))}, ::Val{$(QuoteNode(f.name))}) =
+                convert($(esc(f.type)), $(esc(f.default)))
+        end)
+    end
     for f in fields
         if f.derive !== nothing
             push!(derived, f.name)

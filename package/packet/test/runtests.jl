@@ -16,4 +16,5 @@ using Test
     include("phase8_field_types.jl")
     include("phase9_protocol_headers.jl")
     include("phase11_header_macro.jl")
+    include("phase12_draft.jl")
 end
