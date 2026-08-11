@@ -34,7 +34,7 @@ M/M/1/K queue and without one an M/M/1: the classic model whose mean queue
 length and waiting time are known in closed form, which is what makes it worth
 shipping as an example.
 """
-@document struct QueuingModel <: AbstractModel
+@native_document struct QueuingModel <: AbstractModel
     arrival_rate::Float64          # packets per second
     service_rate::Float64          # packets per second one server can manage
     packet_capacity::Int           # 0 for an unbounded queue
@@ -65,7 +65,7 @@ model_parameter_space(::Type{QueuingModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{QueuingModel}, r::AResolvedParameters)
-    m = MQueuingModel(Float64(r[:arrival_rate]), Float64(r[:service_rate]),
+    m = QueuingModel(Float64(r[:arrival_rate]), Float64(r[:service_rate]),
                         Int(r[:packet_capacity]), Int(r[:packet_bytes]),
                         Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_queuing_network(m)

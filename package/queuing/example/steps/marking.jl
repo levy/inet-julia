@@ -23,7 +23,7 @@ This is the general case: the property a stream is sorted by is put there by an
 element on the way, which is what you need when the traffic comes from
 somewhere that does not know about your classification.
 """
-@document struct LabelerModel <: AbstractModel
+@native_document struct LabelerModel <: AbstractModel
     arrival_rate::Float64
     labels::Int                  # how many different labels are written
     time_limit::Float64
@@ -47,7 +47,7 @@ model_parameter_space(::Type{LabelerModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{LabelerModel}, r::AResolvedParameters)
-    m = MLabelerModel(Float64(r[:arrival_rate]), Int(r[:labels]),
+    m = LabelerModel(Float64(r[:arrival_rate]), Int(r[:labels]),
                         Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_labeler_network(m)
     m
@@ -99,7 +99,7 @@ and a duplicator on one of them that sends some packets twice again.
 Two ways of making more packets, side by side: one fans a stream out, the other
 thickens it in place. The counts at the two sinks are what tells them apart.
 """
-@document struct ClonerModel <: AbstractModel
+@native_document struct ClonerModel <: AbstractModel
     arrival_rate::Float64
     branches::Int                # how many copies the cloner makes
     duplicate_every::Int         # the duplicator sends every k-th packet twice
@@ -125,7 +125,7 @@ model_parameter_space(::Type{ClonerModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{ClonerModel}, r::AResolvedParameters)
-    m = MClonerModel(Float64(r[:arrival_rate]), Int(r[:branches]),
+    m = ClonerModel(Float64(r[:arrival_rate]), Int(r[:branches]),
                        Int(r[:duplicate_every]), Float64(r[:time_limit]),
                        Int(r[:seed]), nothing)
     m.network = _build_cloner_network(m)

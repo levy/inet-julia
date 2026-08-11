@@ -42,7 +42,7 @@ This is the first step where a packet is more than its length: the source
 writes a number on each one, and the classifier's predicates are what decide
 where it goes. Everything downstream of the fork sees only its own share.
 """
-@document struct ContentBasedClassifierModel <: AbstractModel
+@native_document struct ContentBasedClassifierModel <: AbstractModel
     arrival_rate::Float64        # packets per second
     classes::Int                 # how many values the source writes, and outputs
     time_limit::Float64
@@ -66,7 +66,7 @@ model_parameter_space(::Type{ContentBasedClassifierModel}) = ParameterSpace(Para
 ])
 
 function build_model(::Type{ContentBasedClassifierModel}, r::AResolvedParameters)
-    m = MContentBasedClassifierModel(Float64(r[:arrival_rate]), Int(r[:classes]),
+    m = ContentBasedClassifierModel(Float64(r[:arrival_rate]), Int(r[:classes]),
                                        Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_content_classifier_network(m)
     m
@@ -125,7 +125,7 @@ full — and the scheduler always empties the first before touching the second.
 Together that is what "priority" means here, and nothing in the chain had to be
 told about priorities.
 """
-@document struct PriorityQueueChainModel <: AbstractModel
+@native_document struct PriorityQueueChainModel <: AbstractModel
     arrival_rate::Float64
     processing_time::Float64     # seconds one packet takes to serve
     first_capacity::Int          # how many the high-priority queue holds
@@ -151,7 +151,7 @@ model_parameter_space(::Type{PriorityQueueChainModel}) = ParameterSpace(Paramete
 ])
 
 function build_model(::Type{PriorityQueueChainModel}, r::AResolvedParameters)
-    m = MPriorityQueueChainModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+    m = PriorityQueueChainModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                                    Int(r[:first_capacity]), Float64(r[:time_limit]),
                                    Int(r[:seed]), nothing)
     m.network = _build_priority_chain_network(m)
@@ -209,7 +209,7 @@ The predicate reads the value the source wrote, so which packets survive is a
 property of the packets rather than of the wiring — the same filter with a
 different predicate is a different step.
 """
-@document struct FilterModel <: AbstractModel
+@native_document struct FilterModel <: AbstractModel
     arrival_rate::Float64
     classes::Int                 # values the source writes
     keep::Int                    # the one value that gets through
@@ -235,7 +235,7 @@ model_parameter_space(::Type{FilterModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{FilterModel}, r::AResolvedParameters)
-    m = MFilterModel(Float64(r[:arrival_rate]), Int(r[:classes]), Int(r[:keep]),
+    m = FilterModel(Float64(r[:arrival_rate]), Int(r[:classes]), Int(r[:keep]),
                        Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_filter_network(m)
     m
@@ -281,7 +281,7 @@ walks a state machine, which gives the same long-run shares in bursts. The
 network is otherwise identical, so what changes between runs is only the
 policy.
 """
-@document struct SharedChainModel <: AbstractModel
+@native_document struct SharedChainModel <: AbstractModel
     arrival_rate::Float64
     processing_time::Float64
     policy::Symbol               # :priority | :round_robin | :markov
@@ -313,7 +313,7 @@ model_parameter_space(::Type{SharedChainModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{SharedChainModel}, r::AResolvedParameters)
-    m = MSharedChainModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+    m = SharedChainModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                             Symbol(r[:policy]), Int(r[:first_weight]),
                             Int(r[:second_weight]), Float64(r[:stickiness]),
                             Float64(r[:time_limit]), Int(r[:seed]), nothing)
@@ -402,7 +402,7 @@ a registered policy and its argument — `data_equals` with `3`, `every_nth` wit
 answer to INET's `classifierClass = "inet::…"`: a name still selects a policy,
 but what it names is a function anyone can register rather than a class.
 """
-@document struct NamedPolicyModel <: AbstractModel
+@native_document struct NamedPolicyModel <: AbstractModel
     arrival_rate::Float64
     classes::Int                 # values the source writes
     policy::Symbol               # the registered predicate to use
@@ -430,7 +430,7 @@ model_parameter_space(::Type{NamedPolicyModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{NamedPolicyModel}, r::AResolvedParameters)
-    m = MNamedPolicyModel(Float64(r[:arrival_rate]), Int(r[:classes]),
+    m = NamedPolicyModel(Float64(r[:arrival_rate]), Int(r[:classes]),
                             Symbol(r[:policy]), r[:argument],
                             Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_named_policy_network(m)

@@ -28,7 +28,11 @@ using OmnetppPresentation: register_doctype_module!
 import Projectured
 # `@document`'s expansion names these, so they must be in scope where a step
 # model is declared.
-using Projectured.DocumentModule: @document
+using Projectured.DocumentModule: @document, @document_preset
+
+# Every model in the tutorial steps is built to be run, never to be drawn, so its
+# bare name is the native struct.
+@document_preset native_document [M, C]
 using Projectured.ReferenceModule: Reference
 using Projectured.CellModule: ImmutableCell
 

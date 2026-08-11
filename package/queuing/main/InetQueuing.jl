@@ -33,7 +33,12 @@ import OmnetppSimulator: model_module_count, model_barrier_module, model_delay_e
 # sim runs on the native (mutable) variant at full speed and a reactive variant
 # is refreshed for the UI. The macro's expansion needs `Reference` and the cell
 # primitives in scope, which is why they are imported alongside it.
-using ProjecturedKernel.DocumentModule: Document, sync_document!, @document
+using ProjecturedKernel.DocumentModule: Document, sync_document!, @document,
+                                        @document_preset
+
+# A model the engine runs is the native one, so that is what its bare name means.
+# `ACQueuingModel` is its cell twin, which is what an editor holds.
+@document_preset native_document [M, C]
 using ProjecturedKernel.ReferenceModule: Reference
 using ProjecturedKernel.CellModule: ImmutableCell, set_cell_function!
 
@@ -98,6 +103,6 @@ export
     PacketClassifierElement, PacketSchedulerElement, PacketFilterElement,
     PacketPlumbingElement, PacketMarkingModule, PriorityQueueElement,
     # the model interface implementation the lifecycle drives
-    QueuingModel, AQueuingModel, MQueuingModel
+    QueuingModel, AQueuingModel, QueuingModel
 
 end # module InetQueuing

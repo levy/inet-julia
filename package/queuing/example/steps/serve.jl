@@ -23,7 +23,7 @@ and a scheduler. This one uses the element that *is* that assembly: the same
 submodules, built and wired for you, and visible in the diagram because a
 compound module's submodules are real modules in the network.
 """
-@document struct PriorityQueueModel <: AbstractModel
+@native_document struct PriorityQueueModel <: AbstractModel
     arrival_rate::Float64
     processing_time::Float64
     priorities::Int              # how many levels the queue has
@@ -51,7 +51,7 @@ model_parameter_space(::Type{PriorityQueueModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{PriorityQueueModel}, r::AResolvedParameters)
-    m = MPriorityQueueModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+    m = PriorityQueueModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                               Int(r[:priorities]), Int(r[:level_capacity]),
                               Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_priority_queue_network(m)
@@ -105,7 +105,7 @@ server does: it will not start serving a packet it could not then deliver. So a
 refusing filter stops the server, the queue fills, and nothing is lost; a
 dropping one lets the whole chain run and throws the packets away at the end.
 """
-@document struct BackpressureFilterModel <: AbstractModel
+@native_document struct BackpressureFilterModel <: AbstractModel
     arrival_rate::Float64
     processing_time::Float64
     backpressure::Bool           # refuse rather than drop
@@ -133,7 +133,7 @@ model_parameter_space(::Type{BackpressureFilterModel}) = ParameterSpace(Paramete
 ])
 
 function build_model(::Type{BackpressureFilterModel}, r::AResolvedParameters)
-    m = MBackpressureFilterModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+    m = BackpressureFilterModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                                    Bool(r[:backpressure]), Float64(r[:pass_rate]),
                                    Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_backpressure_network(m)

@@ -20,7 +20,7 @@ exactly what it did there. What is worth watching is that they did not have to
 be adapted to each other: a multiplexer does not know it is feeding a compound,
 and the compound does not know a filter is downstream.
 """
-@document struct ComplexNetworkModel <: AbstractModel
+@native_document struct ComplexNetworkModel <: AbstractModel
     arrival_rate::Float64        # per source
     processing_time::Float64
     priorities::Int
@@ -50,7 +50,7 @@ model_parameter_space(::Type{ComplexNetworkModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{ComplexNetworkModel}, r::AResolvedParameters)
-    m = MComplexNetworkModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
+    m = ComplexNetworkModel(Float64(r[:arrival_rate]), Float64(r[:processing_time]),
                                Int(r[:priorities]), Int(r[:level_capacity]),
                                Float64(r[:pass_rate]), Float64(r[:time_limit]),
                                Int(r[:seed]), nothing)

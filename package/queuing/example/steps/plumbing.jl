@@ -25,7 +25,7 @@ With a fixed delay the packets come out in the order they went in, just later.
 With a random one they can overtake each other — which is what a path whose
 delay varies does to a stream, and why the later link-layer steps care.
 """
-@document struct DelayerModel <: AbstractModel
+@native_document struct DelayerModel <: AbstractModel
     arrival_rate::Float64
     delay::Float64               # seconds each packet is held (mean, when random)
     random_delay::Bool
@@ -51,7 +51,7 @@ model_parameter_space(::Type{DelayerModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{DelayerModel}, r::AResolvedParameters)
-    m = MDelayerModel(Float64(r[:arrival_rate]), Float64(r[:delay]),
+    m = DelayerModel(Float64(r[:arrival_rate]), Float64(r[:delay]),
                         Bool(r[:random_delay]), Float64(r[:time_limit]),
                         Int(r[:seed]), nothing)
     m.network = _build_delayer_network(m)
@@ -96,7 +96,7 @@ A multiplexer holds nothing and decides nothing: it forwards what arrives on
 any input to its one output, so the sink sees one stream made of several. It is
 what lets a chain be fed from more than one place without the chain knowing.
 """
-@document struct MultiplexerModel <: AbstractModel
+@native_document struct MultiplexerModel <: AbstractModel
     arrival_rate::Float64        # per source
     sources::Int
     time_limit::Float64
@@ -120,7 +120,7 @@ model_parameter_space(::Type{MultiplexerModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{MultiplexerModel}, r::AResolvedParameters)
-    m = MMultiplexerModel(Float64(r[:arrival_rate]), Int(r[:sources]),
+    m = MultiplexerModel(Float64(r[:arrival_rate]), Int(r[:sources]),
                             Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_multiplexer_network(m)
     m
@@ -170,7 +170,7 @@ packet goes says something about the collectors' timing, not about the packet.
 That is what separates it from a classifier, which reads the packet and
 chooses.
 """
-@document struct DemultiplexerModel <: AbstractModel
+@native_document struct DemultiplexerModel <: AbstractModel
     collection_interval::Float64   # seconds between collections, per sink
     sinks::Int
     time_limit::Float64
@@ -194,7 +194,7 @@ model_parameter_space(::Type{DemultiplexerModel}) = ParameterSpace(Parameter[
 ])
 
 function build_model(::Type{DemultiplexerModel}, r::AResolvedParameters)
-    m = MDemultiplexerModel(Float64(r[:collection_interval]), Int(r[:sinks]),
+    m = DemultiplexerModel(Float64(r[:collection_interval]), Int(r[:sinks]),
                               Float64(r[:time_limit]), Int(r[:seed]), nothing)
     m.network = _build_demultiplexer_network(m)
     m

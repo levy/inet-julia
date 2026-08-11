@@ -50,7 +50,7 @@ end
 # @document is used for the reactive shadowing pattern of the simulator
 # framework. Fields exposed on the model type; the state struct is opaque
 # behind `state::Any`, same idiom as MM1KModel.
-@document struct T1sModel <: AbstractModel
+@native_document struct T1sModel <: AbstractModel
     n_nodes::Int                         # coordinator + (n_nodes-1) followers
     n_modules::Int                       # total for the scheduler
     time_limit::SimTime
@@ -110,7 +110,7 @@ function build_model(::Type{T1sModel}, r::AResolvedParameters)
     n_modules = 1 + n_nodes + n_junctions
 
     vec_path = haskey(r, :vec_path) ? String(r[:vec_path]) : ""
-    m = MT1sModel(n_nodes, n_modules, time_limit, d_seg, d_stub,
+    m = T1sModel(n_nodes, n_modules, time_limit, d_seg, d_stub,
                     max_bc, sources, seed, vec_path, nothing)
     m.state = _build_state!(m)
     return m

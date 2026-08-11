@@ -38,7 +38,11 @@ import OmnetppSimulator: model_module_count, model_barrier_module, model_delay_e
 # sim runs on the native (mutable) variant at full speed and a reactive variant
 # is refreshed for the UI. The macro's expansion needs `Reference` and the cell
 # primitives in scope, which is why they are imported alongside it.
-using ProjecturedKernel.DocumentModule: Document, sync_document!, @document
+using ProjecturedKernel.DocumentModule: Document, sync_document!, @document,
+                                        @document_preset
+
+# The model the engine runs is the native one; `ACT1sModel` is its cell twin.
+@document_preset native_document [M, C]
 using ProjecturedKernel.ReferenceModule: Reference
 using ProjecturedKernel.CellModule: ImmutableCell, set_cell_function!
 
@@ -55,6 +59,6 @@ export
     # 10BASE-T1S / PLCA building blocks (FSMs, PHY, wire, MAC, app)
     T1sModule,
     # the model interface implementation the lifecycle drives
-    T1sModel, AT1sModel, MT1sModel
+    T1sModel, AT1sModel, T1sModel
 
 end # module InetLinkLayer

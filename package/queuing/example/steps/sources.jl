@@ -36,7 +36,7 @@ Nothing waits and nothing is served, so what the run shows is the production
 process itself — how many packets a given interval produces, and how a random
 interval differs from a fixed one.
 """
-@document struct ActiveSourcePassiveSinkModel <: AbstractModel
+@native_document struct ActiveSourcePassiveSinkModel <: AbstractModel
     production_interval::Float64   # seconds between packets (mean, when random)
     random_intervals::Bool         # exponential rather than fixed
     packet_bytes::Int
@@ -62,7 +62,7 @@ model_parameter_space(::Type{ActiveSourcePassiveSinkModel}) = ParameterSpace(Par
 ])
 
 function build_model(::Type{ActiveSourcePassiveSinkModel}, r::AResolvedParameters)
-    m = MActiveSourcePassiveSinkModel(Float64(r[:production_interval]),
+    m = ActiveSourcePassiveSinkModel(Float64(r[:production_interval]),
                                         Bool(r[:random_intervals]),
                                         Int(r[:packet_bytes]),
                                         Float64(r[:time_limit]), Int(r[:seed]), nothing)
@@ -113,7 +113,7 @@ in this library plays one of these two roles at each of its gates, which is why
 a queue can sit between a pushing source and a pulling server without either
 knowing about the other.
 """
-@document struct PassiveSourceActiveSinkModel <: AbstractModel
+@native_document struct PassiveSourceActiveSinkModel <: AbstractModel
     collection_interval::Float64   # seconds between collections (mean, when random)
     random_intervals::Bool
     packet_bytes::Int
@@ -139,7 +139,7 @@ model_parameter_space(::Type{PassiveSourceActiveSinkModel}) = ParameterSpace(Par
 ])
 
 function build_model(::Type{PassiveSourceActiveSinkModel}, r::AResolvedParameters)
-    m = MPassiveSourceActiveSinkModel(Float64(r[:collection_interval]),
+    m = PassiveSourceActiveSinkModel(Float64(r[:collection_interval]),
                                         Bool(r[:random_intervals]),
                                         Int(r[:packet_bytes]),
                                         Float64(r[:time_limit]), Int(r[:seed]), nothing)
