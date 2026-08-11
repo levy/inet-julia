@@ -419,7 +419,55 @@ Two consequences to handle in the same phase:
 Work in a git worktree, created as a **sibling** of `inet-julia`. Commit at the
 end of each phase and mark it here.
 
-### Phase 0 — measure first — **PENDING**
+### Phase 0 — measure first — **DONE**
+
+Scripts: `packet-phase0.jl` and `packet-phase0b.jl`, beside this file. Re-run them
+at the end to fill the right-hand column of every table.
+
+**isbits, as things are today.**
+
+| type | isbits | sizeof |
+| --- | --- | --- |
+| `Filler` | **true** | 16 |
+| `Slice{Filler}` | **true** | 32 |
+| `Raw` | false | — (holds a `Vector`) |
+| `Sequence` | false | — (holds a `Vector`) |
+| `Packet` | false | — (mutable) |
+
+Only `Filler` and `Slice` are isbits, and those two are what §5.1 is about. `Raw`
+and `Sequence` hold vectors and are heap objects already, so the injected
+selection would cost them nothing — but they take `selection::Nothing` anyway,
+for one rule rather than two.
+
+**Hot paths, allocations per call.**
+
+| | bytes/call |
+| --- | --- |
+| `build_ethernet_frame` | 1216 |
+| `dup(frame)` | 176 |
+
+**A whole T1S run, 200 µs.**
+
+| scenario | allocations | envelope reads | writes | total accesses |
+| --- | --- | --- | --- | --- |
+| `notraffic` | 508 688 | 0 | 0 | 0 |
+| `bestcase` | 370 432 | 1371 | 160 | **1531** |
+
+The counts are measured, not estimated: `packet-phase0b.jl` gives `Packet` a
+temporary `getproperty`/`setproperty!` pair that tallies. That pair lives in the
+script and is never committed to the package.
+
+**Open question 0, answered: 6.6 %.** At 16 bytes an access, a reactive envelope
+would add 24 496 bytes to a `bestcase` run that allocates 370 432 — **6.6 % more
+allocation**, and nothing at all on a run that carries no packets.
+
+So the envelope is not heavily on the hot path, and the microbenchmark of §3.2
+overstated the case. 6.6 % is still slower, and the constraint is that the hot
+path must not be slower, so **§4.1 stands: the envelope is native**. What has
+changed is that the price of the alternative is known rather than feared, and a
+later decision to pay it would be a decision rather than an accident.
+
+### Phase 0 — what it asked for — **DONE**
 
 - [ ] Record the allocation count and time of the hot paths as they are today:
       `build_ethernet_frame`, `peek(pk, Ipv4Header)`, `pushfirst!`, `dup`, and
