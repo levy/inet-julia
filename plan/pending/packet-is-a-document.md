@@ -14,8 +14,10 @@ Status: **PENDING**. Nothing is implemented.
 
 > **Two constraints from the owner, 2026-08-11, and §4 changes to meet them.**
 >
-> 1. **No reactive envelope on the hot path.** A reactive field access allocates
->    **16 bytes**; a native or immutable one allocates nothing.
+> 1. **No reactive instance on the hot path. Period.** Not a budget, not a
+>    percentage — a rule. A reactive field access allocates **16 bytes**; a
+>    native or immutable one allocates nothing. Nothing a simulation touches is
+>    reactive, whatever the measured share turns out to be.
 > 2. **No selection field on the hot path.** The injected
 >    `Union{Nothing, Reference, SelectionDocument}` takes a chunk leaf from
 >    **isbits at 16 bytes to a heap object at 24**, and adds 8 bytes to the
@@ -462,10 +464,9 @@ would add 24 496 bytes to a `bestcase` run that allocates 370 432 — **6.6 % mo
 allocation**, and nothing at all on a run that carries no packets.
 
 So the envelope is not heavily on the hot path, and the microbenchmark of §3.2
-overstated the case. 6.6 % is still slower, and the constraint is that the hot
-path must not be slower, so **§4.1 stands: the envelope is native**. What has
-changed is that the price of the alternative is known rather than feared, and a
-later decision to pay it would be a decision rather than an accident.
+overstated the case in isolation. It changes nothing: **the envelope is native**,
+and 6.6 % is recorded so that nobody re-opens this having only seen §3.2's
+larger-looking number. The rule is not a budget.
 
 ### Phase 0 — what it asked for — **DONE**
 
@@ -522,7 +523,7 @@ a changed byte means the codec was disturbed.
 ### Phase 4 — the envelope — **PENDING**
 
 - [ ] `Packet` becomes `@native_document struct` — the bare name is the plain
-      mutable struct it already is — unless open question 0 says otherwise.
+      mutable struct it already is.
 - [ ] `dup` stays O(1): a fresh envelope pointing at the same content.
 - [ ] `pushfirst!`, `push!`, `popfirst!`, `trim!` write cells.
 
@@ -589,12 +590,11 @@ this plan can actually change is allocations, which count exactly.
 
 ## 10. Open questions
 
-0. **Is the envelope on the hot path?** The one question that has to be answered
-   before anything is written. §3.2 measured the cost of a reactive access at 16
-   bytes; phase 0 must count how many such accesses a simulated event makes. A
-   small count means §4's original reactive envelope is affordable and §1.2 goes
-   away with it. A large one means the envelope is native and the editor holds a
-   synced cell copy, as §4.1 has it.
+0. ~~**Is the envelope on the hot path?**~~ **Closed, and it does not matter.**
+   Phase 0 counted 1531 envelope accesses in a `bestcase` run, which a reactive
+   envelope would make 6.6 % more expensive. The rule is that nothing on the hot
+   path is reactive, so the envelope is native regardless of the share. The
+   number is kept only so the question is not asked again.
 1. **Does a header stay cheap enough?** Phase 0 answers it. If a selectable
    header costs an allocation the simulation cannot afford, the fallback is
    `selection::Nothing` on headers only: the figure then maps a click through
@@ -628,7 +628,7 @@ four files are still sealed. If the parameter is ever wanted for its own sake
 rather than for concreteness, the change belongs to `projectured-julia` on its own
 terms rather than as a rider on this plan.
 
-**A reactive envelope regardless.** Rejected by measurement, not by taste: 16
-bytes per field access on the struct a simulation touches every hop. If phase 0
-shows the access count per event is small, this stops being rejected — which is
-why it is open question 0 rather than a closed door.
+**A reactive envelope regardless.** Rejected by rule. A reactive field access
+allocates 16 bytes on a struct the simulation touches, and nothing the simulation
+touches is reactive. Phase 0 measured the share at 6.6 % of a `bestcase` run;
+that is recorded as a fact, not as a threshold to argue against.
