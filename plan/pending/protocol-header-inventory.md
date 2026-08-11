@@ -251,6 +251,62 @@ Two more things IEEE 802.11 will need, both already in the language:
 One discrepancy is already known and stays out of scope: INET's
 `Ieee80211BlockAckReq` is 38 octets where IEEE 802.11 draws 20.
 
+### 3.7 Wave 4, and the one shape BGP still needs
+
+**Done — 32 formats.** RIP, the eight AODV control packets, the DSDV hello, and
+the eighteen PIM formats.
+
+Three findings, none of which needed a language change:
+
+1. **A list with no window keeps turning up.** RFC 2453 clause 3.6 says a RIP
+   message's entry count is what the datagram length leaves, and a PIM Hello's
+   options run to the end of the message. Both are the shape the neighbour
+   discovery options introduced.
+2. **An address form the standard defines once should be a header.** RFC 7761
+   clause 4.9.1 gives PIM three encoded address forms and eight messages reuse
+   them. Declaring each once, as gPTP's timestamp and port identity already
+   are, replaces twenty-four repeated fields with three headers.
+3. **INET reverses a list where the standard does not.**
+   `AodvControlPacketsSerializer` writes the unreachable node list backwards.
+   RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
+   in but not on the way out turns the list around at every hop.
+
+**Left — about 70 formats.** OSPFv2 and v3 (13), BGP (4), MIPv6 (9), RTP and
+RTCP (7), DHCP, SCTP, and the small `protocolelement` and `applications`
+headers. Then the IEEE 802.11 management bodies and the twenty-one
+physical-layer formats of Wave 3.
+
+**BGP is the one to declare carefully rather than quickly.** Its UPDATE message
+has two shapes nothing else in the inventory has.
+
+* **A prefix whose length field counts bits.** A withdrawn route is a length
+  octet and then that many BITS of prefix, padded up to a whole octet. The
+  language already says it — `length(Bytes(cld(prefix_length, 8)))` — but a
+  declaration that writes four octets where the standard writes two is a
+  declaration that reads no capture, so it wants a byte-string test.
+* **A field whose own length field changes width.** A path attribute's flags
+  octet carries an Extended Length bit, and that bit decides whether the
+  attribute's length is one octet or two. Every other length field in the
+  inventory has a fixed width.
+
+  The language can say it with what it has:
+
+  ```julia
+      extended_length :: Bool = false
+      ...
+      length_high :: Optional{U8} = nothing
+          when(extended_length)
+      length_low  :: U8 = 0
+  ```
+
+  A `when` clause already decides presence on both sides, so the two octets
+  appear exactly when the bit says. What that costs is a reader helper —
+  `measure_attribute_length` — because the value is then split across two
+  fields. The alternative is a value type that carries its own width, and a
+  width that another field decides is not what a value is. The `when` clause is
+  the right tool; it just needs writing down before someone reaches for a
+  second `length` clause.
+
 ## 4. The design
 
 ### 4.1 Three concerns, three places
@@ -737,7 +793,7 @@ Each phase ends with a green test and a commit. The command is
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
 | 8 ✅ | the corpus ✅, Wave 1 ✅, Wave 2 ✅ | green over 91 formats |
-| 9 ◐ | Wave 3 ✅, Wave 4 started | green over 188 formats |
+| 9 ◐ | Wave 3 ✅, Wave 4 started — §3.7 | green over 188 formats |
 | 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 
 Phases 1 to 7 are the language. Phases 8 and 9 are the inventory. Do not start
