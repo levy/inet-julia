@@ -32,19 +32,26 @@ function measure(label, f, n)
 end
 
 println("── isbits, every chunk type as it is today ──")
-# A document's own type name is its cell layout with every cell spelled out, so
-# the schema name is what a reader wants here.
-name(T) = T <: Document ? string(document_schema_name(T)) : string(T)
-for T in (Filler, Raw, Sequence, Packet)
-    @printf("  %-34s isbits=%-6s sizeof=%s\n", name(T), isbitstype(T),
+# Ask an instance, never the name. A document's bare name is its cell layout — a
+# UnionAll — and `isbitstype` of a UnionAll is always false, which says nothing
+# about the values. Phase 0 asked the names, when the names were concrete
+# structs; from phase 1 the same question has to be put to a value.
+name(x) = x isa Document ? string(document_schema_name(typeof(x))) : string(typeof(x))
+for x in (Filler(Bits(64)), Raw(rand(UInt8, 8)),
+          sequence(Chunk[Filler(Bits(64)), Raw(rand(UInt8, 8))]),
+          Packet(Filler(Bits(64))))
+    T = typeof(x)
+    @printf("  %-34s isbits=%-6s sizeof=%s\n", name(x), isbitstype(T),
             isbitstype(T) ? string(sizeof(T)) : "—")
 end
-# The two parametric ones need a concrete parameter before the question means
-# anything, which is the whole point of §5.1.
-let f = Filler(BitLength(64))
-    @printf("  %-34s isbits=%-6s sizeof=%s\n", "Slice{Filler}",
-            isbitstype(Slice{Filler}), sizeof(Slice{Filler}))
-    SINK[] = f
+# A slice's concreteness comes from the cell its smart constructor makes, so the
+# question is asked of an instance rather than of a written-out type. Phase 0
+# asked it of `Slice{Filler}` and got true / 32; this must still say true / 32.
+let sf = slice(Filler(Bits(64)), Bits(8), Bits(32))
+    T = typeof(sf)
+    @printf("  %-34s isbits=%-6s sizeof=%s\n", "slice over a Filler", isbitstype(T),
+            isbitstype(T) ? string(sizeof(T)) : "—")
+    SINK[] = sf
 end
 
 println("\n── the hot paths ──")

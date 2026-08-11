@@ -41,9 +41,12 @@ _rewrap_quality(c::Fields,   q::Quality) = MarkedFields(c, q)
 # Q_COMPLETE. Kept separate from the header so plain headers stay clean
 # immutable structs, matching the isbits story (§6.1).
 # ============================================================================
-struct MarkedFields{H<:Fields} <: Chunk
-    header::H
+# The `{H}` parameter is gone for the same reason as `Slice`'s, and the peek
+# below dispatches on the value rather than on the parameter.
+@document ImmutableCell struct MarkedFields <: Chunk
+    header::Fields
     quality::Quality
+    selection::Nothing
 end
 chunk_length(m::MarkedFields) = chunk_length(m.header)
 quality(m::MarkedFields)      = m.quality
@@ -78,11 +81,13 @@ _rewrap_quality(m::MarkedFields, q::Quality) = MarkedFields(m.header, q)
 # Peek(m, T::Fields) returns the wrapped header when the type matches — but
 # the caller must have gated on `quality(pk_slice)` first, or opt in via the
 # peek kwargs below.
-function peek(m::MarkedFields{H}, ::Type{H}; kwargs...) where {H<:Fields}
-    return m.header
+# One method now, where there were two. The pair used to be `MarkedFields{H}`
+# with `::Type{H}` against the general `::Type{T}`; without the parameter both
+# spell the same signature, so the test moves into the body.
+function peek(m::MarkedFields, ::Type{T}; kwargs...) where {T<:Fields}
+    m.header isa T && return m.header
+    return peek(m.header, T; kwargs...)
 end
-peek(m::MarkedFields, ::Type{T}; kwargs...) where {T<:Fields} =
-    peek(m.header, T; kwargs...)
 
 # ============================================================================
 # The strict-by-default gate. Called inside peek(Fields …) BEFORE returning.

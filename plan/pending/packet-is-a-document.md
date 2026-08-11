@@ -521,7 +521,62 @@ loads against a manifest that does not know about the edge.
 - [ ] Fix every construction site and the smart constructors.
 - [ ] `test_packet()` passes; `Filler` still holds a length rather than bytes.
 
-### Phase 2 — the composites — **PENDING**
+### Phase 2 — the composites — **DONE**
+
+`Slice`, `Sequence` and `MarkedFields` are documents. `phase1_chunks.jl` passes
+unedited, `test_packet()` is 1892 / 1892, the whole suite is 2923 / 0 / 7 — the
+same seven that predate this work — and every hot-path number reproduces:
+
+| | phase 0 | after phase 2 |
+| --- | --- | --- |
+| `build_ethernet_frame` | 1216 | **1216** |
+| `dup(frame)` | 176 | **176** |
+| `peek(frame, EthernetMacHeader)` | 1072 | **1040** |
+| `slice(raw)` / `slice(seq)` | 48 / 336 | **48 / 336** |
+| `Filler` isbits / sizeof | true / 16 | **true / 16** |
+| slice over a `Filler` | true / 32 | **true / 32** |
+
+Three findings, and the first will recur in phases 3 and 4.
+
+**1. `isa` on a bare name, then a field read in the same frame, boxes.** A
+document's bare name is a UnionAll. `Sequence` used to be a concrete struct, so
+`p isa Sequence` narrowed `p` from `Chunk` to something concrete and the read
+compiled to a static load. Now the narrowing lands on something still abstract.
+It cost 48 bytes a call in `sequence`'s flatten branch, which `push!` pays on
+every frame built — `build_ethernet_frame` went 1216 → 1264.
+
+The fix is a function barrier. **Annotating the read inline does not work**;
+`append!(flat, p.chunks::Vector{Chunk})` still cost 32 of the 48. Only a separate
+function recovers all of it, because the call specialises on the concrete type:
+
+```julia
+@noinline _children(s) = getfield(s, :chunks)[]::Vector{Chunk}
+```
+
+The shape needs `isa` **and** a read in one frame with no dispatch between. Where
+the value arrives as a function *argument* — `_to_fields`, `slice`, `peek` — Julia
+specialises and nothing is lost; all three were measured, not assumed. Only
+`sequence`'s loop variable, pulled out of a `Vector{Chunk}`, is abstract inside
+its own frame.
+
+**2. `[DC]` is wrong for a chunk.** §5.1's `slice` builds a cell typed to the
+value, which is deliberately *not* the default spelling — so binding the bare
+name to the default made `x isa Slice` false for everything `slice` returns.
+Chunks take the plain `[C]` binding, the UnionAll. Nothing is lost: isbits belongs
+to the instance's type, not to the name, and a slice over a `Filler` is isbits at
+32 bytes exactly as before.
+
+**3. Dropping `{H}` from `MarkedFields` collapsed two `peek` methods into one
+signature** — a method overwrite, which is fatal at precompile time. They are one
+method now, with the test in the body.
+
+`Sequence.chunks` stays a plain `Vector`. §5.2 wanted a `CellVector`, which lives
+in `ProjecturedBase` — a package this one does not depend on and should not. A
+reference walks a plain vector field and `copy_document` copies it independently;
+both were checked. The only difference is that an element path reads
+`.chunks[i]` rather than `[i]`.
+
+### Phase 2 — what it asked for — **DONE**
 
 - [ ] `Slice` and `MarkedFields` lose their type parameters and become
       documents. The `slice` smart constructor wraps its chunk in

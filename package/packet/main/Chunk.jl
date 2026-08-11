@@ -5,7 +5,7 @@
 #
 #   Filler          length-only (no bytes materialised)  — R1
 #   Raw             actual bit-exact data                — R7
-#   Slice{C}        internal: a shared view              — smart-ctor only
+#   Slice           internal: a shared view              — smart-ctor only
 #   Sequence        internal: an ordered rope            — smart-ctor only
 #
 # `Fields <: Chunk` is the supertype of every declared header (Phase 3).
@@ -27,7 +27,7 @@ abstract type Chunk <: Document end
 # ---------- leaves -----------------------------------------------------------
 
 "Length-only payload: never materialises bytes. Fills with `fill` on serialise."
-@document ImmutableCell [DC] struct Filler <: Chunk
+@document ImmutableCell struct Filler <: Chunk
     length::BitLength
     fill::UInt8
     quality::Quality
@@ -37,7 +37,7 @@ Filler(length::BitLength; fill::UInt8 = 0x00, quality::Quality = Q_COMPLETE) =
     Filler(length, fill, quality)
 
 "Bit-exact data. `length` MAY be a non-multiple of 8 (last byte partially used)."
-@document ImmutableCell [DC] struct Raw <: Chunk
+@document ImmutableCell struct Raw <: Chunk
     data::Vector{UInt8}
     length::BitLength
     quality::Quality
@@ -56,19 +56,35 @@ end
 
 # ---------- composites (smart-constructor gated) -----------------------------
 
+# The type parameter `Slice{C}` carried is gone: `@document` takes a struct's
+# type parameters for its own cells. Nothing is lost, because the cell layout
+# already has one parameter per field — a `chunk` cell typed to the value rather
+# than to the declared `Chunk` keeps the inner chunk inline, and the slice isbits.
+# `slice` below is the only place a Slice is built, so that is where the typed
+# cell is made.
+#
+# The bare name is the cell layout, the UnionAll, and not the default spelling.
+# `x isa Slice` has to hold for every spelling, and the typed cell above is by
+# construction not the default one.
 "View into `chunk` starting at `offset` with `length`. Do not build directly."
-struct Slice{C<:Chunk} <: Chunk
-    chunk::C
+@document ImmutableCell struct Slice <: Chunk
+    chunk::Chunk
     offset::BitLength
     length::BitLength
+    selection::Nothing
 end
 
+# `chunks` stays a plain `Vector`. A `CellVector` would make the element paths
+# read `[i]` instead of `.chunks[i]`, and it lives in `ProjecturedBase`, which
+# this package does not depend on and should not. A reference walks a plain
+# vector field, and `copy_document` copies it independently — both checked.
 "An ordered rope over typed leaves. `offsets[i]` is the cumulative bit-offset
 BEFORE `chunks[i]`; `offsets[end] == length.bits`. Do not build directly."
-struct Sequence <: Chunk
+@document ImmutableCell struct Sequence <: Chunk
     chunks::Vector{Chunk}
     offsets::Vector{Int64}
     length::BitLength
+    selection::Nothing
 end
 
 "Supertype of every declared header (Phase 3)."
@@ -85,13 +101,17 @@ category error INET's `b`/`B` types exist to catch.
 
 For `Fields` subtypes this must be defined per header (its wire length).
 """
-chunk_length(c::Filler)   = c.length
-chunk_length(c::Raw)      = c.length
-chunk_length(c::Slice)    = c.length
-chunk_length(c::Sequence) = c.length
+# The read is written out rather than dotted. A document's bare name is its cell
+# layout, a UnionAll, so `c` is still abstract inside a method that dispatches on
+# it and the dotted read cannot be inferred. These four are called once per chunk
+# per sequence built, so an uninferred read here is felt on every frame.
+chunk_length(c::Filler)   = getfield(c, :length)[]::BitLength
+chunk_length(c::Raw)      = getfield(c, :length)[]::BitLength
+chunk_length(c::Slice)    = getfield(c, :length)[]::BitLength
+chunk_length(c::Sequence) = getfield(c, :length)[]::BitLength
 
-quality(c::Filler)   = c.quality
-quality(c::Raw)      = c.quality
+quality(c::Filler)   = getfield(c, :quality)[]::Quality
+quality(c::Raw)      = getfield(c, :quality)[]::Quality
 quality(c::Slice)    = quality(c.chunk)             # inherits from the target
 quality(c::Sequence) = foldl(⊔, (quality(x) for x in c.chunks); init = Q_COMPLETE)
 quality(::Fields)    = Q_COMPLETE                   # overridden per header
@@ -141,7 +161,11 @@ function slice(c::Chunk, offset::BitLength, len::BitLength)
     if c isa Sequence
         return _slice_sequence(c, offset, len)
     end
-    return Slice(c, offset, len)
+    # The cell is typed to the value, not to the declared `Chunk`: that is what
+    # keeps the inner chunk inline and `Slice` isbits, which the type parameter
+    # used to do.
+    return Slice(ImmutableCell{typeof(c)}(c), ImmutableCell{BitLength}(offset),
+                 ImmutableCell{BitLength}(len), ImmutableCell{Nothing}(nothing))
 end
 
 function _slice_sequence(s::Sequence, offset::BitLength, len::BitLength)
@@ -169,6 +193,14 @@ function _slice_sequence(s::Sequence, offset::BitLength, len::BitLength)
     return sequence(parts)
 end
 
+# A function barrier, and it is load-bearing. `p` is typed `Chunk` at the call
+# site and a document's bare name is a UnionAll, so narrowing it with `isa`
+# leaves the field's type unknown and the read boxes. Written inline — even with
+# the type annotated — it costs 48 bytes a call, which `push!` pays on every
+# frame built. As its own function the call dispatches once and the read inside
+# is static.
+@noinline _children(s) = getfield(s, :chunks)[]::Vector{Chunk}
+
 "Build a Sequence from `parts`, canonicalising:
   - drop empty parts
   - flatten nested Sequences
@@ -180,8 +212,8 @@ function sequence(parts::AbstractVector{<:Chunk})
     for p in parts
         if isempty(p)
             continue
-        elseif p isa Sequence
-            append!(flat, p.chunks)
+        elseif p isa ASequence
+            append!(flat, _children(p))
         else
             push!(flat, p)
         end
@@ -238,7 +270,7 @@ function _try_merge(a::Raw, b::Raw)
 end
 
 # Adjacent Slices over the SAME underlying chunk with contiguous ranges → one Slice.
-function _try_merge(a::Slice{C}, b::Slice{C}) where {C<:Chunk}
+function _try_merge(a::Slice, b::Slice)
     if a.chunk === b.chunk && a.offset + a.length == b.offset
         return slice(a.chunk, a.offset, a.length + b.length)
     end
