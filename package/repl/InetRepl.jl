@@ -11,7 +11,13 @@
 # before the packages it tracks, and as a dependency its position in the load
 # order is the resolver's business.
 #
-# See plan/pending/package-convention-repl-leaves.md.
+# What this build compiles is `WORKLOAD`. The default replays a recording rather
+# than running a workload, because a workload only compiles what somebody thought
+# to run and nobody thought to read: the first click on `PacketIsChunks.md` costs
+# 42 ms replaying a recording and 1691 ms running the workload.
+#
+# See plan/pending/package-convention-repl-leaves.md and
+# projectured-julia's plan/pending/recorded-precompile-workload.md.
 # ═══════════════════════════════════════════════════════════════════════════
 
 module InetRepl

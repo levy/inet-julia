@@ -62,15 +62,40 @@ How much the build compiles is a Preference, so changing it rebuilds:
 
 ```julia
 julia> get_workload()          # what this session was built with
-julia> set_workload!(:demo)    # then restart
+julia> set_workload!(:recorded)  # then restart
 ```
 
-`:minimal` redoes `ProjecturedExample`'s workload in this image — not
-duplication, since a workload can only cache inference that is still valid once
-the session has finished loading. `:demo` adds this repository's own catalog
-page, which no atom reaches: an atom is one node type, a page is the whole chain
-over a file. Measured at `:demo`, the catalog's first paint is 0.162 s with no
-recompilation.
+| level | what the build does |
+| --- | --- |
+| `:none` | nothing; for a day spent editing the model |
+| `:recorded` | replays `package/repl/PrecompileStatements.jl` — the default |
+| `:live` | runs `InetExample.precompile_workload()` |
+
+`:live` redoes `ProjecturedExample`'s workload in this image and adds this
+repository's own catalog page — not duplication, since a workload can only cache
+inference that is still valid once the session has finished loading, and a page
+is a chain no atom reaches.
+
+`:recorded` replays a list a person recorded by driving the editor through all
+13 catalog pages and the 102 upstream examples a session here can also open.
+That is why it is the only level that compiles the **reader**: a workload prints
+pages, and a page is never read. Measured on the first click of a catalog page:
+
+| page | `:none` | `:recorded` | `:live` |
+| --- | ---: | ---: | ---: |
+| the index, first paint | 7728 ms | 510 ms | 1985 ms |
+| `PacketIsChunks.md` | 8568 ms | 42 ms | 1691 ms |
+| `Headers.md` | 3271 ms | 41 ms | 399 ms |
+
+A second click is 20–33 ms at every level; there is nothing left to compile.
+
+Record again with `record_precompile_statements()` when the list falls behind
+the code. It goes stale gracefully — a statement that names nothing is skipped —
+and the build says how many were skipped, warning past a tenth of them.
+Recording needs a display: the driver opens a real window.
+
+Each level caches its own image (12 MB at `:none`, 151 MB at `:live`, 231 MB at
+`:recorded`).
 
 ## What depends on what
 
