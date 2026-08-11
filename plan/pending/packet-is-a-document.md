@@ -232,6 +232,28 @@ This wants deciding before phase 6, because §1's promise that "an edit crosses
 the first stage" now depends on the holder's selection rather than the packet's.
 It is the same shape as `StyleText`, so it is a known problem, not a new one.
 
+**And it has a fix, in `projectured-julia`, for later.** Let the injected
+selection's *type* follow the variant's cell kind rather than the schema:
+
+| variant | `selection` |
+| --- | --- |
+| `RCFoo`, reactive | `Union{Nothing, Reference}` — selectable, as today |
+| `ICFoo`, `MCFoo`, `MFoo` | `Nothing` — zero size, isbits preserved |
+
+The field stays in every variant, so its position never moves and
+`copy_document`, `sync_document!` and `_declared_value_types` are untouched —
+they walk positions. Only the declared type differs. Both halves are already
+measured: `selection::Nothing` keeps a leaf isbits at 16 bytes, and a reactive
+variant is selectable by default.
+
+Then the editor's reactive copy of a packet is selectable while the simulation's
+native one is not, no schema declares `selection::Nothing` by hand, and §4.2
+stops costing anything. The rule must key on the **kind**, not the layout:
+`ICFoo` is a cell layout and must stay isbits.
+
+This belongs to `projectured-julia` on its own terms, not to this plan. Written
+down here because it is what would retire §4.2.
+
 ### 4.1 The envelope: what the measurement forces
 
 The row above said **reactive**, so that `pushfirst!` would invalidate whatever
