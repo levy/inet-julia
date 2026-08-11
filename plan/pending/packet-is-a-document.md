@@ -301,11 +301,49 @@ struct Slice{C<:Chunk} <: Chunk       # chunk::C, offset, length
 struct MarkedFields{H<:Fields} <: Chunk   # header::H, quality
 ```
 
-**Drop both parameters**: `chunk::Chunk` and `header::Fields`. What is lost is
-the concrete type of one field, and the two places that used it —
+**Drop both parameters and let the smart constructor type the cell.** The cell
+layout already carries one type parameter per field, and that parameter recovers
+exactly what `Slice{C}` gave you — measured:
+
+```
+plain Slice{Filler}, today                          isbits=true   sizeof=24
+plain Slice, parameter dropped                      isbits=false  sizeof=16
+ACSlice{ImmutableCell{Chunk}, …}   bare ctor        isbits=false  sizeof=16
+ACSlice{ImmutableCell{ACFiller{…}}, …} typed cell   isbits=true   sizeof=24
+```
+
+The last row is byte-identical to the first. `ACSlice{ImmutableCell{ACFiller{…}}, …}`
+**is** `Slice{Filler}`, with a cell wrapper around each field.
+
+The difference between the two middle rows is only how the value was wrapped. The
+bare constructor wraps a raw value in its *declared* type, `ImmutableCell{Chunk}`,
+which is abstract. The smart constructor wraps it in the value's own type instead:
+
+```julia
+slice(chunk, offset) = Slice(ImmutableCell{typeof(chunk)}(chunk), offset, nothing)
+```
+
+That is one line, in the place the chunk model already reserves for building a
+composite, and it needs no change to `@document`.
+
+What is genuinely lost is the two places the parameter was used —
 `_try_merge(a::Slice{C}, b::Slice{C})` and the peek that hands a `MarkedFields`
-back as its header type — both already compare `a.chunk === b.chunk` or dispatch
-on the value. As a document the field is read through a cell in any case.
+back as its header type. Both already compare `a.chunk === b.chunk` or dispatch on
+the value.
+
+**One caveat, measured.** A *kind-converting* copy widens the cell back to the
+declared type:
+
+```
+copy_document(slice)                 isbits=true   sizeof=24    ← kind-preserving keeps it
+copy_document(ImmutableCell, slice)  isbits=false  sizeof=16    ← widens to ImmutableCell{Chunk}
+```
+
+`_kinded_value_type` prefers the declared type when the value conforms to it. That
+lands on the editor side — `_pure_snapshot` is such a call — and not on the hot
+path, which builds through the smart constructor. Check in phase 2 that no hot
+path calls the kinded form; `dup` is the one to look at, and it shares content
+rather than copying it.
 
 Measured, so the failure mode is known rather than guessed:
 
@@ -411,7 +449,10 @@ result, and disbelieve a zero.
 ### Phase 2 — the composites — **PENDING**
 
 - [ ] `Slice` and `MarkedFields` lose their type parameters and become
-      documents.
+      documents. The `slice` smart constructor wraps its chunk in
+      `ImmutableCell{typeof(chunk)}`, which is what keeps them isbits (§5.1).
+- [ ] Check that no hot path calls `copy_document(K, ·)` on a chunk, which would
+      widen the cell back to the declared type.
 - [ ] `Sequence` becomes a document whose `chunks` is a `CellVector`.
 - [ ] The smart constructors keep every normalisation rule they enforce today:
       no slice-of-slice, no sequence-in-sequence, no singleton, no adjacent
@@ -532,10 +573,12 @@ the right tool for a foreign object — a C++ handle, a live engine — and the
 wrong one here: a packet is ours, and a shadow that must be synced is a cache
 with an invalidation problem, not a document.
 
-**Teaching `@document` type parameters.** It would keep `Slice{C}` concrete.
-Two of the four files are still sealed, the two parameters buy little once every
-field is read through a cell, and the change belongs to `projectured-julia` on
-its own terms rather than as a rider on this plan.
+**Teaching `@document` type parameters.** It would keep `Slice{C}` concrete —
+and it turns out to be unnecessary for that, because the cell layout already has a
+parameter per field and a typed cell recovers isbits exactly (§5.1). Two of the
+four files are still sealed. If the parameter is ever wanted for its own sake
+rather than for concreteness, the change belongs to `projectured-julia` on its own
+terms rather than as a rider on this plan.
 
 **A reactive envelope regardless.** Rejected by measurement, not by taste: 16
 bytes per field access on the struct a simulation touches every hop. If phase 0
