@@ -9,10 +9,9 @@ entryfile = "Inet.jl"
 # component can: inet_simulation_catalog, which has to know every model there
 # is, and the packet diagram, which needs both a packet and the editor stack.
 #
-# ProjecturedVisual is the one editor package named here. It re-exports the
-# kernel and base modules the diagram uses as its own (`ProjecturedVisual.
-# CellModule` and the rest), so the narrower dependency reaches everything
-# without pulling in the domains and the backends the umbrella would.
+# The editor packages named here are the narrow ones the packet diagram draws
+# with — Collection, Projection, Reflection, Style, Text and the kernel — not
+# the umbrella, which would pull in every domain and every backend.
 
 [deps]
 InetCommon = "3e5f522d-74dd-49cc-880c-be4fb7395c4f"

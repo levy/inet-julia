@@ -9,12 +9,12 @@ entryfile = "InetRunner.jl"
 #
 # Its dependency list is a contract, not a convenience. A runner draws nothing,
 # opens no window and reads no gesture, so the editor must not be reachable
-# from here: no ProjecturedVisual, no ProjecturedDomain, no Projectured
+# from here: no ProjecturedSyntax, no ProjecturedWidget, no Projectured
 # umbrella, no OmnetppLegacy, no DataFrames, no Revise. `test_runner_closure()`
 # in the test package asserts it, and plan/done/native-simulation-binary.md
 # §2 says why.
 #
-# ProjecturedKernel and ProjecturedBase arrive under OmnetppSimulator and stay:
+# ProjecturedKernel and ProjecturedCollection arrive under OmnetppSimulator and stay:
 # they are the substrate the simulator declares its own model, engine and
 # execution types with, not the editor.
 
