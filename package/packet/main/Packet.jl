@@ -135,6 +135,19 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        Ieee8021aeTagTpidHeader, Ieee8021aeTagEpdHeader,
        Ieee8021rTagTpidHeader, Ieee8021rTagEpdHeader, Ieee802EpdHeader,
        ETHERTYPE_MACSEC, ETHERTYPE_RTAG,
+       Bpdu, BpduCommon, BpduConfiguration, BpduTopologyChangeNotification,
+       BPDU_PROTOCOL_SPANNING_TREE, BPDU_VERSION_SPANNING_TREE,
+       BPDU_VERSION_RAPID_SPANNING_TREE, BPDU_VERSION_MULTIPLE_SPANNING_TREE,
+       BPDU_CONFIGURATION, BPDU_TOPOLOGY_CHANGE_NOTIFICATION,
+       BPDU_PORT_ROLE_UNKNOWN, BPDU_PORT_ROLE_ALTERNATE, BPDU_PORT_ROLE_ROOT,
+       BPDU_PORT_ROLE_DESIGNATED, measure_bpdu_seconds, build_bpdu_ticks,
+       Ieee802154MacHeader, IEEE802154_FRAME_CONTROL, IEEE802154_BROADCAST_PAN,
+       BMacHeader, BMacCommon, BMacControlFrame, BMacDataFrameHeader,
+       BMacUnknownFrame, BMAC_PREAMBLE, BMAC_DATA, BMAC_ACK,
+       XMacHeader, XMacCommon, XMacControlFrame, XMacDataFrameHeader,
+       XMacUnknownFrame, XMAC_PREAMBLE, XMAC_DATA, XMAC_ACK,
+       CsmaCaMacHeader, CsmaCaMacCommon, CsmaCaMacAckHeader, CsmaCaMacDataHeader,
+       CsmaCaMacTrailer, CSMA_DATA, CSMA_ACK,
        Ieee8022LlcHeader, Ieee8022SnapHeader, Ieee8022LlcSnapHeader,
        LLC_SAP_SNAP, LLC_SAP_IP, LLC_CONTROL_UNNUMBERED_INFORMATION,
        PppHeader, PppTrailer, PPP_FLAG, PPP_ADDRESS, PPP_CONTROL,
@@ -191,7 +204,10 @@ include("HeaderFacts.jl")
 include("protocol/SimulationHeader.jl")
 include("protocol/Ethernet.jl")
 include("protocol/Ieee8021.jl")
+include("protocol/Ieee8021d.jl")
 include("protocol/Ieee8022.jl")
+include("protocol/Ieee802154.jl")
+include("protocol/WirelessMac.jl")
 include("protocol/ProtocolElement.jl")
 include("protocol/Ppp.jl")
 include("protocol/Mpls.jl")

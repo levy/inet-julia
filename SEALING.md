@@ -79,7 +79,10 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/SimulationHeader.jl`
     - ⬜ `protocol/Ethernet.jl`
     - ⬜ `protocol/Ieee8021.jl`
+    - ⬜ `protocol/Ieee8021d.jl`
     - ⬜ `protocol/Ieee8022.jl`
+    - ⬜ `protocol/Ieee802154.jl`
+    - ⬜ `protocol/WirelessMac.jl`
     - ⬜ `protocol/ProtocolElement.jl`
     - ⬜ `protocol/Ppp.jl`
     - ⬜ `protocol/Mpls.jl`
