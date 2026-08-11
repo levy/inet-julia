@@ -21,6 +21,21 @@
 
 module PacketModule
 
+# The data model is a document, so its values are navigable, selectable and
+# reactive without a mirror of them existing somewhere else. `@document` needs
+# three names besides itself: `Document`, the supertype every document gets,
+# `Reference`, which types the `selection` field, and the cell types a field is
+# wrapped in.
+#
+# Every type here declares `selection::Nothing` and an immutable field kind. A
+# chunk is on the simulation's hot path, and the injected selection is a union
+# over heap types that would stop it being isbits — a `Filler` would go from 16
+# bytes inline to 24 on the heap. Nothing a simulation touches is reactive.
+using ProjecturedKernel.DocumentModule: Document, @document, copy_document,
+                                        sync_document!
+using ProjecturedKernel.ReferenceModule: Reference
+using ProjecturedKernel.CellModule: AbstractCell, ImmutableCell
+
 export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        Quality, Q_COMPLETE, Q_INCOMPLETE, Q_INCORRECT, Q_MISREPRESENTED, ⊔,
        is_complete, is_incomplete, is_correct, is_incorrect,

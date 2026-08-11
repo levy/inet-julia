@@ -13,6 +13,7 @@
 using Printf
 using InetPacket
 using InetPacket.PacketModule
+using ProjecturedKernel.DocumentModule: Document, document_schema_name
 using InetLinkLayer
 using InetLinkLayer.T1sModule: build_ethernet_frame
 
@@ -31,8 +32,11 @@ function measure(label, f, n)
 end
 
 println("── isbits, every chunk type as it is today ──")
+# A document's own type name is its cell layout with every cell spelled out, so
+# the schema name is what a reader wants here.
+name(T) = T <: Document ? string(document_schema_name(T)) : string(T)
 for T in (Filler, Raw, Sequence, Packet)
-    @printf("  %-34s isbits=%-6s sizeof=%s\n", T, isbitstype(T),
+    @printf("  %-34s isbits=%-6s sizeof=%s\n", name(T), isbitstype(T),
             isbitstype(T) ? string(sizeof(T)) : "—")
 end
 # The two parametric ones need a concrete parameter before the question means

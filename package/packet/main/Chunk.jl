@@ -22,24 +22,26 @@
 # (INET defect 1).
 # ============================================================================
 
-abstract type Chunk end
+abstract type Chunk <: Document end
 
 # ---------- leaves -----------------------------------------------------------
 
 "Length-only payload: never materialises bytes. Fills with `fill` on serialise."
-struct Filler <: Chunk
+@document ImmutableCell [DC] struct Filler <: Chunk
     length::BitLength
     fill::UInt8
     quality::Quality
+    selection::Nothing
 end
 Filler(length::BitLength; fill::UInt8 = 0x00, quality::Quality = Q_COMPLETE) =
     Filler(length, fill, quality)
 
 "Bit-exact data. `length` MAY be a non-multiple of 8 (last byte partially used)."
-struct Raw <: Chunk
+@document ImmutableCell [DC] struct Raw <: Chunk
     data::Vector{UInt8}
     length::BitLength
     quality::Quality
+    selection::Nothing
 end
 function Raw(data::Vector{UInt8}; length::Union{BitLength,Nothing} = nothing,
              quality::Quality = Q_COMPLETE)

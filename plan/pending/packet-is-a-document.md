@@ -488,7 +488,33 @@ numbers printed 0.0000 s for two million iterations before the objects were put
 somewhere the compiler could not see through. Measure allocations, keep the
 result, and disbelieve a zero.
 
-### Phase 1 — the chunk leaves — **PENDING**
+### Phase 1 — the chunk leaves — **DONE**
+
+`InetPacket` gained its one dependency, `Chunk` became `<: Document`, and
+`Filler` and `Raw` became `@document ImmutableCell [DC] struct` with
+`selection::Nothing`.
+
+The hot path did not move:
+
+| | phase 0 | after phase 1 |
+| --- | --- | --- |
+| `Filler` isbits / sizeof | true / 16 | **true / 16** |
+| `build_ethernet_frame` | 1216 bytes | **1216 bytes** |
+| `dup(frame)` | 176 bytes | **176 bytes** |
+
+`test_packet()` 1892 / 1892.
+
+Two things went right that were worth checking. Both leaves keep their
+hand-written keyword constructors — `Filler(len; fill, quality)` takes one
+positional argument, and the macro's keyword form is zero-positional and is
+gated on a programmer-declared default, which neither leaf has. And Rule Y emits
+only the arity that fills the injected `selection`, so `Filler(len, fill, qual)`
+still resolves to the same three-argument call every site already writes.
+
+`Pkg.resolve()` is needed after adding the dependency; without it the package
+loads against a manifest that does not know about the edge.
+
+### Phase 1 — what it asked for — **DONE**
 
 - [ ] `Filler` and `Raw` become `@document ImmutableCell [DC] struct`, so the
       bare name stays the immutable value every call site already builds.

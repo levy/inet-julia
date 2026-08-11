@@ -4,10 +4,19 @@ version = "0.1.0"
 authors = []
 entryfile = "InetPacket.jl"
 
-# InetPacket has no dependencies at all — not the simulator, not the ProjecturEd
-# kernel. The packet & chunk API is a data model; nothing in it knows that a
-# simulation exists. Keeping it a package of its own is what makes that
-# checkable rather than merely intended.
+# InetPacket depends on ProjecturedKernel and nothing else. The packet and chunk
+# API is a data model, and in this system a data model is a document: its values
+# are navigable, selectable and reactive, so an inspector, a projection and a
+# reference reach them without a mirror. The kernel is the document substrate and
+# carries no dependencies of its own, so this edge costs one leaf package — not
+# the editor stack, and not the simulator. Nothing in here knows that a
+# simulation exists, and that is still what makes this a package of its own.
+
+[deps]
+ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
+
+[sources]
+ProjecturedKernel = {path = "../../../../projectured-julia/package/kernel/main"}
 
 [compat]
 julia = "1.11"
