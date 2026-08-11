@@ -254,36 +254,32 @@ Stage 3 is optional and is not started until the ten pages have been read.
 | 2 | the other nine, and their rows | ten rows, ten pages, all rendered by the test | **done** |
 | 3 | *optional* — every declared header | 91 rows, without 91 stub files | not started |
 
-**What a page costs, and what the diagram does.** Ten pages turned a
-ninety-second suite into one that ran for over ten minutes. Two independent
-stack samples, from two runs, caught it in the same place:
+**What a page costs.** Ten pages once turned a ninety-second suite into one that
+ran past ten minutes, and two stack samples caught it in the same place:
 
 ```
 _line_groups (TextToGraphics)  →  iterate(CellVector)  →  recompute!
   →  _diagram_spans  →  diagram_rows  →  length(bands)  →  recompute!
 ```
 
-**A `PacketDiagram` re-derives its whole span sequence every time the text
-renderer asks it for a line, and re-derives the bands with it.** That is a
-property of `packetdiagram/`, not of anything this plan added — one figure on
-one page costs about a second, which nobody noticed, and ten made it plain.
+A `PacketDiagram` does re-derive its span sequence from inside the text
+renderer's own iteration, and re-derives the bands with it. That is worth a look
+in its own right — but it is **not** what cost the ten minutes. Those runs were
+sharing the machine with a fifty-seven package restructure precompiling beside
+them. On a quiet machine the suite is 1m26s with the live figure and 1m26s with
+a flat string in its place: the diagram costs nothing measurable here.
 
-Four things follow, and all four are in:
+So the page keeps the live figure, in colour, with its bands foldable. Two
+changes from that episode are worth keeping anyway:
 
-* the gallery page carries the figure as TEXT, through `packet_diagram_string`,
-  paid once at build. The figure comes from the same projection over the same
-  packet, so it still cannot disagree with the declaration; what is given up is
-  folding a band on a gallery page, which the catalog's packet pages still have.
 * `header_page` keeps the page it built, so a catalog rebuilt does not rebuild
   ten pages, and a reader who comes back finds the folds they opened.
 * the gallery test draws ONE page in full and asserts the other nine on their
   documents. `demo.jl`'s walk already draws all ten.
-* `precompile_workload` draws a header page, so the chain a first click needs is
-  compiled into the image rather than paid for by the reader.
 
-**Worth its own change:** make `_diagram_spans` compute once per figure rather
-than once per line. Every page carrying a live diagram gets faster, and the
-gallery can take the live figure back.
+**A measurement taken under load is not a measurement.** The first attribution
+here was wrong, and it cost the figure its colours until someone looked at the
+page and asked.
 
 ### Stage 1 — one header, end to end
 

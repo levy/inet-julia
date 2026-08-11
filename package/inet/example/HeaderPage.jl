@@ -23,7 +23,7 @@ using Projectured.MarkdownModule: MarkdownRoot, MarkdownHeading, MarkdownParagra
     MarkdownText, MarkdownCodeBlock
 using Projectured.DocumentReflectionModule: reflect_document
 using Projectured.FileProjectModule: LoaderContext
-using Inet.PacketDiagramModule: packet_diagram, packet_diagram_string
+using Inet.PacketDiagramModule: packet_diagram
 using Inet.PacketModule
 
 """
@@ -143,11 +143,10 @@ end
 
 The five views of one header, as a page a reader scrolls.
 
-The reflection tree is a live document sitting in the page as a block. A page's
-elements each re-enter the renderer in their own domain, so a document that
-draws itself needs no card and no marker of its own here — the demo projection
-already knows the type. The bit grid would work the same way, and is text
-instead for the reason `_build_header_page` gives.
+The reflection tree and the bit grid are live documents sitting in the page as
+blocks. A page's elements each re-enter the renderer in their own domain, so a
+document that draws itself needs no card and no marker of its own here — the
+demo projection already knows both types.
 
 A header asked for twice gives back the page it was given the first time, which
 is what makes a fold a reader opened still open when they come back.
@@ -199,22 +198,11 @@ function _build_header_page(::Type{H}) where {H <: Fields}
     push!(blocks, reflect_document(header; label = string(nameof(H))))
 
     push!(blocks, _heading("The instance, as the standard draws it"))
-    # The figure as TEXT, drawn once here rather than as the live document the
-    # catalog's packet pages carry.
-    #
-    # A `PacketDiagram` re-derives its whole span sequence every time the text
-    # renderer asks it for a line — `_diagram_spans` runs from inside
-    # `TextToGraphics._line_groups`, and re-derives the bands with it. One
-    # figure on one page is a second; ten pages of it made the catalog's own
-    # test suite unusable. Rendering to a string pays that cost once, at build,
-    # and a page is built once.
-    #
-    # Nothing about the figure changes: it comes from the same projection over
-    # the same packet, so it still cannot disagree with the declaration. What is
-    # given up is folding a band and selecting one on THIS page, which the
-    # packet pages still have. Fixing the re-derivation is the way to take it
-    # back — see the plan.
-    push!(blocks, MarkdownCodeBlock("", packet_diagram_string(Packet(header))))
+    # The figure as the live document it is: the field names, the values and the
+    # grid each in their own colour, and a band a reader can fold. A page's
+    # elements re-enter the renderer by their own type, and the demo projection
+    # already knows this one.
+    push!(blocks, packet_diagram(Packet(header)))
 
     return MarkdownRoot(blocks)
 end
@@ -224,11 +212,12 @@ marker_header_view(_ctx, name::AbstractString) = header_page(find_gallery_header
 
 # ---------- the prose the page needs -----------------------------------------
 
-_heading(text::AbstractString) =
-    MarkdownHeading(2, CellVector(Any[MarkdownText(String(text))]))
+# A plain vector, never a `CellVector`. The field wraps what it is given, so
+# handing it a collection wraps that collection in a second one — and a
+# collection inside a paragraph draws as the list it is, brackets and all.
+_heading(text::AbstractString) = MarkdownHeading(2, Any[MarkdownText(String(text))])
 
-_paragraph(text::AbstractString) =
-    MarkdownParagraph(CellVector(Any[MarkdownText(String(text))]))
+_paragraph(text::AbstractString) = MarkdownParagraph(Any[MarkdownText(String(text))])
 
 function _declaration_note(::Type{H}) where {H <: Fields}
     site = find_declaration(H)

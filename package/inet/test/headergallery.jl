@@ -18,7 +18,8 @@ using Projectured
 using Projectured.DocumentReflectionModule: reflect_document
 using Projectured.GraphicsModule: GraphicsCanvas
 using Projectured.IoMapModule: get_iomap_output
-using Projectured.MarkdownModule: MarkdownRoot, MarkdownCodeBlock, MarkdownHeading
+using Projectured.MarkdownModule: MarkdownRoot, MarkdownCodeBlock, MarkdownHeading,
+    MarkdownParagraph, MarkdownText
 using Projectured.ProjectionApiModule: print_document
 using Projectured.TrueTypeModule: truetype_measure_text
 using Inet.PacketDiagramModule: PacketDiagram
@@ -71,13 +72,11 @@ end
     # The declaration arrives as the parsed Julia it is — with its docstring,
     # because `definition` yields a documented definition whole.
     @test :JuliaDocstring in kinds || :JuliaMacroCall in kinds
-    @test :MarkdownCodeBlock in kinds        # the call, the bytes, the figure
+    @test :MarkdownCodeBlock in kinds        # the call, and the bytes
     @test :ReflectedNode in kinds            # the instance, reflected
+    @test :PacketDiagram in kinds            # the instance, as the RFC draws it
     # Four headings: declared, built, read and written, reflected, drawn.
     @test Base.length([k for k in kinds if k === :MarkdownHeading]) >= 4
-    # The figure, as the RFC grid over this header's own bytes.
-    code = [b.code for b in page.elements if b isa MarkdownCodeBlock]
-    @test any(c -> occursin("+-+-+-+", c), code)
 end
 
 @testset "every header in the gallery builds a page" begin
@@ -118,9 +117,10 @@ end
         # The call that builds an instance names the type.
         code = [b.code for b in blocks if b isa MarkdownCodeBlock]
         @test any(c -> occursin(string(nameof(H), "("), c), code)
-        # The figure is on the page, drawn as the RFC grid over this header's
-        # own bytes: the ruler, and the boxes under it.
-        @test any(c -> occursin("+-+-+-+", c) && occursin(string(nameof(H)), c), code)
+        # The figure is drawn from a packet that holds this header, and not
+        # from one built for another page.
+        diagram = only(b for b in blocks if b isa PacketDiagram)
+        @test has(diagram.packet, H)
         # A page asked for twice is one document, so a fold a reader opened is
         # still open when they come back — and a catalog rebuilt is not ten
         # pages rebuilt.
@@ -148,6 +148,28 @@ end
     # 5. the bit grid the standard draws
     @test _says(strings, "fragment_offset")
     @test any(s -> occursin("+-+-+-+", s), strings)
+
+end
+
+@testset "the prose on a page is prose" begin
+    # A paragraph built by hand takes a plain vector of inline nodes. Hand the
+    # field a collection instead and it wraps that in a second one, and the
+    # inner collection draws as the list it now is — brackets around every
+    # sentence the page says.
+    #
+    # Asserted on the document: the page DOES draw bare brackets, from the
+    # `Ipv4Option[]` in the declaration it quotes, so the pixels cannot tell the
+    # two apart.
+    page = header_page(Ipv4Header)
+    paragraphs = [b for b in page.elements if b isa MarkdownParagraph]
+    @test !isempty(paragraphs)
+    for paragraph in paragraphs
+        @test all(node -> node isa MarkdownText, collect(paragraph.content))
+    end
+    headings = [b for b in page.elements if b isa MarkdownHeading]
+    for heading in headings
+        @test all(node -> node isa MarkdownText, collect(heading.content))
+    end
 end
 
 @testset "a field value reflects as what it is" begin

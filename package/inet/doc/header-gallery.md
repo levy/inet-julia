@@ -35,29 +35,22 @@ on `ProjecturedVisual` alone.
 | how one is built | `describe_construction`, over `find_default` and `list_derived` |
 | a field read and written | `describe_update`, and `encode_header` on both sides |
 | the instance, reflected | `reflect_document`, with `classify_display` deciding the leaves |
-| the instance, drawn | `packet_diagram_string` over a packet holding the one header |
+| the instance, drawn | `packet_diagram` over a packet holding the one header |
 
 The declaration arrives with its docstring, because `definition` yields a
 documented definition whole. So the format is described in prose exactly once,
 in the file that declares it.
 
-The reflection tree is a **live document sitting in the page as a block**. A
-page's elements each re-enter the renderer in their own domain, and the demo
-projection already knows the type — so it needs no embed card, no marker of its
-own, and no conversion first.
+The last two are **live documents sitting in the page as blocks**. A page's
+elements each re-enter the renderer in their own domain, and the demo projection
+already knows both types — so neither needs an embed card, a marker of its own,
+or any conversion first. The figure keeps its colours and its foldable bands
+that way.
 
-The figure could be the same, and is text instead. A `PacketDiagram` re-derives
-its whole span sequence every time the text renderer asks it for a line —
-`_diagram_spans` runs from inside `TextToGraphics._line_groups`, and re-derives
-the bands with it. One figure on one page costs about a second; ten of them made
-the catalog's own test suite unusable. Rendering to a string pays that once, at
-build, and a page is built once.
-
-The figure is not weakened by this: it comes from the same projection over the
-same packet, so it still cannot disagree with the declaration. What is given up
-is folding a band and selecting one **on a gallery page** — the catalog's packet
-pages still carry the live figure. Fixing the re-derivation is how to take it
-back.
+A note for anyone measuring: a `PacketDiagram` re-derives its span sequence from
+inside the text renderer's iteration, which looks alarming in a stack sample and
+is worth fixing. It is not, however, expensive here — the suite takes the same
+time with the live figure as with a flat string in its place.
 
 ## Adding a header
 
