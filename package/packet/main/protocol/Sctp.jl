@@ -208,12 +208,6 @@ starts where it should.
     padding :: Pad{Bytes(4), 0x00}
 end
 
-list_options(::Type{SctpParameter}) =
-    (SctpParameterIpv4Address, SctpParameterIpv6Address,
-     SctpParameterCookiePreservative, SctpParameterSupportedAddresses,
-     SctpParameterStateCookie, SctpParameterHeartbeatInfo,
-     SctpParameterForwardTsn, SctpParameterSupportedExtensions)
-find_raw_option(::Type{SctpParameter}) = SctpParameterRaw
 
 # ---------- the error causes -------------------------------------------------
 
@@ -600,30 +594,6 @@ in the same packet still starts where it should.
     padding :: Pad{Bytes(4), 0x00}
 end
 
-list_variants(::Type{SctpChunk}) =
-    (SctpData, SctpInit, SctpInitAck, SctpSack, SctpHeartbeat, SctpHeartbeatAck,
-     SctpAbort, SctpShutdown, SctpShutdownAck, SctpError, SctpCookieEcho,
-     SctpCookieAck, SctpShutdownComplete, SctpForwardTsn, SctpChunkRaw)
-variant_base(::Type{SctpChunk}) = SctpChunkHeader
-
-matches_variant(::Type{SctpData}, base)             = base.type == SCTP_DATA
-matches_variant(::Type{SctpInit}, base)             = base.type == SCTP_INIT
-matches_variant(::Type{SctpInitAck}, base)          = base.type == SCTP_INIT_ACK
-matches_variant(::Type{SctpSack}, base)             = base.type == SCTP_SACK
-matches_variant(::Type{SctpHeartbeat}, base)        = base.type == SCTP_HEARTBEAT
-matches_variant(::Type{SctpHeartbeatAck}, base)     = base.type == SCTP_HEARTBEAT_ACK
-matches_variant(::Type{SctpAbort}, base)            = base.type == SCTP_ABORT
-matches_variant(::Type{SctpShutdown}, base)         = base.type == SCTP_SHUTDOWN
-matches_variant(::Type{SctpShutdownAck}, base)      = base.type == SCTP_SHUTDOWN_ACK
-matches_variant(::Type{SctpError}, base)            = base.type == SCTP_ERROR
-matches_variant(::Type{SctpCookieEcho}, base)       = base.type == SCTP_COOKIE_ECHO
-matches_variant(::Type{SctpCookieAck}, base)        = base.type == SCTP_COOKIE_ACK
-matches_variant(::Type{SctpShutdownComplete}, base) = base.type == SCTP_SHUTDOWN_COMPLETE
-matches_variant(::Type{SctpForwardTsn}, base)       = base.type == SCTP_FORWARD_TSN
-
-# A chunk of an unknown type is still a chunk: it says its own length, so a
-# reader can step over it. The raw member claims what no other member does.
-matches_variant(::Type{SctpChunkRaw}, base) = true
 
 # ---------- the packet -------------------------------------------------------
 
@@ -646,3 +616,476 @@ does not match is dropped. `checksum` is a CRC32c over the whole packet — RFC
     checksum_mode    :: Model{ChecksumMode} = CHECKSUM_DECLARED
     chunks           :: Repeated{SctpChunk} = SctpChunk[]
 end
+
+# ---------- the extension chunks ---------------------------------------------
+#
+# Seven chunk types beyond RFC 4960. Three have an RFC of their own — AUTH is
+# RFC 4895, ASCONF and ASCONF-ACK are RFC 5061, RE-CONFIG is RFC 6525 and
+# I-FORWARD-TSN is RFC 8260. Two do not: NR-SACK and PKTDROP are Internet
+# drafts that never became RFCs, so INET is the specification for those two and
+# its serializer is the source.
+#
+# They add no shape the language does not have. What they add is members: the
+# ASCONF and RE-CONFIG parameters are ordinary members of the parameter family,
+# because RFC 4960 clause 3.2.1 gives every SCTP parameter the same two-octet
+# type and two-octet length.
+
+"The chunk types beyond RFC 4960 — RFC 4895, RFC 5061, RFC 6525 and RFC 8260."
+const SCTP_ASCONF_ACK    = 128
+const SCTP_PACKET_DROP   = 129
+const SCTP_RE_CONFIG     = 130
+const SCTP_ASCONF        = 193
+const SCTP_IFORWARD_TSN  = 194
+
+"The address configuration parameters — RFC 5061 clause 4.2."
+const SCTP_PARAMETER_ADD_IP_ADDRESS     = 49153
+const SCTP_PARAMETER_DELETE_IP_ADDRESS  = 49154
+const SCTP_PARAMETER_ERROR_CAUSE        = 49155
+const SCTP_PARAMETER_SET_PRIMARY        = 49156
+const SCTP_PARAMETER_SUCCESS            = 49157
+
+"The stream reconfiguration parameters — RFC 6525 clause 4."
+const SCTP_PARAMETER_OUTGOING_RESET      = 13
+const SCTP_PARAMETER_INCOMING_RESET      = 14
+const SCTP_PARAMETER_SSN_TSN_RESET       = 15
+const SCTP_PARAMETER_RESET_RESPONSE      = 16
+const SCTP_PARAMETER_ADD_OUTGOING_STREAMS = 17
+const SCTP_PARAMETER_ADD_INCOMING_STREAMS = 18
+
+"The results a reconfiguration response carries — RFC 6525 clause 4.4."
+const SCTP_RESET_SUCCESS_NOTHING_TO_DO = 0
+const SCTP_RESET_SUCCESS_PERFORMED     = 1
+const SCTP_RESET_DENIED                = 2
+const SCTP_RESET_ERROR_WRONG_SSN       = 3
+const SCTP_RESET_IN_PROGRESS           = 4
+
+"The widths the extension chunks give their fixed parts, in octets."
+const SCTP_AUTH_CHUNK_BYTES        = 8
+const SCTP_NR_SACK_CHUNK_BYTES     = 20
+const SCTP_PACKET_DROP_CHUNK_BYTES = 16
+const SCTP_ASCONF_CHUNK_BYTES      = 8
+
+# ---------- the address configuration parameters, RFC 5061 -------------------
+
+"""
+    SctpParameterAddIpAddress(; correlation_id, address)
+
+An Add IP Address parameter — RFC 5061 clause 4.2.1. It asks the peer to add an
+address to the association.
+
+`address` is a nested parameter, not a bare address: RFC 5061 reuses the IPv4
+and IPv6 address parameters of RFC 4960, so one list holds either.
+"""
+@header SctpParameterAddIpAddress <: SctpParameter begin
+    type           :: Constant{U16, SCTP_PARAMETER_ADD_IP_ADDRESS}
+    length         :: U16 = SCTP_CHUNK_HEADER_BYTES + 4
+        derive(SCTP_CHUNK_HEADER_BYTES + 4 + measure_list_bytes(address))
+    correlation_id :: U32 = 0
+    address        :: Options{SctpParameter} = SctpParameter[]
+        until(Bytes(length))
+    padding        :: Pad{Bytes(4), 0x00}
+end
+
+"""
+    SctpParameterDeleteIpAddress(; correlation_id, address)
+
+A Delete IP Address parameter — RFC 5061 clause 4.2.2.
+"""
+@header SctpParameterDeleteIpAddress <: SctpParameter begin
+    type           :: Constant{U16, SCTP_PARAMETER_DELETE_IP_ADDRESS}
+    length         :: U16 = SCTP_CHUNK_HEADER_BYTES + 4
+        derive(SCTP_CHUNK_HEADER_BYTES + 4 + measure_list_bytes(address))
+    correlation_id :: U32 = 0
+    address        :: Options{SctpParameter} = SctpParameter[]
+        until(Bytes(length))
+    padding        :: Pad{Bytes(4), 0x00}
+end
+
+"""
+    SctpParameterSetPrimaryAddress(; correlation_id, address)
+
+A Set Primary Address parameter — RFC 5061 clause 4.2.4. It asks the peer to
+send to this address by default.
+"""
+@header SctpParameterSetPrimaryAddress <: SctpParameter begin
+    type           :: Constant{U16, SCTP_PARAMETER_SET_PRIMARY}
+    length         :: U16 = SCTP_CHUNK_HEADER_BYTES + 4
+        derive(SCTP_CHUNK_HEADER_BYTES + 4 + measure_list_bytes(address))
+    correlation_id :: U32 = 0
+    address        :: Options{SctpParameter} = SctpParameter[]
+        until(Bytes(length))
+    padding        :: Pad{Bytes(4), 0x00}
+end
+
+"""
+    SctpParameterSuccess(; correlation_id)
+
+A Success Indication parameter — RFC 5061 clause 4.3.1. It answers one request
+of an ASCONF chunk, and the correlation identifier says which.
+"""
+@header SctpParameterSuccess <: SctpParameter begin
+    type           :: Constant{U16, SCTP_PARAMETER_SUCCESS}
+    length         :: Constant{U16, 8}
+    correlation_id :: U32 = 0
+end
+
+"""
+    SctpParameterErrorCause(; correlation_id, causes)
+
+An Error Cause Indication parameter — RFC 5061 clause 4.3.2. It refuses one
+request of an ASCONF chunk and says why, in the error causes of RFC 4960.
+"""
+@header SctpParameterErrorCause <: SctpParameter begin
+    type           :: Constant{U16, SCTP_PARAMETER_ERROR_CAUSE}
+    length         :: U16 = SCTP_CHUNK_HEADER_BYTES + 4
+        derive(SCTP_CHUNK_HEADER_BYTES + 4 + measure_list_bytes(causes))
+    correlation_id :: U32 = 0
+    causes         :: Options{SctpCause} = SctpCause[]
+        until(Bytes(length))
+    padding        :: Pad{Bytes(4), 0x00}
+end
+
+# ---------- the stream reconfiguration parameters, RFC 6525 ------------------
+
+"""
+    SctpParameterOutgoingReset(; request_sequence, response_sequence, last_tsn, streams)
+
+An Outgoing SSN Reset Request parameter — RFC 6525 clause 4.1. It asks the peer
+to reset the sequence numbers of the streams this endpoint sends on, and an
+empty stream list means every stream.
+"""
+@header SctpParameterOutgoingReset <: SctpParameter begin
+    type              :: Constant{U16, SCTP_PARAMETER_OUTGOING_RESET}
+    length            :: U16 = 16
+        derive(16 + 2 * Base.length(streams))
+    request_sequence  :: U32 = 0
+    response_sequence :: U32 = 0
+    last_tsn          :: U32 = 0
+    streams           :: Repeated{U16} = UInt16[]
+        count((Int(length) - 16) ÷ 2)
+    padding           :: Pad{Bytes(4), 0x00}
+end
+
+"""
+    SctpParameterIncomingReset(; request_sequence, streams)
+
+An Incoming SSN Reset Request parameter — RFC 6525 clause 4.2. It asks the peer
+to reset the streams it sends on.
+"""
+@header SctpParameterIncomingReset <: SctpParameter begin
+    type             :: Constant{U16, SCTP_PARAMETER_INCOMING_RESET}
+    length           :: U16 = 8
+        derive(8 + 2 * Base.length(streams))
+    request_sequence :: U32 = 0
+    streams          :: Repeated{U16} = UInt16[]
+        count((Int(length) - 8) ÷ 2)
+    padding          :: Pad{Bytes(4), 0x00}
+end
+
+"""
+    SctpParameterSsnTsnReset(; request_sequence)
+
+An SSN/TSN Reset Request parameter — RFC 6525 clause 4.3. It resets every stream
+and the transmission sequence number with them.
+"""
+@header SctpParameterSsnTsnReset <: SctpParameter begin
+    type             :: Constant{U16, SCTP_PARAMETER_SSN_TSN_RESET}
+    length           :: Constant{U16, 8}
+    request_sequence :: U32 = 0
+end
+
+"""
+    SctpParameterResetResponse(; response_sequence, result, sender_next_tsn, receiver_next_tsn)
+
+A Reconfiguration Response parameter — RFC 6525 clause 4.4.
+
+It is twelve octets, or twenty when the request reset the transmission sequence
+numbers as well — then it carries the two next TSNs. The length says which, and
+nothing else does.
+
+**This is the one length field in the inventory that is not derived, and the
+reason is worth stating.** A derive runs on the way out and a `when` clause reads
+the stored fields, so a derived length would say twenty while the clause still
+read the twelve the struct held, and the writer would emit twelve octets under a
+length of twenty. The length is what the standard makes authoritative, so it
+stays a field the sender sets, and a `check` on all three fields says they must
+agree. `build_reset_response` sets them together.
+
+A clause sees an optional field already unwrapped, which is why the test is
+against `nothing` and not `is_present`.
+"""
+@header SctpParameterResetResponse <: SctpParameter begin
+    type              :: Constant{U16, SCTP_PARAMETER_RESET_RESPONSE}
+    length            :: U16 = 12
+        check((Int(length) >= 20) == (sender_next_tsn !== nothing))
+    response_sequence :: U32 = 0
+    result            :: U32 = SCTP_RESET_SUCCESS_PERFORMED
+    sender_next_tsn   :: Optional{U32} = nothing
+        when(Int(length) >= 20)
+        check((Int(length) >= 20) == (sender_next_tsn !== nothing))
+    receiver_next_tsn :: Optional{U32} = nothing
+        when(Int(length) >= 20)
+        check((Int(length) >= 20) == (receiver_next_tsn !== nothing))
+end
+
+"""
+    build_reset_response(; response_sequence, result, sender_next_tsn, receiver_next_tsn)
+
+A reconfiguration response with its length set to match what it carries — twelve
+octets with no TSNs, and twenty with both.
+"""
+function build_reset_response(; response_sequence = 0,
+                              result = SCTP_RESET_SUCCESS_PERFORMED,
+                              sender_next_tsn = nothing,
+                              receiver_next_tsn = nothing)
+    (sender_next_tsn === nothing) == (receiver_next_tsn === nothing) ||
+        error("build_reset_response: RFC 6525 clause 4.4 wants both next TSNs " *
+              "or neither")
+    return SctpParameterResetResponse(
+        length = sender_next_tsn === nothing ? 12 : 20,
+        response_sequence = response_sequence, result = result,
+        sender_next_tsn = sender_next_tsn, receiver_next_tsn = receiver_next_tsn)
+end
+
+"""
+    SctpParameterAddOutgoingStreams(; request_sequence, new_streams)
+
+An Add Outgoing Streams Request parameter — RFC 6525 clause 4.5. It asks for
+more streams to send on, without tearing the association down.
+"""
+@header SctpParameterAddOutgoingStreams <: SctpParameter begin
+    type             :: Constant{U16, SCTP_PARAMETER_ADD_OUTGOING_STREAMS}
+    length           :: Constant{U16, 12}
+    request_sequence :: U32 = 0
+    new_streams      :: U16 = 0
+    reserved         :: U16 = 0
+end
+
+"""
+    SctpParameterAddIncomingStreams(; request_sequence, new_streams)
+
+An Add Incoming Streams Request parameter — RFC 6525 clause 4.6.
+"""
+@header SctpParameterAddIncomingStreams <: SctpParameter begin
+    type             :: Constant{U16, SCTP_PARAMETER_ADD_INCOMING_STREAMS}
+    length           :: Constant{U16, 12}
+    request_sequence :: U32 = 0
+    new_streams      :: U16 = 0
+    reserved         :: U16 = 0
+end
+
+# ---------- the extension chunks ---------------------------------------------
+
+"""
+    SctpAuth(; shared_key_identifier, hmac_identifier, hmac)
+
+An AUTH chunk — RFC 4895 clause 4.1. Every chunk after it in the same packet is
+covered by the message authentication code it carries.
+
+The code is computed with this chunk's own `hmac` field set to zero, which is
+why a sender writes the zeros first and fills them in after.
+"""
+@header SctpAuth <: SctpChunk begin
+    type                 :: Constant{U8, SCTP_AUTH}
+    flags                :: U8  = 0
+    length               :: U16 = SCTP_AUTH_CHUNK_BYTES
+        derive(SCTP_AUTH_CHUNK_BYTES + Base.length(hmac))
+    shared_key_identifier :: U16 = 0
+    hmac_identifier      :: U16 = 1
+    hmac                 :: Octets = UInt8[]
+        length(Bytes(Int(length) - SCTP_AUTH_CHUNK_BYTES))
+    padding              :: Pad{Bytes(4), 0x00}
+end
+
+"""
+    SctpNrSack(; cumulative_tsn_ack, gaps, non_renegable_gaps, duplicates, …)
+
+A Non-Renegable SACK chunk. It is the SACK of RFC 4960 with a second list of
+gap blocks: the first list may still be given back, and the second may not.
+
+This chunk has no RFC. It comes from an Internet draft that expired, so INET's
+`SctpHeaderSerializer` is the specification here and this follows its layout.
+"""
+@header SctpNrSack <: SctpChunk begin
+    type                       :: Constant{U8, SCTP_NR_SACK}
+    flags                      :: U8  = 0
+    length                     :: U16 = SCTP_NR_SACK_CHUNK_BYTES
+        derive(SCTP_NR_SACK_CHUNK_BYTES + 4 * Base.length(gaps) +
+               4 * Base.length(non_renegable_gaps) + 4 * Base.length(duplicates))
+    cumulative_tsn_ack         :: U32 = 0
+    advertised_receiver_window :: U32 = 65535
+    number_of_gaps             :: U16 = 0
+        derive(Base.length(gaps))
+    number_of_duplicates       :: U16 = 0
+        derive(Base.length(duplicates))
+    number_of_non_renegable_gaps :: U16 = 0
+        derive(Base.length(non_renegable_gaps))
+    reserved                   :: U16 = 0
+    gaps                       :: Repeated{SctpGapAckBlock} = SctpGapAckBlock[]
+        count(number_of_gaps)
+    non_renegable_gaps         :: Repeated{SctpGapAckBlock} = SctpGapAckBlock[]
+        count(number_of_non_renegable_gaps)
+    duplicates                 :: Repeated{U32} = UInt32[]
+        count(number_of_duplicates)
+end
+
+"""
+    SctpPacketDrop(; max_receiver_window, queued_data, dropped, …)
+
+A Packet Drop chunk. A middlebox that dropped a packet for a reason other than
+congestion says so, and returns as much of the packet as it kept.
+
+`bandwidth_limited` is the B flag, `truncated` the T flag, `corrupted` the C
+flag and `middlebox` the M flag. This chunk has no RFC either: it comes from an
+expired draft, so INET is the specification.
+"""
+@header SctpPacketDrop <: SctpChunk begin
+    type                :: Constant{U8, SCTP_PACKET_DROP}
+    reserved_flags      :: U4   = 0
+    corrupted           :: Bool = false
+    truncated           :: Bool = false
+    bandwidth_limited   :: Bool = false
+    middlebox           :: Bool = false
+    length              :: U16 = SCTP_PACKET_DROP_CHUNK_BYTES
+        derive(SCTP_PACKET_DROP_CHUNK_BYTES + Base.length(dropped))
+    max_receiver_window :: U32 = 0
+    queued_data         :: U32 = 0
+    truncated_length    :: U16 = 0
+    reserved            :: U16 = 0
+    dropped             :: Octets = UInt8[]
+        length(Bytes(Int(length) - SCTP_PACKET_DROP_CHUNK_BYTES))
+    padding             :: Pad{Bytes(4), 0x00}
+end
+
+"""
+    SctpAsconf(; serial_number, parameters)
+
+An ASCONF chunk — RFC 5061 clause 4.1. It changes the addresses of a live
+association: it adds one, deletes one, or names a new primary.
+
+The first parameter is the address the sender is asking from, and the rest are
+the requests. They are all parameters of the one family, so they are one list.
+"""
+@header SctpAsconf <: SctpChunk begin
+    type          :: Constant{U8, SCTP_ASCONF}
+    flags         :: U8  = 0
+    length        :: U16 = SCTP_ASCONF_CHUNK_BYTES
+        derive(SCTP_ASCONF_CHUNK_BYTES + measure_list_bytes(parameters))
+    serial_number :: U32 = 0
+    parameters    :: Options{SctpParameter} = SctpParameter[]
+        until(Bytes(length))
+end
+
+"""
+    SctpAsconfAck(; serial_number, parameters)
+
+An ASCONF-ACK chunk — RFC 5061 clause 4.2. It answers an ASCONF with one
+success or one error cause for each request, and the serial number says which
+ASCONF it answers.
+"""
+@header SctpAsconfAck <: SctpChunk begin
+    type          :: Constant{U8, SCTP_ASCONF_ACK}
+    flags         :: U8  = 0
+    length        :: U16 = SCTP_ASCONF_CHUNK_BYTES
+        derive(SCTP_ASCONF_CHUNK_BYTES + measure_list_bytes(parameters))
+    serial_number :: U32 = 0
+    parameters    :: Options{SctpParameter} = SctpParameter[]
+        until(Bytes(length))
+end
+
+"""
+    SctpReConfig(; parameters)
+
+A RE-CONFIG chunk — RFC 6525 clause 3.1. It resets stream sequence numbers or
+asks for more streams, and it carries one or two parameters and nothing else.
+"""
+@header SctpReConfig <: SctpChunk begin
+    type       :: Constant{U8, SCTP_RE_CONFIG}
+    flags      :: U8  = 0
+    length     :: U16 = SCTP_CHUNK_HEADER_BYTES
+        derive(SCTP_CHUNK_HEADER_BYTES + measure_list_bytes(parameters))
+    parameters :: Options{SctpParameter} = SctpParameter[]
+        until(Bytes(length))
+end
+
+"""
+    SctpIforwardTsnStream(; stream_identifier, unordered, message_identifier)
+
+One stream of an I-FORWARD-TSN chunk — RFC 8260 clause 2.3.1. Eight octets,
+where the FORWARD-TSN of RFC 3758 spends four: a message identifier is
+thirty-two bits where a stream sequence number is sixteen.
+"""
+@header SctpIforwardTsnStream begin
+    stream_identifier  :: U16 = 0
+    reserved           :: U15 = 0
+    unordered          :: Bool = false
+    message_identifier :: U32 = 0
+end
+
+"""
+    SctpIforwardTsn(; new_cumulative_tsn, streams)
+
+An I-FORWARD-TSN chunk — RFC 8260 clause 2.3.1. It is the FORWARD-TSN of RFC
+3758 for an association that numbers messages rather than orders them.
+"""
+@header SctpIforwardTsn <: SctpChunk begin
+    type               :: Constant{U8, SCTP_IFORWARD_TSN}
+    flags              :: U8  = 0
+    length             :: U16 = 8
+        derive(8 + 8 * Base.length(streams))
+    new_cumulative_tsn :: U32 = 0
+    streams            :: Repeated{SctpIforwardTsnStream} = SctpIforwardTsnStream[]
+        count((Int(length) - 8) ÷ 8)
+end
+
+list_options(::Type{SctpParameter}) =
+    (SctpParameterIpv4Address, SctpParameterIpv6Address,
+     SctpParameterCookiePreservative, SctpParameterSupportedAddresses,
+     SctpParameterStateCookie, SctpParameterHeartbeatInfo,
+     SctpParameterForwardTsn, SctpParameterSupportedExtensions,
+     SctpParameterAddIpAddress, SctpParameterDeleteIpAddress,
+     SctpParameterSetPrimaryAddress, SctpParameterSuccess,
+     SctpParameterErrorCause, SctpParameterOutgoingReset,
+     SctpParameterIncomingReset, SctpParameterSsnTsnReset,
+     SctpParameterResetResponse, SctpParameterAddOutgoingStreams,
+     SctpParameterAddIncomingStreams)
+find_raw_option(::Type{SctpParameter}) = SctpParameterRaw
+
+# ---------- the chunk family -------------------------------------------------
+#
+# The family is declared here, after every member: a `matches_variant` names its
+# member in the SIGNATURE, and a signature is evaluated where it is written.
+
+list_variants(::Type{SctpChunk}) =
+    (SctpData, SctpInit, SctpInitAck, SctpSack, SctpHeartbeat, SctpHeartbeatAck,
+     SctpAbort, SctpShutdown, SctpShutdownAck, SctpError, SctpCookieEcho,
+     SctpCookieAck, SctpShutdownComplete, SctpForwardTsn, SctpAuth, SctpNrSack,
+     SctpPacketDrop, SctpAsconf, SctpAsconfAck, SctpReConfig, SctpIforwardTsn,
+     SctpChunkRaw)
+variant_base(::Type{SctpChunk}) = SctpChunkHeader
+
+matches_variant(::Type{SctpData}, base)             = base.type == SCTP_DATA
+matches_variant(::Type{SctpInit}, base)             = base.type == SCTP_INIT
+matches_variant(::Type{SctpInitAck}, base)          = base.type == SCTP_INIT_ACK
+matches_variant(::Type{SctpSack}, base)             = base.type == SCTP_SACK
+matches_variant(::Type{SctpHeartbeat}, base)        = base.type == SCTP_HEARTBEAT
+matches_variant(::Type{SctpHeartbeatAck}, base)     = base.type == SCTP_HEARTBEAT_ACK
+matches_variant(::Type{SctpAbort}, base)            = base.type == SCTP_ABORT
+matches_variant(::Type{SctpShutdown}, base)         = base.type == SCTP_SHUTDOWN
+matches_variant(::Type{SctpShutdownAck}, base)      = base.type == SCTP_SHUTDOWN_ACK
+matches_variant(::Type{SctpError}, base)            = base.type == SCTP_ERROR
+matches_variant(::Type{SctpCookieEcho}, base)       = base.type == SCTP_COOKIE_ECHO
+matches_variant(::Type{SctpCookieAck}, base)        = base.type == SCTP_COOKIE_ACK
+matches_variant(::Type{SctpShutdownComplete}, base) = base.type == SCTP_SHUTDOWN_COMPLETE
+matches_variant(::Type{SctpForwardTsn}, base)       = base.type == SCTP_FORWARD_TSN
+matches_variant(::Type{SctpAuth}, base)             = base.type == SCTP_AUTH
+matches_variant(::Type{SctpNrSack}, base)           = base.type == SCTP_NR_SACK
+matches_variant(::Type{SctpPacketDrop}, base)       = base.type == SCTP_PACKET_DROP
+matches_variant(::Type{SctpAsconf}, base)           = base.type == SCTP_ASCONF
+matches_variant(::Type{SctpAsconfAck}, base)        = base.type == SCTP_ASCONF_ACK
+matches_variant(::Type{SctpReConfig}, base)         = base.type == SCTP_RE_CONFIG
+matches_variant(::Type{SctpIforwardTsn}, base)      = base.type == SCTP_IFORWARD_TSN
+
+# A chunk of an unknown type is still a chunk: it says its own length, so a
+# reader can step over it. The raw member claims what no other member does.
+matches_variant(::Type{SctpChunkRaw}, base) = true

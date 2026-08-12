@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 335 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 354 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -272,8 +272,7 @@ Three findings, none of which needed a language change:
    RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
    in but not on the way out turns the list around at every hop.
 
-**Left — SCTP's seven extension chunks.** Every other family the inventory
-names is declared.
+**Left — nothing the inventory names.** Every family is declared.
 
 **BGP's UPDATE is the one still to declare, and carefully.** The header, the
 KEEPALIVE, the OPEN and the NOTIFICATION are in. UPDATE has two shapes nothing
@@ -461,11 +460,32 @@ That second point is why `measure_header(h) ÷ 8` is not the universal derive.
 The right question is "how many octets does this length field cover", and only
 sometimes is the answer "all of them".
 
-**What is not declared.** INET carries seven chunk types beyond RFC 4960 and RFC
-3758: AUTH (RFC 4895), ASCONF and ASCONF-ACK (RFC 5061), NR-SACK, PKTDROP,
-RE-CONFIG (RFC 6525) and I-FORWARD-TSN. Its serializer is 2208 lines and this
-declaration was written from RFC 4960 with the constants checked against INET,
-not from a full audit of those lines. The seven are the honest remainder.
+**The seven extension chunks followed — 19 more formats.** AUTH (RFC 4895),
+ASCONF and ASCONF-ACK (RFC 5061), RE-CONFIG (RFC 6525), I-FORWARD-TSN (RFC
+8260), and NR-SACK and PKTDROP, which have no RFC at all: both come from
+Internet drafts that expired, so INET is the specification for those two and its
+serializer is the source.
+
+They added no shape. What they added is members: RFC 4960 clause 3.2.1 gives
+every SCTP parameter the same two-octet type and length, so the eleven ASCONF
+and reconfiguration parameters are ordinary members of the one family. An ASCONF
+request even nests an address parameter inside a parameter, and the option
+reader recurses without being told to.
+
+**They also found the last hole in the clause language, and it has no fix
+here.** RFC 6525 clause 4.4 makes a reconfiguration response twelve octets or
+twenty, and only its length says which. A derived length would not work: a
+derive runs on the way out, and a `when` clause reads the STORED fields — so the
+length field would say twenty while the clause still read the twelve the struct
+held, and the writer would emit twelve octets under a length of twenty. It is
+therefore the one length in the inventory that a model sets, with a `check` on
+all three fields that says they must agree and a `build_reset_response` helper
+that sets them together.
+
+The general fix would be for a `when` clause's `measure_write` to evaluate a
+derived field it names, rather than read the stored one. That is safe here and
+not in general: `chunk_length` avoids derives on purpose, because a derive that
+calls `measure_header` would recurse. Recorded, not attempted.
 
 ### 3.13 The 802.11 physical layers — three orders in six headers
 

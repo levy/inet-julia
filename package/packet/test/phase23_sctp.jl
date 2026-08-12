@@ -148,3 +148,134 @@ hex23(bytes) = join((string(b, base = 16, pad = 2) for b in bytes), " ")
     @test measure_option_code(SctpParameter) == 16
     @test measure_option_code(SctpCause) == 16
 end
+
+@testset "SCTP extensions — seven chunks and eleven more parameters" begin
+    # ---------- AUTH, RFC 4895 clause 4.1 -----------------------------------
+    auth = SctpAuth(hmac = zeros(UInt8, 20))
+    @test chunk_length(auth) == Bytes(SCTP_AUTH_CHUNK_BYTES + 20)
+    auth_back = decode_header(SctpChunk, encode_header(auth))
+    @test auth_back isa SctpAuth
+    @test auth_back.length == SCTP_AUTH_CHUNK_BYTES + 20
+    @test Base.length(auth_back.hmac) == 20
+
+    # ---------- ASCONF, RFC 5061 clause 4.1 ---------------------------------
+    # The address parameter and the requests are all parameters of the one
+    # family, so they are one list — and a request nests an address parameter.
+    asconf = SctpAsconf(
+        serial_number = UInt32(5),
+        parameters = [SctpParameterIpv4Address(address = Ipv4Address("10.0.0.1")),
+                      SctpParameterAddIpAddress(
+                          correlation_id = UInt32(1),
+                          address = [SctpParameterIpv4Address(
+                              address = Ipv4Address("10.0.0.2"))])])
+    asconf_bytes = encode_header(asconf)
+    @test hex23(asconf_bytes) ==
+          "c1 00 00 20 00 00 00 05 00 05 00 08 0a 00 00 01 " *
+          "c0 01 00 10 00 00 00 01 00 05 00 08 0a 00 00 02"
+    asconf_back = decode_header(SctpChunk, asconf_bytes)
+    @test asconf_back isa SctpAsconf
+    @test asconf_back.serial_number == 5
+    @test map(typeof, asconf_back.parameters.values) ==
+          [SctpParameterIpv4Address, SctpParameterAddIpAddress]
+    # The nested address parameter came back as a parameter, not as octets.
+    @test asconf_back.parameters[2].address[1] isa SctpParameterIpv4Address
+    @test asconf_back.parameters[2].address[1].address == Ipv4Address("10.0.0.2")
+    @test encode_header(asconf_back) == asconf_bytes
+
+    acknowledged = SctpAsconfAck(
+        serial_number = UInt32(5),
+        parameters = [SctpParameterSuccess(correlation_id = UInt32(1))])
+    acknowledged_back = decode_header(SctpChunk, encode_header(acknowledged))
+    @test acknowledged_back isa SctpAsconfAck
+    @test acknowledged_back.parameters[1] isa SctpParameterSuccess
+
+    # ---------- RE-CONFIG, RFC 6525 -----------------------------------------
+    reset = SctpParameterOutgoingReset(request_sequence = UInt32(1),
+                                       streams = UInt16[3, 4])
+    @test chunk_length(reset) == Bytes(16 + 4)
+
+    # The response is twelve octets or twenty, and only its length says which.
+    # It is the one length in the inventory that is not derived: a derive runs
+    # on the way out and the `when` clause reads the stored field, so the two
+    # would disagree.
+    long = build_reset_response(response_sequence = 1, sender_next_tsn = UInt32(9),
+                                receiver_next_tsn = UInt32(10))
+    @test long.length == 20
+    @test chunk_length(long) == Bytes(20)
+    short = build_reset_response(response_sequence = 2)
+    @test short.length == 12
+    @test chunk_length(short) == Bytes(12)
+    @test decode_header(SctpParameterResetResponse,
+                        encode_header(short)).sender_next_tsn === nothing
+    # Both TSNs or neither — RFC 6525 clause 4.4.
+    @test_throws Exception build_reset_response(sender_next_tsn = UInt32(9))
+    # A length that disagrees with what the parameter carries is a header the
+    # model built wrong, and the writer says so.
+    @test_throws Exception encode_header(
+        SctpParameterResetResponse(length = UInt16(12), sender_next_tsn = UInt32(9),
+                                   receiver_next_tsn = UInt32(10)))
+
+    reconfig = SctpReConfig(parameters = [reset, long])
+    reconfig_bytes = encode_header(reconfig)
+    @test Base.length(reconfig_bytes) == 4 + 20 + 20
+    reconfig_back = decode_header(SctpChunk, reconfig_bytes)
+    @test reconfig_back isa SctpReConfig
+    @test map(typeof, reconfig_back.parameters.values) ==
+          [SctpParameterOutgoingReset, SctpParameterResetResponse]
+    @test reconfig_back.parameters[1].streams.values == UInt16[3, 4]
+    @test reconfig_back.parameters[2].sender_next_tsn == 9
+    @test encode_header(reconfig_back) == reconfig_bytes
+
+    # ---------- NR-SACK, which has no RFC -----------------------------------
+    # Two lists of gap blocks: the first may still be given back and the second
+    # may not. INET's serializer is the specification here.
+    nr_sack = SctpNrSack(
+        gaps = [SctpGapAckBlock(start_offset = UInt16(1), end_offset = UInt16(2))],
+        non_renegable_gaps = [SctpGapAckBlock(start_offset = UInt16(5),
+                                              end_offset = UInt16(6))],
+        duplicates = UInt32[7])
+    @test chunk_length(nr_sack) == Bytes(SCTP_NR_SACK_CHUNK_BYTES + 4 + 4 + 4)
+    nr_back = decode_header(SctpChunk, encode_header(nr_sack))
+    @test nr_back isa SctpNrSack
+    @test nr_back.number_of_gaps == 1
+    @test nr_back.number_of_non_renegable_gaps == 1
+    @test nr_back.non_renegable_gaps[1].start_offset == 5
+    @test nr_back.duplicates.values == UInt32[7]
+
+    # ---------- PKTDROP, which has no RFC either ----------------------------
+    dropped = SctpPacketDrop(truncated = true, dropped = UInt8[1, 2, 3])
+    drop_bytes = encode_header(dropped)
+    @test hex23(drop_bytes[1:4]) == "81 04 00 13"      # T is the third bit
+    drop_back = decode_header(SctpChunk, drop_bytes)
+    @test drop_back isa SctpPacketDrop
+    @test drop_back.truncated
+    @test !drop_back.corrupted
+    @test drop_back.dropped == Octets(UInt8[1, 2, 3])
+
+    # ---------- I-FORWARD-TSN, RFC 8260 clause 2.3.1 ------------------------
+    # Eight octets per stream where the FORWARD-TSN of RFC 3758 spends four: a
+    # message identifier is thirty-two bits and a stream sequence number is
+    # sixteen.
+    @test chunk_length(SctpIforwardTsnStream) == Bytes(8)
+    @test chunk_length(SctpForwardTsnStream) == Bytes(4)
+    iforward = SctpIforwardTsn(
+        streams = [SctpIforwardTsnStream(stream_identifier = UInt16(1),
+                                         unordered = true,
+                                         message_identifier = UInt32(99))])
+    @test chunk_length(iforward) == Bytes(8 + 8)
+    iforward_back = decode_header(SctpChunk, encode_header(iforward))
+    @test iforward_back isa SctpIforwardTsn
+    @test iforward_back.streams[1].unordered
+    @test iforward_back.streams[1].message_identifier == 99
+
+    # ---------- every extension chunk is reachable through the family -------
+    for (T, type_code) in ((SctpAuth, SCTP_AUTH), (SctpNrSack, SCTP_NR_SACK),
+                           (SctpPacketDrop, SCTP_PACKET_DROP),
+                           (SctpAsconf, SCTP_ASCONF),
+                           (SctpAsconfAck, SCTP_ASCONF_ACK),
+                           (SctpReConfig, SCTP_RE_CONFIG),
+                           (SctpIforwardTsn, SCTP_IFORWARD_TSN))
+        @test encode_header(T())[1] == type_code
+        @test decode_header(SctpChunk, encode_header(T())) isa T
+    end
+end
