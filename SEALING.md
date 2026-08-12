@@ -138,8 +138,8 @@ before fixing (the seal still holds until permission is given).
   - **Layer 2 — base** (shared element machinery)
     - ⬜ `base/Statistics.jl`
     - ⬜ `base/PacketSource.jl`
-    - *`common/PacketPredicates.jl` lands here when the `queuing-tutorial`
-      branch merges*
+    - ⬜ `common/PacketPredicates.jl` — the questions elements ask about a
+      packet
   - **Layer 3 — elements** (slices: source, sink, queue, server, classifier,
     scheduler, filter)
     - ⬜ `source/ActivePacketSource.jl`
@@ -154,6 +154,7 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `filter/PacketFilter.jl`
   - **Layer 4 — composition**
     - ⬜ `common/PacketPlumbing.jl`
+    - ⬜ `common/PacketMarking.jl` — labelling, cloning, duplicating
     - ⬜ `queue/PriorityQueue.jl`
   - **Layer 5 — model**
     - ⬜ `QueuingModel.jl`
@@ -185,6 +186,20 @@ before fixing (the seal still holds until permission is given).
   - *slice `headerview` — how a protocol field value reads in the reflection*
     - ⬜ `headerview/HeaderView.jl` — `HeaderViewModule` root
 
+- **Package `runner` — `InetRunner`** (`package/runner/main/`), the command
+  line and the executable built from it
+  - ⬜ `InetRunner.jl` — package root
+  - ⬜ `BuildConfig.jl`
+  - ⬜ `CommandLine.jl`
+  - ⬜ `ResultFiles.jl`
+  - ⬜ `NedIni.jl`
+  - ⬜ `Runner.jl`
+- **Package `repl` — `InetRepl`** (`package/repl/`), the leaf the `ji` alias
+  loads; **nothing may depend on it**
+  - ⬜ `InetRepl.jl`
+  - ⬜ `PrecompileStatements.jl`
+  - ⬜ `record/driver.jl` — not part of the package's include graph
+
 ### Wave B — tools and watch environments
 
 - **`InetTool`** (`tool/`) — the FSM generators and the inventory generator;
@@ -192,6 +207,11 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `generate_mac_fsm.jl`
   - ⬜ `generate_plca_control_fsm.jl`
   - ⬜ `inventory_headers.jl`
+  - ⬜ `Build.jl` — the build description the runner's suite also includes
+  - ⬜ `build_binary.jl`
+  - ⬜ `binary_precompile.jl`
+  - ⬜ `port_to_module_macro.jl`
+  - ⬜ `test_port_to_module_macro.jl`
 - **`InetWatch`** (`watch/`)
   - ⬜ `mac_fsm.jl`
   - ⬜ `mac_fsm_sdl.jl`
@@ -219,6 +239,10 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `phase17_round_trip.jl`
   - ⬜ `phase18_wave1.jl`
   - ⬜ `phase19_wave2.jl`
+  - ⬜ `phase20_wave2b.jl`
+  - ⬜ `phase21_header_facts.jl`
+  - ⬜ `phase21_wave3.jl`
+  - ⬜ `phase22_wave4.jl`
 - **`InetQueuingTest`** (`package/queuing/test/`)
   - ⬜ `InetQueuingTest.jl`
   - ⬜ `runtests.jl`
@@ -229,6 +253,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `phase3_classify_schedule_filter.jl`
   - ⬜ `phase4_plumbing_compound.jl`
   - ⬜ `phase5_capture.jl`
+  - ⬜ `nedini.jl`
 - **`InetLinkLayerTest`** (`package/linklayer/test/`)
   - ⬜ `InetLinkLayerTest.jl`
   - ⬜ `T1sVectorComparison.jl`
@@ -253,9 +278,21 @@ before fixing (the seal still holds until permission is given).
 - **`InetTest`** (`package/inet/test/`)
   - ⬜ `InetTest.jl`
   - ⬜ `runtests.jl`
+  - ⬜ `packagegraph.jl` — asserts the dependency direction and the leaf rule
   - ⬜ `catalog.jl`
+  - ⬜ `demo.jl`
   - ⬜ `packetdiagram.jl` (with its golden figure,
     `packetdiagram-figure.txt`)
+  - ⬜ `headergallery.jl`
+- **`InetRunnerTest`** (`package/runner/test/`)
+  - ⬜ `InetRunnerTest.jl`
+  - ⬜ `runtests.jl`
+  - ⬜ `closure.jl`
+  - ⬜ `build_spec.jl`
+  - ⬜ `command_line.jl`
+  - ⬜ `run.jl`
+  - ⬜ `result_files.jl`
+  - ⬜ `reference.jl`
 - **Repository test harness**
   - ⬜ `test/runtests.jl`
 
@@ -264,10 +301,21 @@ before fixing (the seal still holds until permission is given).
 - **`InetPacketExample`** (`package/packet/example/`)
   - ⬜ `InetPacketExample.jl`
   - ⬜ `packet_api_demo.jl`
+- **`InetQueuingExample`** (`package/queuing/example/`) — the queueing
+  tutorial: shell, step builders and content
+  - ⬜ `InetQueuingExample.jl` — package root
+  - ⬜ `steps/sources.jl`
+  - ⬜ `steps/classify.jl`
+  - ⬜ `steps/plumbing.jl`
+  - ⬜ `steps/serve.jl`
+  - ⬜ `steps/marking.jl`
+  - ⬜ `steps/network.jl`
+  - ⬜ `TutorialTest.jl`
+  - ⬜ `run.jl` — entry script, outside the include graph
 - **`InetExample`** (`package/inet/example/`)
   - ⬜ `InetExample.jl`
+  - ⬜ `Machines.jl` — the state machines, built through `tool/`
+  - ⬜ `Packets.jl`
   - ⬜ `HeaderPage.jl` — one protocol header, as a page
-
-*The `package/queuing/example/` package (`InetQueuingExample` — the tutorial
-shell, step builders and content) gets its own Wave D group here when the
-`queuing-tutorial` branch lands.*
+  - ⬜ `Precompile.jl`
+  - ⬜ `demo/run.jl` — entry script, outside the include graph
