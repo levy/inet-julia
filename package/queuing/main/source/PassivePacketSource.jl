@@ -14,7 +14,7 @@ that there is something to pull again.
 """
 module PassivePacketSourceElement
 
-using OmnetppSimulator: SimTime, to_simtime, ZERO_DELAY, schedule!, MersenneTwister, NetworkModule
+using OmnetppSimulator: SimTime, to_simtime, ZERO_DELAY, schedule_event!, MersenneTwister, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
@@ -79,7 +79,7 @@ NetworkModule.register_module_statistics!(m::PassivePacketSourceModule, path::Ab
 
 function NetworkModule.start_module!(root, m::PassivePacketSourceModule)
     m.initial_providing_offset > 0 || return m
-    schedule!(root, ZERO_DELAY, ctx ->
+    schedule_event!(root, ZERO_DELAY, ctx ->
         _schedule_providing!(ctx, m, to_simtime(m.initial_providing_offset)))
     m
 end

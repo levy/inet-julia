@@ -16,7 +16,7 @@ using InetLinkLayer.T1sModule
 _build_sim() = SequentialSimulator(2)
 _run!(sim) = (run!(sim); total_event_count(sim))
 
-# NOTE on style: `schedule_root!` / `schedule!` want the action function as
+# NOTE on style: `schedule_root!` / `schedule_event!` want the action function as
 # the LAST positional arg, so we can't use Julia's `do`-block sugar (which
 # would put the closure as the FIRST arg). Explicit lambdas throughout.
 
@@ -86,7 +86,7 @@ end
         phy_start_frame_transmission!(ctx, phy, frame, ESD_ESD)
         # MAC would call end at (64+64+8)*8 / bitrate = actually just data bits:
         # dataBits(64B*8=512) + PHY hdr(64) + ESD(8) = 584 bits @ 10 Mb = 58.4 µs
-        schedule!(ctx, to_simtime(584 / 10e6), 2,
+        schedule_event!(ctx, to_simtime(584 / 10e6), 2,
                   ctx2 -> phy_end_frame_transmission!(ctx2, phy))
     end)
     _run!(sim)
@@ -145,9 +145,9 @@ end
 
     schedule_root!(sim, to_simtime(0.0), 2, ctx -> begin
         phy_start_frame_transmission!(ctx, phy, frame, ESD_ESD)
-        schedule!(ctx, to_simtime(10e-6), 2,
+        schedule_event!(ctx, to_simtime(10e-6), 2,
                   ctx2 -> phy_rx_start!(ctx2, phy, peer_sig))
-        schedule!(ctx, to_simtime(584 / 10e6), 2,
+        schedule_event!(ctx, to_simtime(584 / 10e6), 2,
                   ctx2 -> phy_end_frame_transmission!(ctx2, phy))
     end)
     _run!(sim)

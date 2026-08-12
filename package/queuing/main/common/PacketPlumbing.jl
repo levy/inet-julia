@@ -17,7 +17,7 @@ traffic exactly as a network path does.
 """
 module PacketPlumbingElement
 
-using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule, schedule!
+using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule, schedule_event!
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.VolatileModule: evaluate
@@ -220,7 +220,7 @@ function PacketProtocolModule.push_packet!(ctx, m::PacketDelayerModule, ::Gate, 
     emit_statistic!(m.recording, ctx, :packetDelay, seconds(delay))
     # Each packet gets its own event, so several are in flight at once and a
     # drawn delay can reorder them.
-    schedule!(ctx, delay, m.module_id, function (c)
+    schedule_event!(ctx, delay, m.module_id, function (c)
         m.in_flight -= 1
         push_or_schedule!(c, m.consumer, packet)
     end)

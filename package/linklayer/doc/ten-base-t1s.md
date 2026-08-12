@@ -101,7 +101,7 @@ res = finish_execution!(inst)
   emission `cur_id` transiently equals `plca_node_count` (the reset
   happens at SYNCING → WAIT_TO). This matches INET
   (`EthernetPlca.cc:399-400`).
-- **The `do`-block trap.** `schedule!` / `schedule_root!` /
+- **The `do`-block trap.** `schedule_event!` / `schedule_root!` /
   `schedule_timer!` all take `action::Function` LAST; Julia's `do`-block
   sugar puts the closure FIRST, so `f(args...) do x ... end` breaks
   dispatch. Explicit lambdas throughout.

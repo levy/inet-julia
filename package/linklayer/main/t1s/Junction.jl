@@ -9,7 +9,7 @@
 #
 # Structure:
 #
-#   Each junction owns a `module_id` (so `schedule!` can target it) and a
+#   Each junction owns a `module_id` (so `schedule_event!` can target it) and a
 #   list of `JunctionPort`s. Each port carries:
 #     - peer_module_id  the ID we schedule the delivery callback at
 #     - segment_delay   propagation delay to the immediate peer
@@ -66,7 +66,7 @@ function junction_receive!(ctx, j::WireJunctionState, from_port::Int, sig::WireE
     for i in eachindex(j.ports)
         i == from_port && continue
         port = j.ports[i]
-        schedule!(ctx, port.segment_delay, port.peer_module_id,
+        schedule_event!(ctx, port.segment_delay, port.peer_module_id,
                   function (ctx2) port.on_rx_start(ctx2, sig) end)
     end
     return nothing
@@ -83,7 +83,7 @@ function junction_update!(ctx, j::WireJunctionState, from_port::Int, sig::WireEv
     for i in eachindex(j.ports)
         i == from_port && continue
         port = j.ports[i]
-        schedule!(ctx, port.segment_delay, port.peer_module_id,
+        schedule_event!(ctx, port.segment_delay, port.peer_module_id,
                   function (ctx2) port.on_rx_update(ctx2, sig) end)
     end
     return nothing

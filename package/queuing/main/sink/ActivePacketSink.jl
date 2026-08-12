@@ -10,7 +10,7 @@ timer: it stops, and waits to be told there is something to pull again.
 """
 module ActivePacketSinkElement
 
-using OmnetppSimulator: SimTime, seconds, to_simtime, ZERO_DELAY, schedule!, MersenneTwister, NetworkModule
+using OmnetppSimulator: SimTime, seconds, to_simtime, ZERO_DELAY, schedule_event!, MersenneTwister, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
@@ -74,7 +74,7 @@ NetworkModule.register_module_statistics!(m::ActivePacketSinkModule, path::Abstr
     register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
 NetworkModule.start_module!(root, m::ActivePacketSinkModule) =
-    (schedule!(root, ZERO_DELAY, ctx -> _schedule_and_collect!(ctx, m)); m)
+    (schedule_event!(root, ZERO_DELAY, ctx -> _schedule_and_collect!(ctx, m)); m)
 
 NetworkModule.module_icon(::ActivePacketSinkModule) = "block/sink"
 

@@ -196,9 +196,9 @@ function _build_state!(m::AT1sModel)
         (ctx, sig) -> phy_rx_start!(ctx, coord.phy, sig),
         (ctx, sig) -> phy_rx_update!(ctx, coord.phy, sig))
     coord.phy.downlink = PhyDownlink(
-        (ctx, sig) -> schedule!(ctx, d_seg, j0.module_id,
+        (ctx, sig) -> schedule_event!(ctx, d_seg, j0.module_id,
                                 ctx2 -> junction_receive!(ctx2, j0, coord_port, sig)),
-        (ctx, sig) -> schedule!(ctx, d_seg, j0.module_id,
+        (ctx, sig) -> schedule_event!(ctx, d_seg, j0.module_id,
                                 ctx2 -> junction_update!(ctx2, j0, coord_port, sig)),
     )
 
@@ -211,9 +211,9 @@ function _build_state!(m::AT1sModel)
             (ctx, sig) -> phy_rx_start!(ctx, node.phy, sig),
             (ctx, sig) -> phy_rx_update!(ctx, node.phy, sig))
         node.phy.downlink = PhyDownlink(
-            (ctx, sig) -> schedule!(ctx, d_stub, j.module_id,
+            (ctx, sig) -> schedule_event!(ctx, d_stub, j.module_id,
                                     ctx2 -> junction_receive!(ctx2, j, stub_port, sig)),
-            (ctx, sig) -> schedule!(ctx, d_stub, j.module_id,
+            (ctx, sig) -> schedule_event!(ctx, d_stub, j.module_id,
                                     ctx2 -> junction_update!(ctx2, j, stub_port, sig)),
         )
     end

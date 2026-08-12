@@ -76,7 +76,7 @@ function app_generate!(ctx, app::AppState)
     end
     # Schedule next generation.
     ia = _draw_interval(app)
-    schedule!(ctx, ia, app.module_id,
+    schedule_event!(ctx, ia, app.module_id,
               ctx2 -> app_generate!(ctx2, app))
 end
 

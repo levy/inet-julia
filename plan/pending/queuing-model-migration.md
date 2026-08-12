@@ -45,7 +45,7 @@ Two deliverables:
   `model_delay_edges` (sparse `(src, dst, delay)` — zero-delay edges merge modules into one
   serialized cluster, delays are the parallelism fences), `schedule_initial_events!`,
   `reset_model!`, `finalize_model!`; events are closures scheduled via
-  `schedule!(ctx, delay, module_id, action)`; `mm1k_v2` is the precedent for the
+  `schedule_event!(ctx, delay, module_id, action)`; `mm1k_v2` is the precedent for the
   parameters/state/structure/behaviour split; `Recorder` +
   `register_indexed_vector!`/`emit_indexed_vector!`/`record_scalar!` for results.
 - **inet-julia t1s port** — established conventions we keep: plain mutable state structs with
@@ -203,7 +203,7 @@ handle_pull_packet_processed!(ctx, m, gate, pk, successful)
    - consumer ref resolved and connection delay zero → **direct synchronous call**
      `push_packet!(ctx, consumer, peer_gate, packet)` — same event, infrastructure-branch
      semantics;
-   - connection has delay (a link) → `schedule!(ctx, delay, peer_modid, c ->
+   - connection has delay (a link) → `schedule_event!(ctx, delay, peer_modid, c ->
      push_packet!(c, consumer, peer_gate, packet))` — the analog of `send()` over a channel.
 2. **Everything else is a direct method call between modules** — queries
    (`get_num_packets(queue)`, `is_open(gate)`), commands (`open!`/`close!`), token

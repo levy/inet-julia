@@ -55,9 +55,9 @@ end
     # PHY's downlink must SCHEDULE the junction-receive after its OWN cable
     # delay (segment from PHY to junction). Synchronous would drop that hop.
     phy_A.downlink = PhyDownlink(
-        (ctx, sig) -> schedule!(ctx, delay_A, junction.module_id,
+        (ctx, sig) -> schedule_event!(ctx, delay_A, junction.module_id,
                                 ctx2 -> junction_receive!(ctx2, junction, port_A, sig)),
-        (ctx, sig) -> schedule!(ctx, delay_A, junction.module_id,
+        (ctx, sig) -> schedule_event!(ctx, delay_A, junction.module_id,
                                 ctx2 -> junction_update!(ctx2, junction, port_A, sig)),
     )
 
@@ -96,9 +96,9 @@ end
     # PHY's downlink must SCHEDULE the junction-receive after its OWN cable
     # delay (segment from PHY to junction). Synchronous would drop that hop.
     phy_A.downlink = PhyDownlink(
-        (ctx, sig) -> schedule!(ctx, delay_A, junction.module_id,
+        (ctx, sig) -> schedule_event!(ctx, delay_A, junction.module_id,
                                 ctx2 -> junction_receive!(ctx2, junction, port_A, sig)),
-        (ctx, sig) -> schedule!(ctx, delay_A, junction.module_id,
+        (ctx, sig) -> schedule_event!(ctx, delay_A, junction.module_id,
                                 ctx2 -> junction_update!(ctx2, junction, port_A, sig)),
     )
 
@@ -156,9 +156,9 @@ end
     # Wait — this ordering wires j0's ports as: [coord, j1, n0]. That's fine,
     # they're just indices. Set up downlinks last.
     phy_coord.downlink = PhyDownlink(
-        (ctx, sig) -> schedule!(ctx, d_seg, j0.module_id,
+        (ctx, sig) -> schedule_event!(ctx, d_seg, j0.module_id,
                                 ctx2 -> junction_receive!(ctx2, j0, port_c_at_j0, sig)),
-        (ctx, sig) -> schedule!(ctx, d_seg, j0.module_id,
+        (ctx, sig) -> schedule_event!(ctx, d_seg, j0.module_id,
                                 ctx2 -> junction_update!(ctx2, j0, port_c_at_j0, sig)),
     )
 
@@ -201,9 +201,9 @@ end
     # PHY's downlink must SCHEDULE the junction-receive after its OWN cable
     # delay (segment from PHY to junction). Synchronous would drop that hop.
     phy_A.downlink = PhyDownlink(
-        (ctx, sig) -> schedule!(ctx, delay_A, junction.module_id,
+        (ctx, sig) -> schedule_event!(ctx, delay_A, junction.module_id,
                                 ctx2 -> junction_receive!(ctx2, junction, port_A, sig)),
-        (ctx, sig) -> schedule!(ctx, delay_A, junction.module_id,
+        (ctx, sig) -> schedule_event!(ctx, delay_A, junction.module_id,
                                 ctx2 -> junction_update!(ctx2, junction, port_A, sig)),
     )
 

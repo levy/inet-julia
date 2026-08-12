@@ -37,7 +37,7 @@ itself, the delivery helpers, and the wiring check.
 """
 module PacketProtocolModule
 
-using OmnetppSimulator: SimTime, ZERO_DELAY, schedule!
+using OmnetppSimulator: SimTime, ZERO_DELAY, schedule_event!
 using OmnetppSimulator.NetworkModule: Gate, GateInput, GateOutput, Network,
     module_name, module_id, module_gates, gate_name, network_modules, next_gate
 using InetPacket.PacketModule: Packet

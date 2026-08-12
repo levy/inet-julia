@@ -14,7 +14,7 @@ pushing is possible again. A producer wired to it feels that as back pressure.
 """
 module PassivePacketSinkElement
 
-using OmnetppSimulator: SimTime, seconds, to_simtime, ZERO_DELAY, schedule!, MersenneTwister, NetworkModule
+using OmnetppSimulator: SimTime, seconds, to_simtime, ZERO_DELAY, schedule_event!, MersenneTwister, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
@@ -85,7 +85,7 @@ NetworkModule.register_module_statistics!(m::PassivePacketSinkModule, path::Abst
 # arrives, so it needs the timer running from the outset.
 function NetworkModule.start_module!(root, m::PassivePacketSinkModule)
     m.initial_consumption_offset > 0 || return m
-    schedule!(root, ZERO_DELAY, ctx ->
+    schedule_event!(root, ZERO_DELAY, ctx ->
         _schedule_consumption!(ctx, m, to_simtime(m.initial_consumption_offset)))
     m
 end

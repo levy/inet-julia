@@ -63,7 +63,7 @@ function push_or_schedule!(ctx, ref::ModuleRef, packet::Packet)
     if peer.delay == ZERO_DELAY
         push_packet!(ctx, target, gate, packet)
     else
-        schedule!(ctx, peer.delay, module_id(target),
+        schedule_event!(ctx, peer.delay, module_id(target),
                   c -> push_packet!(c, target, gate, packet))
     end
     nothing

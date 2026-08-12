@@ -91,7 +91,7 @@ end
     schedule_root!(sim, to_simtime(0.0), 2, ctx -> begin
         mac_upper_packet!(ctx, mac, frame)
         # Simulate a collision arriving 10 µs into tx (PLCA would signal this).
-        schedule!(ctx, to_simtime(10e-6), 2,
+        schedule_event!(ctx, to_simtime(10e-6), 2,
                   ctx2 -> mac_handle_collision_start!(ctx2, mac))
     end)
     schedule_root!(sim, to_simtime(500e-6), 2,
