@@ -36,7 +36,7 @@ using Projectured.DocumentModule: @document, @document_preset
 using Projectured.ReferenceModule: Reference
 using Projectured.CellModule: ImmutableCell
 
-export tutorial_directory, load_tutorial, load_tutorial_page, test_tutorial
+export tutorial_directory, load_tutorial, load_tutorial_page
 
 """
     tutorial_directory() -> String
@@ -89,10 +89,9 @@ include("steps/serve.jl")
 include("steps/marking.jl")
 include("steps/network.jl")
 
-# The tutorial's own check: every page loads, every embed resolves, and every
-# step's simulation runs to its limit. It lives with the content because that is
-# what it tests.
-include("TutorialTest.jl")
+# The tutorial's own check — every page loads, every embed resolves, and every
+# step's simulation runs to its limit — is `tutorial.jl` in `InetQueuingTest`.
+# An example package ships content, so it does not depend on `Test`.
 
 # `"model": "QueuingModel"` in a step file resolves through this: a model
 # library makes its models findable by name, and the presentation stack never

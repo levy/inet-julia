@@ -9,15 +9,22 @@ entryfile = "InetQueuingTest.jl"
 # SequentialSimulator. It also covers InetCommon's lookup (phase0), whose tests
 # are written against the packet protocol and so belong on this side of the
 # dependency edge.
+#
+# `tutorial.jl` is why the example package and the presentation stack are here:
+# a test package depends on the example package below it, and the tutorial's
+# assertions are about pages that only the example package holds.
 
 [deps]
 InetCommon = "3e5f522d-74dd-49cc-880c-be4fb7395c4f"
 InetPacket = "6d8371f4-7b79-446a-94d5-7f2c239cd98b"
 InetQueuing = "d26f14db-95a6-410b-bce8-25d11d35faf9"
+InetQueuingExample = "f0a6f2c1-7b3d-4f2e-9a58-6c4d1e2b8a37"
 InetRunner = "3726c817-9e30-456a-b794-f8b80627f404"
 OmnetppDescription = "0e66750a-b7dd-4ea1-aa12-f1d16f19c855"
+OmnetppPresentation = "87a68c42-f795-440d-9b5e-f3293ccf51cf"
 OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
 OmnetppUnits = "9affc4b9-111a-4929-bbfb-901be4983719"
+Projectured = "92922de3-b970-4d9a-8b2a-9d6f361397b5"
 ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
@@ -25,10 +32,13 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 InetCommon = {path = "../../common/main"}
 InetPacket = {path = "../../packet/main"}
 InetQueuing = {path = "../main"}
+InetQueuingExample = {path = "../example"}
 InetRunner = {path = "../../runner/main"}
 OmnetppDescription = {path = "../../../../omnetpp-julia/package/description/main"}
+OmnetppPresentation = {path = "../../../../omnetpp-julia/package/presentation/main"}
 OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
 OmnetppUnits = {path = "../../../../omnetpp-julia/package/units/main"}
+Projectured = {path = "../../../../projectured-julia/package/projectured/main"}
 ProjecturedKernel = {path = "../../../../projectured-julia/package/kernel/main"}
 
 [compat]

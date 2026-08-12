@@ -22,4 +22,10 @@ using Test
     # shipped (plan/done/native-simulation-binary.md §4.8).
     include("nedini.jl")
     test_ned_ini()
+    # The tutorial as a reader meets it: every page loads, every embed resolves,
+    # and every step's simulation runs to its limit
+    # (plan/done/queuing-tutorial-migration.md). It moved here from the example
+    # package, which must not depend on `Test`.
+    include("tutorial.jl")
+    test_tutorial()
 end
