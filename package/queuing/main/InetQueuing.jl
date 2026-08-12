@@ -49,7 +49,7 @@ include("contract/PacketProtocol.jl")
 
 include("base/Statistics.jl")           # what a module records about its run
 include("base/PacketSource.jl")         # the packets a source hands out
-include("common/PacketPredicates.jl")   # the questions elements ask about a packet
+include("base/PacketPredicates.jl")     # the questions elements ask about a packet
 
 include("source/ActivePacketSource.jl")   # produces and pushes
 include("source/PassivePacketSource.jl")  # has one ready to be pulled
@@ -61,9 +61,12 @@ include("server/InstantServer.jl")        # moves them on, taking none
 include("classifier/PacketClassifier.jl") # one way in, several ways out
 include("scheduler/PacketScheduler.jl")   # several ways in, one way out
 include("filter/PacketFilter.jl")         # passes some on, drops the rest
-include("common/PacketPlumbing.jl")       # merging, splitting, delaying
-include("common/PacketMarking.jl")        # labelling, cloning, duplicating
-include("queue/PriorityQueue.jl")         # a queue made of queues
+
+# Composition — the elements that join other elements, and the compound that is
+# built out of them.
+include("composition/PacketPlumbing.jl")  # merging, splitting, delaying
+include("composition/PacketMarking.jl")   # labelling, cloning, duplicating
+include("composition/PriorityQueue.jl")   # a queue made of queues
 
 # What the elements add up to: a network the lifecycle can run and sweep.
 using .PacketProtocolModule

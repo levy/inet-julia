@@ -143,7 +143,7 @@ before fixing (the seal still holds until permission is given).
   - **Layer 2 — base** (shared element machinery)
     - ⬜ `base/Statistics.jl`
     - ⬜ `base/PacketSource.jl`
-    - ⬜ `common/PacketPredicates.jl` — the questions elements ask about a
+    - ⬜ `base/PacketPredicates.jl` — the questions elements ask about a
       packet
   - **Layer 3 — elements** (slices: source, sink, queue, server, classifier,
     scheduler, filter)
@@ -158,9 +158,9 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `scheduler/PacketScheduler.jl`
     - ⬜ `filter/PacketFilter.jl`
   - **Layer 4 — composition**
-    - ⬜ `common/PacketPlumbing.jl`
-    - ⬜ `common/PacketMarking.jl` — labelling, cloning, duplicating
-    - ⬜ `queue/PriorityQueue.jl`
+    - ⬜ `composition/PacketPlumbing.jl`
+    - ⬜ `composition/PacketMarking.jl` — labelling, cloning, duplicating
+    - ⬜ `composition/PriorityQueue.jl`
   - **Layer 5 — model**
     - ⬜ `QueuingModel.jl`
     - ⬜ `QueuingCapture.jl` — the library's observation seams
