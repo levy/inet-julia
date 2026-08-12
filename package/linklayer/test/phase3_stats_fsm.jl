@@ -14,9 +14,9 @@ _run_stats() = let t = SimulationType(T1sModel),
                        :time_limit => 100e-6,
                        :scenario   => :notraffic)),
                    r = expand_simulation(configure_simulation(t, a))[1],
-                   ex = prepare_simulation_execution(r; engine = SequentialEngineSpec())
-    run_simulation!(ex)
-    finish_simulation!(ex)
+                   ex = make_execution(r; engine = SequentialEngineSpec())
+    run_execution!(ex)
+    finish_execution!(ex)
 end
 
 @testset "controlStateChanged fires on every control-FSM transition" begin

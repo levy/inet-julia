@@ -16,10 +16,10 @@ function _queuing_captured_run(captures::Vector{Capture}; seed = 7, time_limit =
     t = SimulationType(QueuingModel)
     a = ParameterAssignment(Dict{Symbol,Any}(:seed => seed, :time_limit => time_limit))
     run = expand_simulation(configure_simulation(t, a))[1]
-    ex = prepare_simulation_execution(run; engine = SequentialEngineSpec(),
+    ex = make_execution(run; engine = SequentialEngineSpec(),
                                       captures = captures)
-    run_simulation!(ex)
-    (ex, finish_simulation!(ex))
+    run_execution!(ex)
+    (ex, finish_execution!(ex))
 end
 
 @testset "queuing capture — ModuleRef seams as observation points" begin

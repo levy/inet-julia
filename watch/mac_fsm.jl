@@ -66,7 +66,7 @@ function build_watch(; n_nodes::Int = 4, time_limit::Float64 = 500e-6, node::Int
     assignment = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => n_nodes, :time_limit => time_limit, :scenario => :bestcase))
     run = expand_simulation(configure_simulation(type, assignment))[1]
-    execution = prepare_simulation_execution(run; engine = SequentialEngineSpec())
+    execution = make_execution(run; engine = SequentialEngineSpec())
     mac = simulation_model(execution).state.nodes[node].mac
 
     (; component, machine, projection, iomap, diagram, canvas = iomap.output,
@@ -106,7 +106,7 @@ the mode in which every transition is visible: at full speed a slice collapses
 many transitions into one repaint, which is honest but not watchable.
 """
 function step_watch!(w)
-    step_simulation!(w.execution)
+    step_execution!(w.execution)
     refresh_diagram!(w.diagram, w.mac)
     w
 end
@@ -123,8 +123,8 @@ than advances, and the driver never resumes one on its own — that decision
 belongs to whoever paused it, and here that is this file.
 """
 function drive_watch!(w; slice::Float64 = 0.05, pace::Float64 = 0.0)
-    simulation_finished(w.execution) || resume_simulation!(w.execution)
-    drive_simulation!(w.execution; slice = slice, after_slice = _ -> begin
+    simulation_finished(w.execution) || resume_execution!(w.execution)
+    drive_execution!(w.execution; slice = slice, after_slice = _ -> begin
         refresh_diagram!(w.diagram, w.mac)
         pace > 0 && sleep(pace)
     end)

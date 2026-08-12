@@ -24,9 +24,9 @@ using InetLinkLayer.T1sModule
     a = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
     run = expand_simulation(configure_simulation(t, a))[1]
-    inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
-    run_simulation!(inst)
-    res = finish_simulation!(inst)
+    inst = make_execution(run; engine = SequentialEngineSpec())
+    run_execution!(inst)
+    res = finish_execution!(inst)
 
     # Pin the golden hash. Any behavioural change to PLCA control FSM /
     # PHY / junction fan-out will shift this.
@@ -41,9 +41,9 @@ end
     hashes = UInt128[]
     for _ in 1:3
         run = expand_simulation(configure_simulation(t, a))[1]
-        inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
-        run_simulation!(inst)
-        push!(hashes, finish_simulation!(inst).network_hash)
+        inst = make_execution(run; engine = SequentialEngineSpec())
+        run_execution!(inst)
+        push!(hashes, finish_execution!(inst).network_hash)
     end
     @test Base.length(unique(hashes)) == 1
 end
@@ -55,9 +55,9 @@ end
         a = ParameterAssignment(Dict{Symbol,Any}(
             :n_nodes => n, :time_limit => 50e-6, :scenario => :notraffic))
         run = expand_simulation(configure_simulation(t, a))[1]
-        inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
-        run_simulation!(inst)
-        push!(hashes, finish_simulation!(inst).network_hash)
+        inst = make_execution(run; engine = SequentialEngineSpec())
+        run_execution!(inst)
+        push!(hashes, finish_execution!(inst).network_hash)
     end
     @test Base.length(unique(hashes)) == 3   # each n produces a distinct trace
 end
@@ -73,10 +73,10 @@ end
     a = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => 4, :time_limit => 500e-6, :scenario => :bestcase))
     run = expand_simulation(configure_simulation(t, a))[1]
-    inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
+    inst = make_execution(run; engine = SequentialEngineSpec())
     model = simulation_model(inst)
-    run_simulation!(inst)
-    res = finish_simulation!(inst)
+    run_execution!(inst)
+    res = finish_execution!(inst)
 
     @test res.network_hash == 0x6f8ce88a8da52eab756161a1cd751395
     @test total_event_count(simulation_engine(inst)) == 480

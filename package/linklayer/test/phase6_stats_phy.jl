@@ -13,9 +13,9 @@ _run(scenario::Symbol = :notraffic; time_limit = 100e-6) =
                 :time_limit => time_limit,
                 :scenario   => scenario)),
         r = expand_simulation(configure_simulation(t, a))[1],
-        ex = prepare_simulation_execution(r; engine = SequentialEngineSpec())
-        run_simulation!(ex)
-        finish_simulation!(ex)
+        ex = make_execution(r; engine = SequentialEngineSpec())
+        run_execution!(ex)
+        finish_execution!(ex)
     end
 
 @testset "notraffic: coord PHY transmissions match beacon cadence" begin

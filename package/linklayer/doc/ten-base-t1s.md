@@ -71,9 +71,9 @@ a = ParameterAssignment(Dict{Symbol,Any}(
     :time_limit => 100e-6,       # seconds
     :scenario   => :notraffic))   # :notraffic | :bestcase | :worstcase
 run = expand_simulation(configure_simulation(t, a))[1]
-inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
-run_simulation!(inst)
-res = finish_simulation!(inst)
+inst = make_execution(run; engine = SequentialEngineSpec())
+run_execution!(inst)
+res = finish_execution!(inst)
 
 @show res.network_hash             # 0x429fe1b7ab8d705cbaaa4926d57e103b
 ```

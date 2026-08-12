@@ -285,9 +285,9 @@ using OmnetppSimulator.VolatileModule
         assignment = ParameterAssignment(Dict{Symbol,Any}(
             :arrival_rate => 5.0, :service_rate => 10.0, :time_limit => 2000.0, :seed => 7))
         run = expand_simulation(configure_simulation(type, assignment))[1]
-        execution = prepare_simulation_execution(run; engine = SequentialEngineSpec())
-        run_simulation!(execution)
-        result = finish_simulation!(execution)
+        execution = make_execution(run; engine = SequentialEngineSpec())
+        run_execution!(execution)
+        result = finish_execution!(execution)
 
         model = simulation_model(execution)
         @test model_module_count(model) == 5           # barrier, source, queue, server, sink
@@ -300,11 +300,11 @@ using OmnetppSimulator.VolatileModule
         @test result.network_hash != UInt128(0)
 
         # The same run again is the same run.
-        again = prepare_simulation_execution(
+        again = make_execution(
             expand_simulation(configure_simulation(type, assignment))[1];
             engine = SequentialEngineSpec())
-        run_simulation!(again)
-        @test finish_simulation!(again).network_hash == result.network_hash
+        run_execution!(again)
+        @test finish_execution!(again).network_hash == result.network_hash
     end
 
     @testset "the model describes itself" begin

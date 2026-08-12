@@ -129,10 +129,10 @@ const _INET_REF_DIR = joinpath(@__DIR__, "inet-reference")
                 :scenario   => :notraffic,
                 :vec_path   => our_vec))
             run = expand_simulation(configure_simulation(t, a))[1]
-            inst = prepare_simulation_execution(run;
+            inst = make_execution(run;
                                                 engine = SequentialEngineSpec())
-            run_simulation!(inst)
-            finish_simulation!(inst)
+            run_execution!(inst)
+            finish_execution!(inst)
 
             # Compare — every signal we emit should match INET's on every
             # (time, value) sample. `busUsed` / `throughput` are INET-only

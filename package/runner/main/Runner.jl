@@ -19,8 +19,8 @@ using Dates: now
 import OmnetppSimulator
 using OmnetppSimulator: Recorder, attach_sink!, close_sinks!,
     OmnetppTextSink, total_event_count, stop_reason_text, fmt_time,
-    make_prebuilt_network_instance, prepare_simulation_execution,
-    run_simulation!, finish_simulation!, simulation_engine, simulation_time,
+    make_prebuilt_network_instance, make_execution,
+    run_execution!, finish_execution!, simulation_engine, simulation_time,
     simulation_stop_reason,
     simulation_limit, NO_LIMIT,
     EngineSpec, SequentialEngineSpec, ParallelEngineSpec, engine_min_threads,
@@ -192,12 +192,12 @@ function run_options(options::Options; io::IO = stdout)
     # network before it starts.
     OmnetppSimulator.NetworkModule.initialize_network!(network)
     check_packet_connections(network)
-    execution = prepare_simulation_execution(make_prebuilt_network_instance(network);
+    execution = make_execution(make_prebuilt_network_instance(network);
         engine = spec,
         record = recording, recorder = recorder,
         limit = run_limit(options, configuration, io))
-    run_simulation!(execution)
-    finish_simulation!(execution)
+    run_execution!(execution)
+    finish_execution!(execution)
     engine = simulation_engine(execution)
     # Nothing above is a lifecycle execution, so nothing closes the sinks on
     # our behalf. The files are written here or not at all.

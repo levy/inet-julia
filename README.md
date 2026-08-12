@@ -87,9 +87,9 @@ a = ParameterAssignment(Dict{Symbol,Any}(          # the lifecycle, from Omnetpp
     :time_limit => 100e-6,
     :scenario   => :notraffic))
 run  = expand_simulation(configure_simulation(t, a))[1]
-inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
-run_simulation!(inst)
-res  = finish_simulation!(inst)
+inst = make_execution(run; engine = SequentialEngineSpec())
+run_execution!(inst)
+res  = finish_execution!(inst)
 ```
 
 To offer `Inet`'s models in a workbench, hand it the extended catalog:

@@ -61,7 +61,7 @@ already says so. It leaves this plan's scope with nothing to do.
 
 `InetRunner.run_options` runs through `run_network!`, and `run_network!` takes
 no engine — it builds the sequential one, always. `omnetpp-julia`'s runner walks
-the pipeline instead and hands `prepare_simulation_execution` an `EngineSpec`.
+the pipeline instead and hands `make_execution` an `EngineSpec`.
 
 Two ways, and the first is the one to take:
 

@@ -17,9 +17,9 @@ function _run_notraffic_with_stats(; n_nodes = 5, time_limit = 100e-6)
         :time_limit => time_limit,
         :scenario   => :notraffic))
     run = expand_simulation(configure_simulation(t, a))[1]
-    inst = prepare_simulation_execution(run; engine = SequentialEngineSpec())
-    run_simulation!(inst)
-    return finish_simulation!(inst)
+    inst = make_execution(run; engine = SequentialEngineSpec())
+    run_execution!(inst)
+    return finish_execution!(inst)
 end
 
 @testset "notraffic emits cycleLength — analytical pin" begin

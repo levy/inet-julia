@@ -117,13 +117,13 @@ function drive_editor!(s::DiagramSync, w; stepped::Bool, pace::Float64 = 0.0,
                        slice::Float64 = 0.05)
     if stepped
         while !simulation_finished(w.execution)
-            step_simulation!(w.execution)
+            step_execution!(w.execution)
             sync_diagram!(s, w) || return w
         end
     else
-        drive_simulation!(w.execution; slice = slice, after_slice = _ -> begin
+        drive_execution!(w.execution; slice = slice, after_slice = _ -> begin
             if !sync_diagram!(s, w)
-                simulation_finished(w.execution) || stop_simulation!(w.execution)
+                simulation_finished(w.execution) || stop_execution!(w.execution)
             elseif pace > 0
                 sleep(pace)
             end
@@ -170,7 +170,7 @@ function run_sdl(; stepped::Bool = true, pace::Float64 = 0.08,
         end
     finally
         sync[] === nothing || stop_sync!(sync[])
-        simulation_finished(w.execution) || stop_simulation!(w.execution)
+        simulation_finished(w.execution) || stop_execution!(w.execution)
     end
 end
 

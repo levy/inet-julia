@@ -26,9 +26,9 @@ run_t1s(scenario, limit) =
         a = ParameterAssignment(Dict{Symbol,Any}(
                 :n_nodes => 5, :time_limit => limit, :scenario => scenario)),
         r = expand_simulation(configure_simulation(t, a))[1],
-        ex = prepare_simulation_execution(r; engine = SequentialEngineSpec())
-        run_simulation!(ex)
-        finish_simulation!(ex)
+        ex = make_execution(r; engine = SequentialEngineSpec())
+        run_execution!(ex)
+        finish_execution!(ex)
     end
 
 for scenario in (:notraffic, :bestcase)

@@ -25,10 +25,10 @@ function _t1s_captured_bestcase(captures::Vector{Capture})
     a = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :bestcase))
     run = expand_simulation(configure_simulation(t, a))[1]
-    ex = prepare_simulation_execution(run; engine = SequentialEngineSpec(),
+    ex = make_execution(run; engine = SequentialEngineSpec(),
                                       captures = captures)
-    run_simulation!(ex)
-    finish_simulation!(ex)
+    run_execution!(ex)
+    finish_execution!(ex)
     ex
 end
 
@@ -118,9 +118,9 @@ end
     a = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
     cap = Capture()
-    ex = prepare_simulation_execution(expand_simulation(configure_simulation(t, a))[1];
+    ex = make_execution(expand_simulation(configure_simulation(t, a))[1];
                                       captures = [cap])
-    run_simulation!(ex); finish_simulation!(ex)
+    run_execution!(ex); finish_execution!(ex)
     paths = [capture_point(cap, Int(id)).path for id in cap.buffer.point_ids]
     @test !isempty(paths)
     @test all(occursin(".phy.wire.", p) for p in paths)     # only wire activity
