@@ -144,7 +144,7 @@ end
     @test unknown.header.header_length == 40
 
     # X-MAC has the same octets as B-MAC.
-    @test fieldnames(XMacDataFrameHeader) == fieldnames(BMacDataFrameHeader)
+    @test header_fields(XMacDataFrameHeader) == header_fields(BMacDataFrameHeader)
     @test chunk_length(XMacDataFrameHeader(source = MacAddress(0),
                                            destination = MacAddress(0))) == Bytes(25)
 
@@ -239,7 +239,7 @@ end
     @test decode_header(MrpTest, bytes) == test
 
     # Link Down and Link Up have one layout and two type octets.
-    @test fieldnames(MrpLinkUp) == fieldnames(MrpLinkDown)
+    @test header_fields(MrpLinkUp) == header_fields(MrpLinkDown)
     @test option_code(MrpLinkDown) == MRP_TLV_LINK_DOWN
     @test option_code(MrpLinkUp) == MRP_TLV_LINK_UP
 

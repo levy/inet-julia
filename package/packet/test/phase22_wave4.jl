@@ -131,7 +131,7 @@ end
     @test read_back.groups[1].joined_sources[1].address == Ipv4Address("10.0.0.5")
 
     # A Graft carries the Join/Prune body, which is what RFC 3973 draws.
-    @test fieldnames(PimGraft) == fieldnames(PimJoinPrune)
+    @test header_fields(PimGraft) == header_fields(PimJoinPrune)
     @test decode_header(PimPacket, encode_header(PimGraft(
         upstream_neighbor = PimUnicastAddress(address = Ipv4Address(0))))) isa PimGraft
 
