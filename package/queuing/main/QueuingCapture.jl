@@ -50,12 +50,12 @@ end
 
 # The two packet-carrying calls — the taps.
 function push_packet!(ctx, p::TappedPacketPeer, gate::Gate, packet::Packet)
-    record_tap!(p.taps, p.pt, ctx.timestamp - p.delay, ctx.timestamp, packet)
+    record_tap!(p.taps, p.pt, ctx, ctx.timestamp - p.delay, packet)
     push_packet!(ctx, p.target, gate, packet)
 end
 function pull_packet!(ctx, p::TappedPacketPeer, gate::Gate)
     packet = pull_packet!(ctx, p.target, gate)
-    record_tap!(p.taps, p.pt, ctx.timestamp, ctx.timestamp, packet)
+    record_tap!(p.taps, p.pt, ctx, ctx.timestamp, packet)
     packet
 end
 

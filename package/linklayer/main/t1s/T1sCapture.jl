@@ -60,7 +60,7 @@ function _attach_t1s_mac_seams!(att, node::T1sNode, base::String)
         received = orig.frame_received
         mac.upcalls = MacUpcalls(
             (ctx, m2, pk) -> begin
-                record_tap!(taps, pt, ctx.timestamp, ctx.timestamp, pk)
+                record_tap!(taps, pt, ctx, ctx.timestamp, pk)
                 received(ctx, m2, pk)
             end,
             orig.frame_sent)
@@ -73,7 +73,7 @@ function _attach_t1s_mac_seams!(att, node::T1sNode, base::String)
         start_frame = orig.start_frame_tx
         mac.downlink = MacDownlink(
             (ctx, pk, esd) -> begin
-                record_tap!(taps2, pt2, ctx.timestamp, ctx.timestamp, pk)
+                record_tap!(taps2, pt2, ctx, ctx.timestamp, pk)
                 start_frame(ctx, pk, esd)
             end,
             orig.end_frame_tx, orig.start_signal_tx, orig.end_signal_tx)
@@ -92,7 +92,7 @@ function _attach_t1s_plca_seams!(att, node::T1sNode, base::String)
         plca.downlink = PlcaDownlink(
             orig.start_signal_tx, orig.end_signal_tx,
             (ctx, pk, esd) -> begin
-                record_tap!(taps, pt, ctx.timestamp, ctx.timestamp, pk)
+                record_tap!(taps, pt, ctx, ctx.timestamp, pk)
                 start_frame(ctx, pk, esd)
             end,
             orig.end_frame_tx)
@@ -110,7 +110,7 @@ function _attach_t1s_phy_seams!(att, node::T1sNode, base::String)
         send = orig.send_signal
         phy.downlink = PhyDownlink(
             (ctx, sig) -> begin
-                record_tap!(taps, pt, ctx.timestamp, ctx.timestamp, sig)
+                record_tap!(taps, pt, ctx, ctx.timestamp, sig)
                 send(ctx, sig)
             end,
             orig.truncate_signal)
@@ -126,7 +126,7 @@ function _attach_t1s_phy_seams!(att, node::T1sNode, base::String)
             orig.collision_start, orig.collision_end,
             orig.reception_start,
             (ctx, p, sig) -> begin
-                record_tap!(taps2, pt2, ctx.timestamp, ctx.timestamp, sig)
+                record_tap!(taps2, pt2, ctx, ctx.timestamp, sig)
                 reception_end(ctx, p, sig)
             end)
     end
