@@ -34,8 +34,9 @@ module PacketModule
 using ProjecturedKernel.DocumentModule: Document, @document, @document_preset,
                                         copy_document, sync_document!,
                                         document_schema_name
+import ProjecturedKernel.DocumentModule: should_descend_sync, unsynced_placeholder
 using ProjecturedKernel.ReferenceModule: Reference
-using ProjecturedKernel.CellModule: AbstractCell, ImmutableCell
+using ProjecturedKernel.CellModule: AbstractCell, ImmutableCell, ReactiveCell
 
 # The envelope is the one packet type that mutates, and it is the one a
 # simulation touches on every hop. Its bare name is the plain `mutable struct` it
@@ -48,7 +49,7 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        is_properly_represented, is_improperly_represented,
        Chunk, Filler, Raw, Slice, Sequence, Fields,
        slice, sequence, quality, peek, chunk_length,
-       Packet, dup, trim!, data_length, front_length, back_length,
+       Packet, APacket, live_packet, dup, trim!, data_length, front_length, back_length,
        content_length, data_chunk,
        BitWriter, BitReader, write_bits!, read_bits!, bit_count,
        write_bytes!, read_bytes!, write_byte_repeatedly!, skip_bits!, measure_padding,

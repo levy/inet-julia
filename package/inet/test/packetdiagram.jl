@@ -175,7 +175,6 @@ end
     diagram = get_iomap_output(iomap)
 
     @test diagram isa PacketDiagram
-    @test diagram.packet === pk
     @test diagram.row_bits == 32
     @test Base.length(diagram.bands) == 5
     @test diagram.bands[2].name == "Ipv4Header"
@@ -192,18 +191,21 @@ end
     @test Base.length(get_iomap_output(header_only).bands) == 1
 end
 
-@testset "PacketToPacketDiagram — writing the packet re-derives the bands" begin
-    pk = diagram_test_frame()
-    iomap = print_document(PacketToPacketDiagram(), nothing, pk, PrinterContext())
-    diagram = get_iomap_output(iomap)
+@testset "PacketToPacketDiagram — writing the packet re-derives the figure" begin
+    # A cell-layout packet announces every write, so nothing has to be told
+    # that the figure is stale. This is what a packet being a document buys:
+    # the announcement rule the figure used to carry is gone, and so is the
+    # back-pointer that carried it.
+    live = live_packet(diagram_test_frame())
+    diagram = get_iomap_output(print_document(PacketToPacketDiagram(), nothing,
+                                              live, PrinterContext()))
     @test Base.length(diagram.bands) == 5
+    @test occursin("78B", diagram.label)
 
-    # A packet holds no cells, so the announcement is the write to this field.
-    smaller = Packet(UdpHeader(source_port = 1, destination_port = 2, length = UInt16(8)))
-    refresh_packet_diagram!(diagram, smaller)
-    @test diagram.packet === smaller
+    live.content = UdpHeader(source_port = 1, destination_port = 2, length = UInt16(8))
     @test Base.length(diagram.bands) == 1
-    @test diagram.bands[1].name == "UdpHeader"
+    @test collect(diagram.bands)[1].name == "UdpHeader"
+    @test occursin("8B", diagram.label)
 end
 
 # The two helpers the mapping test needs: one more field step on a reference,
@@ -343,7 +345,11 @@ end
 end
 
 @testset "packet_diagram_entry — keyed on the packet itself" begin
+    # Keyed on the FAMILY, so both layouts draw: the native envelope a
+    # simulation mutates, and the one an editor watches.
     entry = packet_diagram_entry()
     @test entry isa Pair
-    @test entry.first === Packet
+    @test entry.first === APacket
+    @test Packet <: entry.first
+    @test typeof(live_packet(Packet(EthernetFcs()))) <: entry.first
 end

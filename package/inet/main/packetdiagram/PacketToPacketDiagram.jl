@@ -6,11 +6,12 @@
 # window. The diagram is built ONCE per projection setup and keeps its identity,
 # so a row width a reader chose survives a change to the packet.
 #
-# A `Packet` holds no reactive cells, and it can hold none: `InetPacket` may not
-# import the kernel that defines them. So the packet cannot announce its own
-# change, and the announcement comes from the cell that holds it — the `packet`
-# field here. Writing it re-derives the bands; mutating a packet in place does
-# not, and `refresh_packet_diagram!` is for a holder that cannot write.
+# A packet is a document, so this stage takes `APacket`, the family, and draws
+# either layout of it: the native envelope a simulation mutates, and the cell
+# layout an editor copies it into. The figure holds no packet of its own and
+# nothing announces on its behalf — the label and the bands read the packet
+# inside a cell, so a layout that announces its writes redraws the figure, and
+# a native one does not, which is what a simulation wants.
 # ============================================================================
 
 """
@@ -30,28 +31,30 @@ end
 end
 
 """
-    packet_diagram(packet; row_bits = 32, label = packet_label(packet)) -> PacketDiagram
+    packet_diagram(packet; row_bits = 32) -> PacketDiagram
 
 The figure's document for `packet`, built as the projection builds it.
 
-Public because a **document** is what an embed can carry: a `WidgetCard` renders
-its content only when the content is a `Document`
-(`WidgetToGraphics.jl`, `w.content isa Document`), and every marker on a page
-arrives in a card. So a page splices this, and the `Packet` entry of
-`packet_diagram_entries` serves a packet the renderer meets anywhere else.
+Public because `packet_diagram_string` and the tests build a figure without
+running the projection. A page does not: it splices the packet, and the entry
+keyed on `APacket` draws it.
+
+The label and the bands are both derived, and both read the packet **inside** a
+cell. That is what makes the figure follow a packet that changes: a cell-layout
+packet announces every write, and a computed cell that read it re-derives. A
+native packet holds no cells and announces nothing, which is the right answer for
+one — a simulation mutates a packet on every hop, and a figure that re-derived
+each time would be the simulation's cost, not the figure's.
 """
-function packet_diagram(packet::Packet; row_bits::Int = 32,
-                        label::AbstractString = packet_label(packet))
-    packet_cell = Cell(packet)
-    PacketDiagram(packet   = packet_cell,
-                  label    = String(label),
+function packet_diagram(packet::APacket; row_bits::Int = 32)
+    PacketDiagram(label    = ComputedCell(() -> packet_label(packet)),
                   row_bits = row_bits,
-                  bands    = ComputedCellVector(() -> diagram_bands(packet_cell[])))
+                  bands    = ComputedCellVector(() -> diagram_bands(packet)))
 end
 
 packet_diagram(chunk::Chunk; kwargs...) = packet_diagram(Packet(chunk); kwargs...)
 
-function print_document(p::PacketToPacketDiagram, recursion, packet::Packet, ctx)
+function print_document(p::PacketToPacketDiagram, recursion, packet::APacket, ctx)
     PacketToPacketDiagramIoMap(p, packet, packet_diagram(packet; row_bits = p.row_bits))
 end
 
@@ -59,18 +62,6 @@ end
 # refusing it would make the figure unusable on the very value a test holds.
 function print_document(p::PacketToPacketDiagram, recursion, chunk::Chunk, ctx)
     print_document(p, recursion, Packet(chunk), ctx)
-end
-
-"""
-    refresh_packet_diagram!(diagram, packet = diagram.packet) -> diagram
-
-Announce that the packet changed. Writing the `packet` field is what invalidates
-the bands, so a holder that replaced its packet needs nothing else; a holder
-that mutated one in place calls this.
-"""
-function refresh_packet_diagram!(diagram::PacketDiagram, packet = diagram.packet)
-    diagram.packet = packet
-    return diagram
 end
 
 # ---------- the reference mapping -------------------------------------------
@@ -108,7 +99,7 @@ _steps_to_reference(steps) =
 # `content.…` → `bands[b]`, and one field deeper when the tail names one.
 function _forward_into_diagram(iomap, reference)
     reference isa Reference || return nothing
-    iomap.input isa Packet || return nothing
+    iomap.input isa APacket || return nothing
     steps = get_reference_steps(strip_reference_types(reference))
     walk = walk_bands(iomap.input)
     for (index, (band, path)) in enumerate(walk)
@@ -127,7 +118,7 @@ end
 # `bands[b]` → the chunk's own steps, and `bands[b].fields[f]` → one field more.
 function _backward_into_packet(iomap, reference)
     reference isa Reference || return nothing
-    iomap.input isa Packet || return nothing
+    iomap.input isa APacket || return nothing
     steps = get_reference_steps(strip_reference_types(reference))
     index = _indexed(steps, "bands")
     index === nothing && return nothing
@@ -181,7 +172,7 @@ This walks the chunk tree rather than `dissect`, which reports a header's field
 values but not their bit offsets or widths — and without those there is no
 figure to draw.
 """
-diagram_bands(packet::Packet) = DiagramBand[band for (band, _) in walk_bands(packet)]
+diagram_bands(packet::APacket) = DiagramBand[band for (band, _) in walk_bands(packet)]
 diagram_bands(chunk::Chunk) = DiagramBand[band for (band, _) in walk_bands(chunk)]
 diagram_bands(::Nothing) = DiagramBand[]
 
@@ -199,7 +190,7 @@ derived chunk with no place of its own. It gives back `content` itself when it
 trims nothing, and the walk tests that identity rather than reading the two
 lengths, because the smart constructor decides it.
 """
-function walk_bands(packet::Packet)
+function walk_bands(packet::APacket)
     out = Tuple{DiagramBand, Union{Vector{Any}, Nothing}}[]
     chunk = data_chunk(packet)
     root = chunk === packet.content ? Any[FieldReferenceStep("content")] : nothing
@@ -306,7 +297,7 @@ quality_text(q) = q == Q_COMPLETE ? "" : string(q)
 
 The figure's title line: what the envelope holds, and what it retains.
 """
-function packet_label(packet::Packet)
+function packet_label(packet::APacket)
     label = "Packet  " * string(data_length(packet))
     packet.front == ZERO_LENGTH || (label *= "  front=" * string(packet.front))
     packet.back  == ZERO_LENGTH || (label *= "  back="  * string(packet.back))

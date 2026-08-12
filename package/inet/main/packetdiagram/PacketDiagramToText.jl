@@ -272,7 +272,7 @@ inside the `WidgetCard` an embed arrives in — a card renders its content when 
 content is a `Document` (`w.content isa Document` in `WidgetToGraphics.jl`), so a
 page splices the packet and nothing on the way converts it.
 """
-packet_diagram_entry(; kwargs...) = Packet => packet_projection(; kwargs...)
+packet_diagram_entry(; kwargs...) = APacket => packet_projection(; kwargs...)
 
 """
     packet_diagram_string(packet; row_bits = 32, kwargs...) -> String

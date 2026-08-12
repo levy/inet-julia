@@ -3,8 +3,8 @@
 #
 # A band holds strings and numbers, never a `Chunk`. Drawing must not reach into
 # the packet's internals, which is the same reason `Packets.jl` gives for not
-# using generic reflection on a packet. The one exception is the `packet` field
-# on the root: that is the projection's own back-pointer, not content.
+# using generic reflection on a packet. There is no exception: the figure holds
+# no packet, and the projection reads the one it was given.
 #
 # `value` and `text` are both stored although `text` derives from `value`. The
 # projection knows the field's Julia type and can format a `MacAddress`; the
@@ -66,18 +66,20 @@ or `:slice`.
 end
 
 """
-    PacketDiagram(; packet, label, row_bits, bands)
+    PacketDiagram(; label, row_bits, bands)
 
-The figure's own document. `packet` is the `Packet` it was projected from,
-`row_bits` is how many bits one row of the grid holds, and `bands` are the
-headers and the opaque runs in reading order.
+The figure's own document. `row_bits` is how many bits one row of the grid
+holds, and `bands` are the headers and the opaque runs in reading order.
+
+It holds no packet. The projection reads the one it was given, and both the
+label and the bands are derived from it inside a cell — so a packet that
+announces its writes redraws the figure, and nothing has to be told to.
 
 `row_bits` is view state: a reader may set it to 16 to read an Ethernet header
 without a field splitting across a row, and the setting survives a re-render
 because the projection builds this document once.
 """
 @document struct PacketDiagram
-    packet::Any    = nothing
     label::String  = ""
     row_bits::Int  = 32
     bands::CellVector = CellVector()

@@ -749,18 +749,61 @@ They are keyed collections rather than trees, so they may want a shape of their
 own. This phase may be deferred without blocking the rest; a packet whose tags
 are plain values is still navigable everywhere else.
 
-### Phase 6 — the diagram, simplified — **PENDING**
+### Phase 6 — the diagram, simplified — **DONE**
 
-- [ ] Delete the `packet` back-pointer, `refresh_packet_diagram!` and the
-      document entry; the marker splices the packet again.
-- [ ] `map_reference_backward` names a place inside the packet, so the wall of
-      §8.4 comes down.
-- [ ] Decide `dissect`'s fate (§7) with the demo page as the evidence.
-- [ ] The demo page's prose says what is true again: nothing converts the packet.
+All four workarounds of §1 are gone.
 
-Gate: the golden figure `packetdiagram-figure.txt` is unchanged. The figure is
-drawn from `header_layout`, which this plan does not touch, so a changed
-character means something else moved.
+**A page splices the packet.** A card renders its content when the content is a
+`Document`, and a packet is one. So the marker returns the packet, the header
+page pushes the packet, and one entry keyed on `APacket` draws it in a card, in
+a document field and in a collection alike. `packet_diagram_document_entry`,
+`packet_diagram_entries` and the `PacketDiagram` a page used to carry are gone.
+
+**A packet announces its own change.** The figure holds no packet and nothing
+announces on its behalf: the label is a `ComputedCell` and the bands a
+`ComputedCellVector`, and both read the packet inside a cell. The back-pointer
+and `refresh_packet_diagram!` are gone with the rule they existed for.
+
+Which layout the packet is decides what happens, and there is nothing to
+remember. `live_packet(pk)` gives the envelope as a reactive document — every
+write to `content`, `front` or `back` re-derives the figure. The native envelope
+announces nothing, which is right for a simulation that mutates a packet on
+every hop.
+
+`live_packet` **shares the chunks rather than copying them**, through a copy
+policy that stops at the envelope's own fields. This is not a shortcut. A chunk
+is a value, and the codec reads a header's fields as the values they are — in a
+cell layout of a header `fieldtype` is a cell, so it has no wire form at all and
+`measure_field(::Type{Cell})` is where the figure dies. A chunk is immutable and
+already shared, so sharing is also what is true.
+
+The read side of the envelope API takes `APacket`, the family, so one figure is
+drawn from either layout; the write side stays on the native `Packet`, because a
+simulation is the only thing that writes. An abstract signature costs nothing:
+every phase 0 number reproduces exactly.
+
+**The first stage is no longer a wall, in either direction.** `walk_bands` gives
+the bands and the reference steps from the packet to the chunk each band was
+drawn from, in one walk, so the figure and the mapping cannot disagree:
+
+    content.chunks[2].header.source   ↔   bands[2].fields[4]
+
+A band whose steps are `nothing` shows a chunk that is nowhere in the packet —
+`data_chunk` trims what the envelope retains — and it maps in neither direction.
+The walk tests `data_chunk(pk) === pk.content` rather than reading the two
+lengths, because the slice smart constructor is what decides it.
+
+**`dissect` stays.** The evidence is a packet of an `EthernetFcs` and eight raw
+bytes. Generic reflection now works on it — it did not before, a packet not
+being a document — and shows `content`, `front`, `back`, `packet_tags`,
+`region_tags`: the **storage**. `dissect` shows `Packet(data=12B)` → `Sequence(2)`
+→ each chunk with its length, its quality and its decoded header fields: the
+**wire**. They answer different questions, and being walkable was never the one
+`dissect` answers.
+
+Gate: the golden figure `packetdiagram-figure.txt` is unchanged. **It is.**
+`test_inet()` is 534 / 534, and the whole repository is 7208 / 10 / 7 — the same
+ten and seven main gives when measured the same way.
 
 ### Phase 7 — what the packet can now do — **PENDING**
 

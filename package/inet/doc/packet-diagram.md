@@ -21,7 +21,8 @@ Packet → PacketToPacketDiagram → PacketDiagram → PacketDiagramToText
 The first stage is a projection, not a builder function. A packet may sit
 inside the document a reader is looking at, and the renderer reaches such a
 value by type dispatch — which calls a projection. That is why
-`packet_diagram_entry()` is keyed on `Packet` itself:
+`packet_diagram_entry()` is keyed on `APacket`, the packet family, so both
+layouts of a packet draw:
 
 ```julia
 NaturalToGraphics(extra = Pair{Type,Any}[packet_diagram_entry(measure = measure)])
@@ -37,18 +38,21 @@ reader chose survives a change to the packet.
 
 ## What makes it refresh
 
-A `Packet` holds no reactive cells, and it can hold none: `InetPacket` may not
-import the kernel that defines them. So a packet cannot announce its own
-change, and the announcement comes from the cell that holds it.
+The label and the bands are both derived, and both read the packet **inside** a
+cell. What happens next is the packet's layout, and there is nothing to
+remember:
 
-- **Replace the packet** — the holder writes a new `Packet` into its field.
-  That field is a cell, so the figure re-derives. This is the normal case.
-- **Mutate a packet in place** — `pushfirst!` on the envelope changes what the
-  packet means without touching any cell, and nothing invalidates.
+- **A packet an editor watches** — `live_packet(pk)` gives the envelope as a
+  reactive document holding the chunks it already holds. Every write to
+  `content`, `front` or `back` announces itself, and the figure re-derives.
+- **A packet a simulation owns** — the native envelope holds no cells and
+  announces nothing. That is the right answer for one: a simulation mutates a
+  packet on every hop, and a figure that re-derived each time would be the
+  simulation's cost rather than the figure's.
 
-So: **a document that holds a packet announces a change by writing the field,
-not by mutating the packet.** `refresh_packet_diagram!(diagram, packet)` is
-that write, for a holder that cannot make it.
+A chunk stays what it is in both. `live_packet` shares them rather than copying
+them, because a chunk is a value and the codec reads a header's fields as the
+values they are — a cell layout of one has no wire form at all.
 
 ## Reading the figure
 

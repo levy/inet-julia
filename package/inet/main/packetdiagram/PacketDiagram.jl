@@ -52,8 +52,8 @@ import ProjecturedKernel.PrinterContextModule: PrinterContext
 export
     # the projected documents
     PacketDiagram, DiagramBand, DiagramHeaderBand, DiagramOpaqueBand, DiagramField,
-    # building them from a packet, and announcing a change
-    packet_diagram, diagram_bands, walk_bands, refresh_packet_diagram!,
+    # building them from a packet
+    packet_diagram, diagram_bands, walk_bands,
     # the row layout, as plain numbers
     DiagramCell, diagram_rows, grid_width, cell_width,
     # the projections and the two entry points

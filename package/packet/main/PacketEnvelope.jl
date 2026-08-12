@@ -35,17 +35,27 @@ Packet(content::Chunk = Filler(ZERO_LENGTH)) =
     Packet(content, ZERO_LENGTH, ZERO_LENGTH, TagSet(), RegionTagSet())
 
 # ---------- accessors --------------------------------------------------------
+#
+# The read side takes `APacket`, the family, so every layout of the schema
+# answers: the native envelope a simulation mutates, and the cell layout an
+# editor copies it into. A figure only reads, and this is what lets one figure
+# be drawn from either. The write side below stays on `Packet`, the native one,
+# because a simulation is the only thing that writes and it holds no other.
+#
+# An abstract signature costs nothing: Julia specialises the method on the
+# concrete argument type. The phase 0 numbers are re-measured to prove it.
+#
 # Total wire length of the payload (before front-trim / back-trim).
-content_length(pk::Packet) = chunk_length(pk.content)
+content_length(pk::APacket) = chunk_length(pk.content)
 # The window a layer above front/below back sees.
-data_length(pk::Packet) = content_length(pk) - pk.front - pk.back
-front_length(pk::Packet) = pk.front
-back_length(pk::Packet)  = pk.back
+data_length(pk::APacket) = content_length(pk) - pk.front - pk.back
+front_length(pk::APacket) = pk.front
+back_length(pk::APacket)  = pk.back
 
 # The "visible" chunk: content restricted to [front, back).
-data_chunk(pk::Packet) = slice(pk.content, pk.front, data_length(pk))
+data_chunk(pk::APacket) = slice(pk.content, pk.front, data_length(pk))
 
-Base.isempty(pk::Packet) = data_length(pk) == ZERO_LENGTH
+Base.isempty(pk::APacket) = data_length(pk) == ZERO_LENGTH
 
 # ---------- duplicate: O(1) share --------------------------------------------
 "Duplicate the envelope; the content is SHARED, not copied. `dup(pk).content
@@ -144,11 +154,11 @@ window. `from = :front` (default) measures from the head of the window;
 `from = :back` measures from the tail. Untyped `peek(pk)` returns a Slice
 covering the whole window.
 """
-function peek(pk::Packet; at = nothing, length = nothing, from::Symbol = :front, kwargs...)
+function peek(pk::APacket; at = nothing, length = nothing, from::Symbol = :front, kwargs...)
     return peek(pk, Chunk; at = at, length = length, from = from, kwargs...)
 end
 
-function peek(pk::Packet, ::Type{T}; at = nothing, length = nothing,
+function peek(pk::APacket, ::Type{T}; at = nothing, length = nothing,
               from::Symbol = :front, kwargs...) where {T}
     off = at === nothing ? ZERO_LENGTH : at::BitLength
     # For a Fields target the caller usually means "the T at the front" —
@@ -195,7 +205,7 @@ function trim!(pk::Packet)
     return pk
 end
 
-function Base.show(io::IO, pk::Packet)
+function Base.show(io::IO, pk::APacket)
     print(io, "Packet(", data_length(pk))
     pk.front == ZERO_LENGTH || print(io, ", front=", pk.front)
     pk.back  == ZERO_LENGTH || print(io, ", back=",  pk.back)
@@ -213,16 +223,16 @@ Cheap "have I received at least a full T at the front?" check. Doesn't
 deserialise; just measures the data window against the least a `T` can be —
 which for a header with an option list is its fixed part.
 """
-has(pk::Packet, ::Type{T}) where {T<:Fields} =
+has(pk::APacket, ::Type{T}) where {T<:Fields} =
     data_length(pk) >= minimum_chunk_length(T)
 
 # ---------- packet-level tag helpers (thin sugar over the tag sets) ---------
 
 set_tag!(pk::Packet, value::T) where {T} = (pk.packet_tags[T] = value)
-get_tag(pk::Packet, ::Type{T}) where {T} = pk.packet_tags[T]
-has_tag(pk::Packet, ::Type{T}) where {T} = haskey(pk.packet_tags, T)
+get_tag(pk::APacket, ::Type{T}) where {T} = pk.packet_tags[T]
+has_tag(pk::APacket, ::Type{T}) where {T} = haskey(pk.packet_tags, T)
 del_tag!(pk::Packet, ::Type{T}) where {T} = delete!(pk.packet_tags, T)
-try_tag(pk::Packet, ::Type{T}) where {T} = tryget(pk.packet_tags, T)
+try_tag(pk::APacket, ::Type{T}) where {T} = tryget(pk.packet_tags, T)
 
 """
     add_region_tag!(pk, T, range::UnitRange, value::T)
@@ -243,12 +253,44 @@ end
 Region tags of type `T` intersecting `range` (or the whole data window if
 omitted), returned as `(range, value)` pairs in DATA-WINDOW coordinates.
 """
-function region_tags(pk::Packet, ::Type{T}) where {T}
+function region_tags(pk::APacket, ::Type{T}) where {T}
     return region_tags(pk, T, 0:Int(data_length(pk).bits) - 1)
 end
-function region_tags(pk::Packet, ::Type{T}, range::UnitRange{Int}) where {T}
+function region_tags(pk::APacket, ::Type{T}, range::UnitRange{Int}) where {T}
     shifted = (first(range) + Int64(pk.front.bits)):(last(range) + Int64(pk.front.bits))
     pairs = region_tags(pk.region_tags, T, Int(shifted[1]):Int(shifted[end]))
     # Map back into data-window coordinates.
     return [((p[1][1] - Int(pk.front.bits)):(p[1][end] - Int(pk.front.bits)), p[2]) for p in pairs]
 end
+
+# ---------- the envelope an editor watches -----------------------------------
+
+"""
+    LivePacketPolicy()
+
+The copy policy `live_packet` uses: stop at the envelope's own fields.
+"""
+struct LivePacketPolicy end
+
+# Never descend, so every field of the envelope is handed to the placeholder.
+should_descend_sync(::LivePacketPolicy, depth::Int, slot) = false
+# And what stands there is the chunk itself, shared rather than copied.
+unsynced_placeholder(::LivePacketPolicy, source, current) = source
+
+"""
+    live_packet(pk::Packet) -> ACPacket
+
+The envelope as a reactive document, holding the chunks it already holds.
+
+A chunk is a value. The codec reads a header's fields as the values they are,
+so a cell layout of one — where `fieldtype` is a cell — has no wire form at all.
+`copy_document(ReactiveCell, pk)` would build exactly that, and the figure drawn
+from it would fail on the first field it measured.
+
+Sharing the chunks is not a compromise. A chunk is immutable and already shared:
+`dup` shares content, and `pushfirst!` builds a new sequence over the same
+children. What changes on a packet is the envelope, and that is what becomes
+reactive here — so a write to `content`, `front` or `back` announces itself and
+whatever read it re-derives.
+"""
+live_packet(pk::Packet) = copy_document(ReactiveCell, pk, LivePacketPolicy())
