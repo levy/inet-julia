@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 242 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 264 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -272,9 +272,9 @@ Three findings, none of which needed a language change:
    RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
    in but not on the way out turns the list around at every hop.
 
-**Left — about 55 formats.** OSPFv2 and v3 (13), BGP's UPDATE, SCTP, and the
-VoIP stream packet. Then the IEEE 802.11 management bodies and the twenty-one
-physical-layer formats of Wave 3.
+**Left — about 35 formats.** BGP's UPDATE, SCTP, and the VoIP stream packet.
+Then the IEEE 802.11 management bodies and the twenty-one physical-layer formats
+of Wave 3.
 
 **BGP's UPDATE is the one still to declare, and carefully.** The header, the
 KEEPALIVE, the OPEN and the NOTIFICATION are in. UPDATE has two shapes nothing
@@ -354,9 +354,49 @@ Three departures from INET, all in the file that departs:
   puts a zero octet and a sixteen-bit metric where appendix A.4.4 puts a
   twenty-four-bit one. They are two headers here.
 
-One reading note for whoever takes OSPFv3: INET writes the options octet through
-`serializeOspfOptions`, a helper, so a compact read of the serializer shows
-`helloInterval` next to `routerPriority` and hides the octet between them.
+One reading note: INET writes the options octet through `serializeOspfOptions`,
+a helper, so a compact read of the serializer shows `helloInterval` next to
+`routerPriority` and hides the octet between them. Version 3 does the same.
+
+### 3.9 OSPFv3 — a field as wide as another field says
+
+**Done — 22 formats.** The five packets, the eight LSA bodies, and the small
+headers they repeat: the router link, the two address prefixes, the prefix
+options and the twenty-four-bit options.
+
+It needed nothing new. The one shape version 2 does not have is the address
+prefix of RFC 5340 appendix A.4.1, which is written as a whole number of
+thirty-two-bit words — so a prefix of sixty-five bits takes twelve octets and a
+prefix of nothing takes none. A `length` clause already says it:
+
+```julia
+    address :: Octets = UInt8[]
+        length(Bytes(measure_prefix_bytes(prefix_length)))
+```
+
+**What that revealed: a `length` clause whose field is not derivable needs a
+`check` on BOTH fields.** Every other length field in the inventory is derived
+from the data beside it, so the two cannot disagree. A prefix length cannot be:
+a prefix of thirty-three bits and one of sixty-four both take two words, so the
+octets do not say which it was. The pair is therefore a model invariant, and a
+`check` states it — on both fields, because either one can be the wrong one.
+The round-trip corpus pins a checked field to its declaration, so the pair it
+builds is consistent by construction.
+
+Two departures from INET:
+
+* **INET does not keep the LS type.** `encodeLsType` computes the scope bits
+  from the function code on the way out and drops the U bit entirely; on the way
+  in it puts the whole high octet into a field it calls the options and keeps
+  only the low octet as the type. An LSA with the U bit set does not survive its
+  serializer, and neither does one whose scope is not the default for its code.
+  RFC 5340 appendix A.4.2.1 makes the sixteen bits one field with three parts,
+  and that is what is declared.
+* **INET serialises five of the nine function codes and throws on the rest.**
+  The inter-area router LSA (4), the AS external LSA (5) and the NSSA LSA (7)
+  are declared. The AS external LSA is also the inventory's best use of the
+  `when` clause: three of its fields are there only when a bit says so, and one
+  of the three is conditional on a value rather than a flag.
 
 ## 4. The design
 

@@ -301,6 +301,24 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        OSPFV2_HEADER_BYTES, OSPFV2_HELLO_BODY_BYTES,
        OSPFV2_DATABASE_DESCRIPTION_BYTES, OSPFV2_LSA_HEADER_BYTES,
        OSPFV2_REQUEST_BYTES,
+       Ospfv3Packet, Ospfv3Common, Ospfv3Header, Ospfv3Options,
+       Ospfv3Hello, Ospfv3DatabaseDescription, Ospfv3LinkStateRequest,
+       Ospfv3LinkStateUpdate, Ospfv3LinkStateAcknowledgement, Ospfv3LsaRequest,
+       Ospfv3Lsa, Ospfv3LsaHeader, Ospfv3RouterLsa, Ospfv3NetworkLsa,
+       Ospfv3InterAreaPrefixLsa, Ospfv3InterAreaRouterLsa, Ospfv3AsExternalLsa,
+       Ospfv3LinkLsa, Ospfv3IntraAreaPrefixLsa, Ospfv3RawLsa,
+       Ospfv3RouterLink, Ospfv3Prefix, Ospfv3PrefixMetric, Ospfv3PrefixOptions,
+       measure_v3_lsa_length, measure_v3_packet_length, measure_prefix_bytes,
+       OSPF_VERSION_3, OSPFV3_ROUTER_LSA, OSPFV3_NETWORK_LSA,
+       OSPFV3_INTER_AREA_PREFIX_LSA, OSPFV3_INTER_AREA_ROUTER_LSA,
+       OSPFV3_AS_EXTERNAL_LSA, OSPFV3_NSSA_LSA, OSPFV3_LINK_LSA,
+       OSPFV3_INTRA_AREA_PREFIX_LSA,
+       OSPFV3_SCOPE_LINK_LOCAL, OSPFV3_SCOPE_AREA, OSPFV3_SCOPE_AS,
+       OSPFV3_SCOPE_RESERVED,
+       OSPFV3_LINK_POINT_TO_POINT, OSPFV3_LINK_TRANSIT, OSPFV3_LINK_VIRTUAL,
+       OSPFV3_HEADER_BYTES, OSPFV3_HELLO_BODY_BYTES,
+       OSPFV3_DATABASE_DESCRIPTION_BYTES, OSPFV3_LSA_HEADER_BYTES,
+       OSPFV3_REQUEST_BYTES, OSPFV3_ROUTER_LINK_BYTES,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -363,6 +381,7 @@ include("protocol/Rtp.jl")
 include("protocol/Dhcp.jl")
 include("protocol/Mipv6.jl")
 include("protocol/Ospfv2.jl")
+include("protocol/Ospfv3.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")

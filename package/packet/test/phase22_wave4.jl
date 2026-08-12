@@ -441,3 +441,213 @@ end
     @test unknown.header isa Ospfv2Header
     @test unknown.header.data == Octets(UInt8[7, 7])
 end
+
+@testset "OSPFv3 — sixteen octets of header, and a prefix that says its width" begin
+    # Version 3 authenticates with the IPv6 authentication header, so it spends
+    # no octets on authentication — RFC 5340 clause 2.5.
+    @test chunk_length(Ospfv3Common) == Bytes(OSPFV3_HEADER_BYTES)
+    @test chunk_length(Ospfv3Common) < chunk_length(Ospfv2Common)
+    @test chunk_length(Ospfv3Options) == Bytes(3)
+    @test chunk_length(Ospfv3PrefixOptions) == Bytes(1)
+    @test chunk_length(Ospfv3LsaHeader) == Bytes(OSPFV3_LSA_HEADER_BYTES)
+    @test chunk_length(Ospfv3LsaRequest) == Bytes(OSPFV3_REQUEST_BYTES)
+    @test chunk_length(Ospfv3RouterLink) == Bytes(OSPFV3_ROUTER_LINK_BYTES)
+
+    common(type) = Ospfv3Common(type = type, router_id = Ipv4Address("10.0.0.1"))
+
+    # ---------- the hello, RFC 5340 appendix A.3.2 --------------------------
+    hello = Ospfv3Hello(base = common(OSPF_HELLO_PACKET),
+                        interface_id = UInt32(5),
+                        neighbors = [Ipv4Address("10.0.0.2")])
+    bytes = encode_header(hello)
+    @test Base.length(bytes) == OSPFV3_HEADER_BYTES + OSPFV3_HELLO_BODY_BYTES + 4
+    @test hex22(bytes[1:4]) == "03 01 00 28"     # version three, and the length
+    @test hex22(bytes[17:20]) == "00 00 00 05"   # the interface identifier
+    @test bytes[21] == 0x01                      # the router priority
+    # The options are three octets, and the R and V6 bits are on by default.
+    @test hex22(bytes[22:24]) == "00 00 11"
+    @test hex22(bytes[25:26]) == "00 0a"         # ten seconds between hellos
+    @test hex22(bytes[27:28]) == "00 28"         # forty seconds to declare dead
+
+    back = decode_header(Ospfv3Packet, bytes)
+    @test back isa Ospfv3Hello
+    @test back.options.router
+    @test back.options.ipv6
+    @test back.interface_id == 5
+    @test Base.length(back.neighbors) == 1
+    @test encode_header(back) == bytes
+
+    # ---------- an address prefix, RFC 5340 appendix A.4.1 ------------------
+    # The prefix is a whole number of thirty-two-bit words, so a prefix of one
+    # bit takes four octets and a prefix of thirty-three takes eight.
+    for (prefix_length, octets) in ((0, 0), (1, 4), (32, 4), (33, 8), (64, 8),
+                                    (128, 16))
+        @test measure_prefix_bytes(prefix_length) == octets
+        prefix = Ospfv3Prefix(prefix_length = UInt8(prefix_length),
+                              address = zeros(UInt8, octets))
+        @test chunk_length(prefix) == Bytes(4 + octets)
+        prefix_bytes = encode_header(prefix)
+        read_back = decode_header(Ospfv3Prefix, prefix_bytes)
+        @test Base.length(read_back.address) == octets
+        @test encode_header(read_back) == prefix_bytes
+    end
+
+    # A prefix whose length and address disagree is a header the model built
+    # wrong, and the writer says so rather than emitting octets nothing reads.
+    @test_throws Exception encode_header(Ospfv3Prefix(prefix_length = UInt8(64),
+                                                      address = UInt8[1]))
+
+    # ---------- the LS type keeps all sixteen bits, appendix A.4.2.1 --------
+    # INET computes the scope from the function code and drops the U bit, so an
+    # LSA with that bit set does not survive its serializer.
+    header = Ospfv3LsaHeader(unknown = true, scope = OSPFV3_SCOPE_AS,
+                             function_code = OSPFV3_LINK_LSA)
+    header_bytes = encode_header(header)
+    @test hex22(header_bytes[3:4]) == "c0 08"    # U set, S2 S1 = 10, code 8
+    header_back = decode_header(Ospfv3LsaHeader, header_bytes)
+    @test header_back.unknown
+    @test header_back.scope == OSPFV3_SCOPE_AS
+    @test header_back.function_code == OSPFV3_LINK_LSA
+
+    # ---------- the link LSA, RFC 5340 appendix A.4.9 -----------------------
+    link_lsa = Ospfv3LinkLsa(link_local_address = Ipv6Address("fe80::1"),
+                             prefixes = [Ospfv3Prefix(prefix_length = UInt8(64),
+                                                      address = zeros(UInt8, 8)),
+                                         Ospfv3Prefix(prefix_length = UInt8(0))])
+    link_bytes = encode_header(link_lsa)
+    @test Base.length(link_bytes) == OSPFV3_LSA_HEADER_BYTES + 24 + 12 + 4
+    link_back = decode_header(Ospfv3Lsa, link_bytes)
+    @test link_back isa Ospfv3LinkLsa
+    @test link_back.number_of_prefixes == 2       # the writer counted them
+    @test Base.length(link_back.prefixes) == 2
+    @test link_back.prefixes[1].prefix_length == 64
+    @test Base.length(link_back.prefixes[2].address) == 0
+    @test link_back.link_local_address == Ipv6Address("fe80::1")
+
+    # ---------- the AS external LSA, appendix A.4.7 -------------------------
+    # Three fields are there only when a bit says so. INET throws on this LSA.
+    external = Ospfv3AsExternalLsa(metric = UInt32(20), prefix_length = UInt8(64),
+                                   address = zeros(UInt8, 8),
+                                   has_forwarding_address = true,
+                                   forwarding_address = Ipv6Address("2001:db8::1"),
+                                   has_external_route_tag = true,
+                                   external_route_tag = UInt32(7))
+    @test chunk_length(external) == Bytes(20 + 4 + 4 + 8 + 16 + 4)
+    external_back = decode_header(Ospfv3Lsa, encode_header(external))
+    @test external_back isa Ospfv3AsExternalLsa
+    @test external_back.forwarding_address == Ipv6Address("2001:db8::1")
+    @test external_back.external_route_tag == 7
+    @test external_back.referenced_link_state_id === nothing
+
+    # With both bits clear the two fields take no octets at all.
+    bare = Ospfv3AsExternalLsa(metric = UInt32(20))
+    @test chunk_length(bare) == Bytes(20 + 4 + 4)
+    bare_back = decode_header(Ospfv3Lsa, encode_header(bare))
+    @test bare_back.forwarding_address === nothing
+    @test bare_back.external_route_tag === nothing
+
+    # A referenced LS type that is not zero brings its link state identifier.
+    referenced = Ospfv3AsExternalLsa(metric = UInt32(20),
+                                     referenced_ls_type = UInt16(9),
+                                     referenced_link_state_id = Ipv4Address("10.0.0.9"))
+    referenced_back = decode_header(Ospfv3Lsa, encode_header(referenced))
+    @test referenced_back.referenced_link_state_id == Ipv4Address("10.0.0.9")
+
+    # An NSSA LSA has the same body — RFC 5340 clause 4.4.3.9.
+    nssa = Ospfv3AsExternalLsa(base = Ospfv3LsaHeader(function_code = OSPFV3_NSSA_LSA))
+    nssa_back = decode_header(Ospfv3Lsa, encode_header(nssa))
+    @test nssa_back isa Ospfv3AsExternalLsa
+    @test nssa_back.base.function_code == OSPFV3_NSSA_LSA
+
+    # ---------- the inter-area router LSA, appendix A.4.6 -------------------
+    # INET declares this LSA and its serializer throws on it.
+    inter_area = Ospfv3InterAreaRouterLsa(metric = UInt32(5),
+                                          destination_router_id = Ipv4Address("10.0.0.7"))
+    @test chunk_length(inter_area) == Bytes(OSPFV3_LSA_HEADER_BYTES + 12)
+    inter_area_back = decode_header(Ospfv3Lsa, encode_header(inter_area))
+    @test inter_area_back isa Ospfv3InterAreaRouterLsa
+    @test inter_area_back.destination_router_id == Ipv4Address("10.0.0.7")
+
+    # ---------- the router LSA carries no address, appendix A.4.3 -----------
+    router = Ospfv3RouterLsa(area_border_router = true,
+                             links = [Ospfv3RouterLink(type = OSPFV3_LINK_TRANSIT,
+                                                       metric = UInt16(10),
+                                                       interface_id = UInt32(1),
+                                                       neighbor_interface_id = UInt32(2))])
+    @test chunk_length(router) ==
+          Bytes(OSPFV3_LSA_HEADER_BYTES + 4 + OSPFV3_ROUTER_LINK_BYTES)
+    router_back = decode_header(Ospfv3Lsa, encode_header(router))
+    @test router_back isa Ospfv3RouterLsa
+    @test router_back.area_border_router
+    @test router_back.links[1].neighbor_interface_id == 2
+
+    # ---------- an update carries all three, and one it does not model ------
+    update = Ospfv3LinkStateUpdate(
+        base = common(OSPF_LINK_STATE_UPDATE_PACKET),
+        lsas = [link_lsa, external,
+                Ospfv3RawLsa(base = Ospfv3LsaHeader(function_code = 99),
+                             data = UInt8[9, 9])])
+    update_bytes = encode_header(update)
+    @test hex22(update_bytes[17:20]) == "00 00 00 03"
+    update_back = decode_header(Ospfv3Packet, update_bytes)
+    @test map(typeof, update_back.lsas.values) ==
+          [Ospfv3LinkLsa, Ospfv3AsExternalLsa, Ospfv3RawLsa]
+    @test update_back.lsas[3].data == Octets(UInt8[9, 9])
+    @test encode_header(update_back) == update_bytes
+
+    # ---------- the database description, appendix A.3.3 --------------------
+    description = Ospfv3DatabaseDescription(
+        base = common(OSPF_DATABASE_DESCRIPTION_PACKET),
+        interface_mtu = UInt16(1500), initial = true, more = true, master = true,
+        dd_sequence_number = UInt32(1000),
+        lsa_headers = [Ospfv3LsaHeader(function_code = OSPFV3_ROUTER_LSA)])
+    description_bytes = encode_header(description)
+    @test Base.length(description_bytes) ==
+          OSPFV3_HEADER_BYTES + OSPFV3_DATABASE_DESCRIPTION_BYTES +
+          OSPFV3_LSA_HEADER_BYTES
+    @test hex22(description_bytes[21:22]) == "05 dc"     # the interface MTU
+    @test description_bytes[24] == 0x07                  # five zeros, I, M, MS
+    description_back = decode_header(Ospfv3Packet, description_bytes)
+    @test description_back isa Ospfv3DatabaseDescription
+    @test description_back.master
+    @test Base.length(description_back.lsa_headers) == 1
+
+    # ---------- the intra-area prefix LSA, appendix A.4.10 ------------------
+    # Version 3 took the addresses out of the topology, and this is where they
+    # went. Its prefixes spend the two reserved octets on a metric.
+    intra_area = Ospfv3IntraAreaPrefixLsa(
+        referenced_ls_type = UInt16(OSPFV3_ROUTER_LSA),
+        prefixes = [Ospfv3PrefixMetric(prefix_length = UInt8(64),
+                                       metric = UInt16(10),
+                                       address = zeros(UInt8, 8))])
+    intra_area_back = decode_header(Ospfv3Lsa, encode_header(intra_area))
+    @test intra_area_back isa Ospfv3IntraAreaPrefixLsa
+    @test intra_area_back.number_of_prefixes == 1
+    @test intra_area_back.prefixes[1].metric == 10
+
+    # ---------- the request and the acknowledgement -------------------------
+    request = Ospfv3LinkStateRequest(
+        base = common(OSPF_LINK_STATE_REQUEST_PACKET),
+        requests = [Ospfv3LsaRequest(function_code = OSPFV3_LINK_LSA,
+                                     advertising_router = Ipv4Address("10.0.0.2"))])
+    @test chunk_length(request) == Bytes(OSPFV3_HEADER_BYTES + OSPFV3_REQUEST_BYTES)
+    request_back = decode_header(Ospfv3Packet, encode_header(request))
+    @test request_back isa Ospfv3LinkStateRequest
+    @test request_back.requests[1].function_code == OSPFV3_LINK_LSA
+
+    acknowledgement = Ospfv3LinkStateAcknowledgement(
+        base = common(OSPF_LINK_STATE_ACKNOWLEDGEMENT_PACKET),
+        lsa_headers = [Ospfv3LsaHeader(function_code = OSPFV3_NETWORK_LSA)])
+    acknowledgement_back =
+        decode_header(Ospfv3Packet, encode_header(acknowledgement))
+    @test acknowledgement_back isa Ospfv3LinkStateAcknowledgement
+    @test Base.length(acknowledgement_back.lsa_headers) == 1
+
+    # ---------- a packet type nothing models -------------------------------
+    unknown = decode_header(Ospfv3Packet,
+                            encode_header(Ospfv3Header(base = common(99),
+                                                       data = UInt8[7, 7])))
+    @test unknown isa MarkedFields
+    @test unknown.header isa Ospfv3Header
+    @test unknown.header.data == Octets(UInt8[7, 7])
+end
