@@ -781,3 +781,32 @@ end
     @test decode_header(BgpMessage, encode_header(with_parameters)).base.total_length ==
           bytes(chunk_length(with_parameters))
 end
+
+@testset "VoIP stream — the one INET format whose field list depends on its type" begin
+    # A voice packet carries a data length and a silence packet does not, so the
+    # `when` clause reads the type octet beside it.
+    voice = VoipStreamPacket(type = VOIP_STREAM_VOICE, sequence_number = UInt16(7),
+                             data_length = UInt16(160))
+    silence = VoipStreamPacket(type = VOIP_STREAM_SILENCE, sequence_number = UInt16(8))
+    @test chunk_length(voice) == Bytes(VOIP_STREAM_PACKET_BYTES + 2)
+    @test chunk_length(silence) == Bytes(VOIP_STREAM_PACKET_BYTES)
+
+    # The length field is a measurement, so the writer takes it.
+    @test encode_header(voice)[1] == VOIP_STREAM_PACKET_BYTES + 2
+    @test encode_header(silence)[1] == VOIP_STREAM_PACKET_BYTES
+
+    voice_back = decode_header(VoipStreamPacket, encode_header(voice))
+    @test voice_back.data_length == 160
+    @test voice_back.sequence_number == 7
+    silence_back = decode_header(VoipStreamPacket, encode_header(silence))
+    @test silence_back.data_length === nothing
+    @test silence_back.sequence_number == 8
+
+    # The filler reaches the length the model asked for, as it does for every
+    # other header INET invented.
+    padded = VoipStreamPacket(type = VOIP_STREAM_SILENCE,
+                              filler = fill(SIMULATION_FILLER, 14))
+    @test chunk_length(padded) == Bytes(40)
+    @test encode_header(padded)[1] == 40
+    @test Base.length(decode_header(VoipStreamPacket, encode_header(padded)).filler) == 14
+end

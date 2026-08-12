@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 278 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 279 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -272,8 +272,8 @@ Three findings, none of which needed a language change:
    RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
    in but not on the way out turns the list around at every hop.
 
-**Left — about 20 formats.** SCTP and the VoIP stream packet, then the IEEE
-802.11 management bodies and the twenty-one physical-layer formats of Wave 3.
+**Left — about 50 formats.** SCTP with its chunk types, then the IEEE 802.11
+management bodies and the twenty-one physical-layer formats of Wave 3.
 
 **BGP's UPDATE is the one still to declare, and carefully.** The header, the
 KEEPALIVE, the OPEN and the NOTIFICATION are in. UPDATE has two shapes nothing
@@ -426,6 +426,13 @@ was never on the wire.
 last length a model could still set wrong. `BgpCommon`'s docstring said a shared
 header cannot measure the member that embeds it; that is true of the header and
 not of the member, and the member is where the derive goes.
+
+The VoIP stream packet is declared with them. It is the last of INET's own
+formats and the only one whose FIELD LIST depends on what it carries: a voice
+packet has a data length and a silence packet does not. The `when` clause reads
+the type octet beside it, and the same rule the BGP high octet found applies —
+the field defaults to zero rather than to absent, because the header derives its
+own length and the derive walks the stored fields.
 
 ### 3.11 Open: a check on an embedded header
 

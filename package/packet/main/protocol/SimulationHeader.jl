@@ -181,3 +181,42 @@ one request, and `frame_count` says how many frames the reply takes.
     filler        :: Octets = UInt8[]
         until(Bytes(packet_length))
 end
+
+# ---------- the VoIP stream packet, the same shape once more -----------------
+
+"A VoIP stream packet is one of two kinds — `VoipStreamPacket.msg`."
+const VOIP_STREAM_VOICE   = 1
+const VOIP_STREAM_SILENCE = 2
+
+"The named fields of a VoIP stream packet, before its length field decides."
+const VOIP_STREAM_PACKET_BYTES = 26
+
+"""
+    VoipStreamPacket(; type, codec, sample_rate, sequence_number, data_length, filler)
+
+The packet INET's VoIP stream application sends — `VoipStreamPacketSerializer`.
+
+It is the shape the headers above have, and it is the only one of them whose
+field list depends on what it carries: `data_length` is there for a voice packet
+and not for a silence packet. The type says which, so the `when` clause reads it.
+
+A silence packet therefore has twenty-six octets of named fields and a voice
+packet twenty-eight, and the filler reaches whatever length the model asked for.
+"""
+@header VoipStreamPacket begin
+    header_length      :: U8  = VOIP_STREAM_PACKET_BYTES
+        derive(measure_header(h) ÷ 8)
+    type               :: U8  = VOIP_STREAM_VOICE
+    codec              :: U32 = 0
+    sample_bits        :: U16 = 0
+    sample_rate        :: U16 = 0
+    transmit_bitrate   :: U32 = 0
+    samples_per_packet :: U16 = 0
+    sequence_number    :: U16 = 0
+    timestamp          :: U32 = 0
+    ssrc               :: U32 = 0
+    data_length        :: Optional{U16} = 0
+        when(type == VOIP_STREAM_VOICE)
+    filler             :: Octets = UInt8[]
+        until(Bytes(header_length))
+end
