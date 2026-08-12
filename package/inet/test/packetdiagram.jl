@@ -15,7 +15,9 @@ using Projectured.ProjectionApiModule: print_document, map_reference_forward,
     map_reference_backward
 using Projectured.PrinterContextModule: PrinterContext
 using Projectured.IoMapModule: get_iomap_output
-using Projectured.ReferenceModule: EmptyReference
+using Projectured.ReferenceModule: EmptyReference, ConcreteReference,
+    FieldReferenceStep, ElementReferenceStep, get_reference_steps,
+    strip_reference_types, var"@reference"
 
 # The frame every check below reads: Ethernet MAC, IPv4, UDP, a 32-byte filler
 # payload and the FCS — 78 bytes, four declared headers and one opaque run.
@@ -204,18 +206,64 @@ end
     @test diagram.bands[1].name == "UdpHeader"
 end
 
+# The two helpers the mapping test needs: one more field step on a reference,
+# and a reference from a plain step list.
+_steps(steps) =
+    foldr((step, tail) -> ConcreteReference(step, tail), steps; init = EmptyReference())
+_concat_field(reference, name::Symbol) =
+    _steps(vcat(get_reference_steps(strip_reference_types(reference)),
+                Any[FieldReferenceStep(String(name))]))
+
 @testset "PacketToPacketDiagram — the reference mapping" begin
     pk = diagram_test_frame()
     projection = PacketToPacketDiagram()
     iomap = print_document(projection, nothing, pk, PrinterContext())
 
-    # The whole packet maps to the whole diagram; nothing maps inside it,
-    # because a Packet has no reference steps to name.
+    # The whole packet maps to the whole diagram, and back.
     @test map_reference_forward(projection, iomap, EmptyReference()) !== nothing
     @test map_reference_forward(projection, iomap, nothing) === nothing
+    @test map_reference_backward(projection, iomap, EmptyReference()) !== nothing
+    @test map_reference_backward(projection, iomap, nothing) === nothing
 
-    # Backward this stage is a wall: no edit crosses it.
-    @test map_reference_backward(projection, iomap, EmptyReference()) === nothing
+    # A place INSIDE the packet has a name now, so the stage is no longer a
+    # wall. The second chunk is a header, and it is the second band.
+    inside = @reference(pk, content.chunks[2])
+    forward = map_reference_forward(projection, iomap, inside)
+    @test forward !== nothing
+    steps = get_reference_steps(strip_reference_types(forward))
+    @test steps[1] isa FieldReferenceStep && steps[1].name == "bands"
+    @test steps[2].start + 1 == 2
+
+    # And back to the same place. A backward path carries no type checkpoints,
+    # which is what every backward map in the codebase builds, so the two are
+    # compared with the checkpoints stripped from the one that has them.
+    back = map_reference_backward(projection, iomap, forward)
+    @test back !== nothing
+    @test get_reference_steps(back) == get_reference_steps(strip_reference_types(inside))
+
+    # One field deeper on both sides: a header's field is a band's field.
+    band = collect(get_iomap_output(iomap).bands)[2]
+    name = Symbol(collect(band.fields)[1].name)
+    deeper = _concat_field(inside, name)
+    field_forward = map_reference_forward(projection, iomap, deeper)
+    field_steps = get_reference_steps(strip_reference_types(field_forward))
+    @test Base.length(field_steps) == 4
+    @test field_steps[3] isa FieldReferenceStep && field_steps[3].name == "fields"
+    @test field_steps[4].start + 1 == 1
+
+    field_back = map_reference_backward(projection, iomap, field_forward)
+    @test get_reference_steps(field_back)[end].name == String(name)
+
+    # A band that shows a chunk with no place in the packet maps in neither
+    # direction. `data_chunk` trims what the envelope retains, and what it hands
+    # the walk is then a chunk the packet does not hold.
+    retained = Packet(pk.content, Bits(8), ZERO_LENGTH,
+                      TagSet(), RegionTagSet())
+    retained_iomap = print_document(projection, nothing, retained, PrinterContext())
+    @test all(path === nothing for (_, path) in walk_bands(retained))
+    @test map_reference_backward(projection, retained_iomap,
+                                 _steps(Any[FieldReferenceStep("bands"),
+                                            ElementReferenceStep(1)])) === nothing
 end
 
 # ---------------------------------------------------------------------------

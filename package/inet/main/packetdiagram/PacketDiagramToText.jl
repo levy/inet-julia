@@ -264,36 +264,15 @@ packet_projection(; measure = truetype_measure_text,
 """
     packet_diagram_entry(; measure = truetype_measure_text) -> Pair{Type, Any}
 
-The dispatch entry that draws a packet as the figure, keyed on `Packet` itself —
-a packet the renderer meets in a document field, in a collection, or as the root
-draws with no conversion at the place that holds it.
+The dispatch entry that draws a packet as the figure, keyed on `Packet` itself.
+
+One entry is all a renderer needs, because a packet is a document. It draws where
+the renderer meets one in a document field, in a collection, as the root, and
+inside the `WidgetCard` an embed arrives in — a card renders its content when the
+content is a `Document` (`w.content isa Document` in `WidgetToGraphics.jl`), so a
+page splices the packet and nothing on the way converts it.
 """
 packet_diagram_entry(; kwargs...) = Packet => packet_projection(; kwargs...)
-
-"""
-    packet_diagram_document_entry(; measure = truetype_measure_text) -> Pair{Type, Any}
-
-The same figure for a `PacketDiagram` that already exists — the tail of the
-chain, without its first stage.
-
-An **embed needs this one**. A marker's value arrives inside a `WidgetCard`, and
-a card renders its content only when the content is a `Document`
-(`w.content isa Document` in `WidgetToGraphics.jl`). A `Packet` is not one and
-never can be, so a page splices `packet_diagram(pk)` and this entry draws it.
-"""
-packet_diagram_document_entry(; measure = truetype_measure_text) =
-    PacketDiagram => ChainingProjection(PacketDiagramToText(),
-                                        TextToGraphics(measure = measure))
-
-"""
-    packet_diagram_entries(; measure = truetype_measure_text) -> Vector{Pair{Type, Any}}
-
-Both entries, which is what a renderer wants: a packet draws wherever the table
-sees one, and a spliced diagram draws inside a card.
-"""
-packet_diagram_entries(; measure = truetype_measure_text) =
-    Pair{Type, Any}[packet_diagram_entry(measure = measure),
-                    packet_diagram_document_entry(measure = measure)]
 
 """
     packet_diagram_string(packet; row_bits = 32, kwargs...) -> String

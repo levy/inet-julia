@@ -75,20 +75,99 @@ end
 
 # ---------- the reference mapping -------------------------------------------
 #
-# A `Packet` has no reference steps, and it can never have any, so the whole
-# packet maps to the whole diagram and nothing maps inside it. Backward this
-# stage is a wall: no edit crosses it until an operation exists that rebuilds
-# the packet and writes it into the field that holds it.
+# A packet is a document, so a place inside it has a name and this stage is no
+# longer a wall. The correspondence is the band walk: band `b` was drawn from
+# the chunk at `walk_bands(packet)[b][2]`, and a header field is one more step
+# on either side —
+#
+#     content.chunks[2].header.source   ↔   bands[2].fields[4]
+#
+# Both directions read the walk rather than a stored table, so neither can go
+# stale against a packet that changed. A band whose steps are `nothing` shows a
+# chunk that is nowhere in the packet, and it maps in neither direction.
 
-function map_reference_forward(::PacketToPacketDiagram, iomap, reference)
+function map_reference_forward(p::PacketToPacketDiagram, iomap, reference)
     reference === nothing && return nothing
     @reference_case reference begin
         ∅ => @reference ::PacketDiagram
-        __ => nothing
+        __ => _forward_into_diagram(iomap, reference)
     end
 end
 
-map_reference_backward(::PacketToPacketDiagram, iomap, reference) = nothing
+function map_reference_backward(p::PacketToPacketDiagram, iomap, reference)
+    reference === nothing && return nothing
+    @reference_case reference begin
+        ∅ => @reference ::Packet
+        __ => _backward_into_packet(iomap, reference)
+    end
+end
+
+_steps_to_reference(steps) =
+    foldr((step, tail) -> ConcreteReference(step, tail), steps; init = EmptyReference())
+
+# `content.…` → `bands[b]`, and one field deeper when the tail names one.
+function _forward_into_diagram(iomap, reference)
+    reference isa Reference || return nothing
+    iomap.input isa Packet || return nothing
+    steps = get_reference_steps(strip_reference_types(reference))
+    walk = walk_bands(iomap.input)
+    for (index, (band, path)) in enumerate(walk)
+        path === nothing && continue
+        _starts_with(steps, path) || continue
+        head = Any[FieldReferenceStep("bands"), ElementReferenceStep(index)]
+        rest = steps[(Base.length(path) + 1):end]
+        field = _field_index(band, rest)
+        field === nothing && return _steps_to_reference(head)
+        return _steps_to_reference(vcat(head, Any[FieldReferenceStep("fields"),
+                                                  ElementReferenceStep(field)]))
+    end
+    return nothing
+end
+
+# `bands[b]` → the chunk's own steps, and `bands[b].fields[f]` → one field more.
+function _backward_into_packet(iomap, reference)
+    reference isa Reference || return nothing
+    iomap.input isa Packet || return nothing
+    steps = get_reference_steps(strip_reference_types(reference))
+    index = _indexed(steps, "bands")
+    index === nothing && return nothing
+    walk = walk_bands(iomap.input)
+    (1 <= index <= Base.length(walk)) || return nothing
+    band, path = walk[index]
+    path === nothing && return nothing
+    Base.length(steps) == 2 && return _steps_to_reference(path)
+    field = _indexed(steps[3:end], "fields")
+    field === nothing && return nothing
+    band isa DiagramHeaderBand || return nothing
+    (1 <= field <= Base.length(band.fields)) || return nothing
+    return _steps_to_reference(vcat(path,
+                                    Any[FieldReferenceStep(band.fields[field].name)]))
+end
+
+_starts_with(steps, path) =
+    Base.length(steps) >= Base.length(path) &&
+    all(steps[i] == path[i] for i in eachindex(path))
+
+# `<name>[i]` at the head of a step list, as the index `i`.
+function _indexed(steps, name::String)
+    Base.length(steps) >= 2 || return nothing
+    (steps[1] isa FieldReferenceStep && steps[1].name == name) || return nothing
+    steps[2] isa RangeReferenceStep || return nothing
+    return steps[2].start + 1
+end
+
+# Which of a header band's fields the remaining steps name, if they name one.
+function _field_index(band, rest)
+    band isa DiagramHeaderBand || return nothing
+    Base.length(rest) >= 1 || return nothing
+    rest[1] isa FieldReferenceStep || return nothing
+    # A plain loop, because a `CellVector` is not an indexable collection that
+    # `findfirst` can ask for its keys.
+    for (index, field) in enumerate(band.fields)
+        field.name == rest[1].name && return index
+    end
+    return nothing
+end
 
 # ---------- building the bands ----------------------------------------------
 
@@ -102,40 +181,70 @@ This walks the chunk tree rather than `dissect`, which reports a header's field
 values but not their bit offsets or widths — and without those there is no
 figure to draw.
 """
-function diagram_bands(packet::Packet)
-    bands = DiagramBand[]
-    _append_band!(bands, data_chunk(packet), 0)
-    return bands
-end
-
-diagram_bands(chunk::Chunk) = (bands = DiagramBand[]; _append_band!(bands, chunk, 0); bands)
+diagram_bands(packet::Packet) = DiagramBand[band for (band, _) in walk_bands(packet)]
+diagram_bands(chunk::Chunk) = DiagramBand[band for (band, _) in walk_bands(chunk)]
 diagram_bands(::Nothing) = DiagramBand[]
 
-function _append_band!(bands::Vector{DiagramBand}, sequence::Sequence, offset::Int)
-    for child in sequence.chunks
-        offset = _append_band!(bands, child, offset)
+"""
+    walk_bands(packet) -> Vector{Tuple{DiagramBand, Union{Vector{Any}, Nothing}}}
+
+One walk, two views: the bands the figure draws, and the reference steps from
+the packet to the chunk each band was drawn from. The mapping between the two
+documents is what those steps are for, and taking them from the same walk is
+what stops the figure and the mapping from disagreeing.
+
+A band's steps are `nothing` when the chunk it shows is nowhere in the packet.
+`data_chunk` trims the retained front and back, and what it returns is then a
+derived chunk with no place of its own. It gives back `content` itself when it
+trims nothing, and the walk tests that identity rather than reading the two
+lengths, because the smart constructor decides it.
+"""
+function walk_bands(packet::Packet)
+    out = Tuple{DiagramBand, Union{Vector{Any}, Nothing}}[]
+    chunk = data_chunk(packet)
+    root = chunk === packet.content ? Any[FieldReferenceStep("content")] : nothing
+    _append_band!(out, chunk, 0, root)
+    return out
+end
+
+# A bare chunk is not inside a packet, so no band has a place to name.
+walk_bands(chunk::Chunk) =
+    (out = Tuple{DiagramBand, Union{Vector{Any}, Nothing}}[];
+     _append_band!(out, chunk, 0, nothing); out)
+
+_BandWalk = Vector{Tuple{DiagramBand, Union{Vector{Any}, Nothing}}}
+
+# One step deeper, and still nowhere once the walk has left the packet.
+_below(path, steps...) = path === nothing ? nothing : vcat(path, Any[steps...])
+
+function _append_band!(out::_BandWalk, sequence::Sequence, offset::Int, path)
+    for (index, child) in enumerate(sequence.chunks)
+        offset = _append_band!(out, child, offset,
+                               _below(path, FieldReferenceStep("chunks"),
+                                      ElementReferenceStep(index)))
     end
     return offset
 end
 
-function _append_band!(bands::Vector{DiagramBand}, header::Fields, offset::Int)
-    push!(bands, _header_band(header, offset, quality_text(quality(header))))
+function _append_band!(out::_BandWalk, header::Fields, offset::Int, path)
+    push!(out, (_header_band(header, offset, quality_text(quality(header))), path))
     return offset + chunk_length(header).bits
 end
 
-function _append_band!(bands::Vector{DiagramBand}, marked::MarkedFields, offset::Int)
-    push!(bands, _header_band(marked.header, offset, quality_text(quality(marked))))
+function _append_band!(out::_BandWalk, marked::MarkedFields, offset::Int, path)
+    push!(out, (_header_band(marked.header, offset, quality_text(quality(marked))),
+                _below(path, FieldReferenceStep("header"))))
     return offset + chunk_length(marked).bits
 end
 
-function _append_band!(bands::Vector{DiagramBand}, chunk::Chunk, offset::Int)
+function _append_band!(out::_BandWalk, chunk::Chunk, offset::Int, path)
     width = chunk_length(chunk).bits
-    push!(bands, DiagramOpaqueBand(kind    = _chunk_kind(chunk),
-                                   name    = _chunk_name(chunk),
-                                   offset  = offset,
-                                   width   = width,
-                                   quality = quality_text(quality(chunk)),
-                                   preview = _chunk_preview(chunk)))
+    push!(out, (DiagramOpaqueBand(kind    = _chunk_kind(chunk),
+                                  name    = _chunk_name(chunk),
+                                  offset  = offset,
+                                  width   = width,
+                                  quality = quality_text(quality(chunk)),
+                                  preview = _chunk_preview(chunk)), path))
     return offset + width
 end
 

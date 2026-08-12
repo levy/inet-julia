@@ -51,16 +51,14 @@ function named_packet(name::AbstractString)
 end
 
 # `<<packet("routed_ipv4")>>` puts the packet on the page as the figure the RFCs
-# draw. What it splices is the packet's DIAGRAM DOCUMENT, which holds the live
-# packet in its `packet` field — an embed arrives inside a `WidgetCard`, and a
+# draw. What it splices is the PACKET. An embed arrives inside a `WidgetCard`, a
 # card renders its content only when the content is a `Document`
-# (`w.content isa Document` in `WidgetToGraphics.jl`). A `Packet` is not one and
-# never can be: `InetPacket` may not import the kernel that defines documents.
+# (`w.content isa Document` in `WidgetToGraphics.jl`), and a packet is one.
 #
-# The figure is still drawn from the packet, by the same projection that draws
-# one the renderer meets anywhere else — `packet_diagram_entries` registers both
-# ends, so a packet in a document field needs no marker at all.
-marker_packet(_ctx, name::AbstractString) = packet_diagram(named_packet(name))
+# The figure is drawn by the same projection that draws a packet the renderer
+# meets anywhere else, so one entry keyed on `Packet` serves the page, a document
+# field and a collection alike — and nothing on the way converts the packet.
+marker_packet(_ctx, name::AbstractString) = named_packet(name)
 
 # Or the page states the datagram itself, and the marker is handed the thing
 # rather than a name for it:
@@ -70,8 +68,8 @@ marker_packet(_ctx, name::AbstractString) = packet_diagram(named_packet(name))
 # A capitalised callee in a marker is a type, and the marker language builds it
 # — so what arrives here is a header, already constructed, with the fields the
 # declaration decides filled in.
-marker_packet(_ctx, header::Fields) = packet_diagram(Packet(header))
-marker_packet(_ctx, packet::Packet) = packet_diagram(packet)
+marker_packet(_ctx, header::Fields) = Packet(header)
+marker_packet(_ctx, packet::Packet) = packet
 
 # `<<packet_tree("routed_ipv4")>>` shows the same packet as its chunk tree, with
 # a fold marker on every chunk. Two views of one packet, and a page names the

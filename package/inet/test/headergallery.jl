@@ -68,13 +68,13 @@ end
 @testset "a header page carries the five views" begin
     page = header_page(Ipv4Header)
     @test page isa MarkdownRoot
-    kinds = [typeof(e).name.name for e in page.elements]
+    kinds = [document_schema_name(typeof(e)) for e in page.elements]
     # The declaration arrives as the parsed Julia it is — with its docstring,
     # because `definition` yields a documented definition whole.
     @test :JuliaDocstring in kinds || :JuliaMacroCall in kinds
     @test :MarkdownCodeBlock in kinds        # the call, and the bytes
     @test :ReflectedNode in kinds            # the instance, reflected
-    @test :PacketDiagram in kinds            # the instance, as the RFC draws it
+    @test :Packet in kinds                   # the instance, as the RFC draws it
     # Four headings: declared, built, read and written, reflected, drawn.
     @test Base.length([k for k in kinds if k === :MarkdownHeading]) >= 4
 end
@@ -118,9 +118,9 @@ end
         code = [b.code for b in blocks if b isa MarkdownCodeBlock]
         @test any(c -> occursin(string(document_schema_name(H), "("), c), code)
         # The figure is drawn from a packet that holds this header, and not
-        # from one built for another page.
-        diagram = only(b for b in blocks if b isa PacketDiagram)
-        @test has(diagram.packet, H)
+        # from one built for another page. The page carries the packet itself,
+        # so there is nothing between the block and the header it is about.
+        @test has(only(b for b in blocks if b isa Packet), H)
         # A page asked for twice is one document, so a fold a reader opened is
         # still open when they come back — and a catalog rebuilt is not ten
         # pages rebuilt.

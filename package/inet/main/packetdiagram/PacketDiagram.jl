@@ -27,7 +27,9 @@ import ProjecturedKernel.CellModule: Cell, ComputedCell, AbstractCell,
     ReactiveCell, MutableCell
 import ProjecturedCollection.CollectionModule: CellVector, ComputedCellVector
 import ProjecturedKernel.DocumentModule: Document, var"@document"
-import ProjecturedKernel.ReferenceModule: Reference
+import ProjecturedKernel.ReferenceModule: Reference, ConcreteReference,
+    FieldReferenceStep, RangeReferenceStep, ElementReferenceStep,
+    get_reference_steps, strip_reference_types
 import ProjecturedKernel.IoMapModule: IoMap, var"@iomap", SimpleIoMap
 import ProjecturedKernel.ProjectionApiModule: Projection, print_document,
     map_reference_forward, map_reference_backward
@@ -51,13 +53,12 @@ export
     # the projected documents
     PacketDiagram, DiagramBand, DiagramHeaderBand, DiagramOpaqueBand, DiagramField,
     # building them from a packet, and announcing a change
-    packet_diagram, diagram_bands, refresh_packet_diagram!,
+    packet_diagram, diagram_bands, walk_bands, refresh_packet_diagram!,
     # the row layout, as plain numbers
     DiagramCell, diagram_rows, grid_width, cell_width,
     # the projections and the two entry points
     PacketToPacketDiagram, PacketDiagramToText,
-    packet_projection, packet_diagram_entry, packet_diagram_document_entry,
-    packet_diagram_entries, packet_diagram_string
+    packet_projection, packet_diagram_entry, packet_diagram_string
 
 include("DiagramDocument.jl")
 include("DiagramGeometry.jl")

@@ -12,7 +12,7 @@
 # Not one of the five is written here. The declaration is quoted from its own
 # file through the same marker a page uses for any source fragment; the other
 # four are computed from the type by `HeaderFacts.jl`, `DocumentReflection` and
-# `packet_diagram`. A page that cannot disagree with the code is the whole
+# the packet itself. A page that cannot disagree with the code is the whole
 # point — a header is declared once, and this is what that buys.
 #
 # The page carries no title. The stub page in `demo/pages/header/` states what
@@ -23,7 +23,6 @@ using Projectured.MarkdownModule: MarkdownRoot, MarkdownHeading, MarkdownParagra
     MarkdownText, MarkdownCodeBlock
 using Projectured.DocumentReflectionModule: reflect_document
 using Projectured.FileProjectModule: LoaderContext
-using Inet.PacketDiagramModule: packet_diagram
 using Inet.PacketModule
 import OmnetppPresentation: is_loadable_doctype
 
@@ -210,11 +209,11 @@ function _build_header_page(::Type{H}) where {H <: Fields}
     push!(blocks, reflect_document(header; label = string(document_schema_name(H))))
 
     push!(blocks, _heading("The instance, as the standard draws it"))
-    # The figure as the live document it is: the field names, the values and the
-    # grid each in their own colour, and a band a reader can fold. A page's
-    # elements re-enter the renderer by their own type, and the demo projection
-    # already knows this one.
-    push!(blocks, packet_diagram(Packet(header)))
+    # The PACKET, not a picture of one. The figure is drawn from it by the same
+    # projection that draws a packet anywhere else: a page's elements re-enter
+    # the renderer by their own type, and a packet is a document, so it draws
+    # inside the card the page puts it in with nothing converting it first.
+    push!(blocks, Packet(header))
 
     return MarkdownRoot(blocks)
 end
