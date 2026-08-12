@@ -805,15 +805,48 @@ Gate: the golden figure `packetdiagram-figure.txt` is unchanged. **It is.**
 `test_inet()` is 534 / 534, and the whole repository is 7208 / 10 / 7 — the same
 ten and seven main gives when measured the same way.
 
-### Phase 7 — what the packet can now do — **PENDING**
+### Phase 7 — what the packet can now do — **DONE**
 
-- [ ] A test that opens a live packet in an inspector and walks it.
-- [ ] A test that a reference names a header field and evaluates to its value.
-- [ ] A test that writing a field through the reference changes the packet, and
-      that a projection over it re-renders.
+`package/inet/test/packetobservable.jl`, 29 assertions in four testsets. Every
+one uses `live_packet`, the envelope as a reactive document over the chunks it
+already holds.
 
-This phase is the reason for the whole plan. Without it the change is a
-refactor; with it, observability is a runnable check.
+**An inspector opens a live packet and walks it.** `reflect_document(live,
+DepthPolicy(5))` gives the envelope's five fields and walks all the way down —
+through `content`, into the sequence, into a chunk, to `time_to_live`,
+`destination`, `source_port`, `fill`. Nothing on the way is a picture of the
+packet.
+
+**A reference names a header field and evaluates to its value.** The reference
+is not written by hand: it is what a click on the figure produces, mapped back
+through the stage. So the test closes the loop — `evaluate_reference(live, path)`
+is the value the figure printed, for four IPv4 fields and one UDP field.
+
+**Writing through a reference changes the packet and the figure follows.**
+`content` is an envelope field, so the kernel's own
+`ReplaceReferencedValueOperation` writes it and nothing in the operation knows
+about packets. The label goes `Packet 60B` → `Packet 4B` and the bands 3 → 1
+with nothing told to refresh.
+
+**An edit to a header field is a rebuild.** A chunk is immutable and the codec
+depends on it, so `set_field` rebuilds the header and the write lands on the
+envelope — the one part of a packet that is not a value. The figure's field text
+becomes `10.9.9.9` and `peek(live, Ipv4Header).destination` agrees.
+
+Two things the phase found and did not change:
+
+**A typed reference stops at the envelope.** `get_reference_node_type` records
+the schema's *cell layout*, and validation is `document isa path.type` — so a
+path annotated across the envelope/chunk seam records `ACIpv4Header` and meets
+`IIpv4Header`, which is its sibling and not its subtype. The kernel's own
+docstring already states this: *"a native document does not validate against this
+token"*. Every reference this phase uses is the untyped skeleton, which is what a
+backward map produces, so nothing here needs the seam closed.
+
+**A reflection is not a dissection.** Reflection shows `front`, `back`,
+`offsets` — the storage. `dissect` shows each chunk with its length, its quality
+and its decoded fields — the wire. The test asserts both, which is the record of
+why `dissect` did not retire.
 
 ### Phase 8 — documentation and the seal list — **PENDING**
 
