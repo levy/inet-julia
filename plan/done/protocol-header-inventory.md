@@ -17,9 +17,17 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 354 wire formats are declared and every one round-trips. The repository is green:
-3129 passes with the seven pre-existing capture and runner errors and nothing
-else. §12 marks each phase as it lands.
+Status: **DONE**. Every phase the plan requires has landed, and every family the
+inventory names is declared: 354 wire formats, and every one round-trips.
+
+`test_packet()` is 18240 passes with no failure. The repository-wide suite is
+19524 passes with ten failures and nine errors, all of them in `linklayer`,
+`queuing` and `runner`, and all of them from one rename upstream — the live
+`omnetpp-julia` turned `Capture.buffer` into `Capture.buffers`. Nothing in
+`package/packet/` is among them.
+
+§12 marks each phase. §15 records what is open, and none of it blocks the
+codec.
 
 ## 1. What the plan delivers
 
@@ -1053,8 +1061,8 @@ Each phase ends with a green test and a commit. The command is
 | 6 ✅ | `Options` and the TLV family | IPv4, TCP and IPv6 options round-trip in order, with an unknown code preserved |
 | 7 ✅ | variants | an ICMP echo request decodes from an `IcmpHeader` window |
 | 8 ✅ | the corpus ✅, Wave 1 ✅, Wave 2 ✅ | green over 91 formats |
-| 9 ◐ | Wave 3 ✅, Wave 4 started — §3.7 | green over 223 formats |
-| 10 | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
+| 9 ✅ | Wave 3 ✅, Wave 4 ✅ — §3.7 to §3.14 | green over 354 formats |
+| 10 ⬜ | the protocol dispatch table and a pcap reader | optional; only if a capture must be read |
 
 Phases 1 to 7 are the language. Phases 8 and 9 are the inventory. Do not start
 Phase 8 before Phase 7 is green: a header declared against a language that then
@@ -1106,6 +1114,25 @@ number it is.
 
 ## 15. Open
 
+None of these blocks the codec. Each is a small, checkable piece of work that a
+later plan can take.
+
+- **A `check` on an embedded header.** §3.11. A mark is not a subtype of the
+  header it wraps, so a header that another header embeds cannot carry a check:
+  a malformed packet becomes an error where it should become a mark. Three
+  declarations work around it today. The fix is for the codec to lift a mark
+  from a field to the header that holds it.
+- **A `when` clause that names a derived field.** §3.12. A derive runs on the
+  way out and a `when` clause reads the stored fields, so the two disagree. RFC
+  6525's reconfiguration response is the one place it bites, and it is handled
+  by not deriving that length. The general fix — evaluating the derive inside
+  `measure_write` — is not safe in general, because `chunk_length` avoids
+  derives on purpose.
+- **The 802.11 capability information field.** §3.14. Sixteen bits of named
+  flags, declared as one `U16` because the bit order was not checked against the
+  standard's figure. The octets are right either way.
+- **Phase 10.** The protocol dispatch table and a pcap reader. The plan marks it
+  optional, and nothing here needs it.
 - **The editor's leaf rule.** Whether `projectured-julia`'s generic object
   projection already has a rule to hook `classify_display` into. A prerequisite
   for the view, not for the codec.

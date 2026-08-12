@@ -10,7 +10,7 @@ behind each row. The page shows five things about that header:
 4. the instance in a **reflection widget**,
 5. the instance as the **RFC bit grid**.
 
-91 wire formats are declared. This plan covers **ten** of them, chosen so that
+354 wire formats are declared. This plan covers **ten** of them, chosen so that
 each one shows something the others do not. A page is derived from the header
 type, so the ten cost one page builder and not ten pages. Every header is a
 later stage, and it changes one list.
