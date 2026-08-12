@@ -55,12 +55,14 @@ parameters and must be repeatable, because a reset is a fresh tree.
 `OmnetppTictoc`'s `Catalog.jl` is eight lines of exactly that, and
 `documentation/model-migration.md` §5.6 is the written procedure.
 
-There is also `OmnetppRunner`'s `ned_network_model(; ini_path, config,
-ned_directories, run_number)` — the same registration with the paths as
-arguments instead of as constants. Its own docstring says it belongs one layer
-down, in `OmnetppDescription`, once a second caller has proved the shape. **This
-plan is that second caller.** Use it, and if it fits, move it down rather than
-copying it.
+There is also `ned_network_model(; ini_path, config, ned_directories,
+run_number)` — the same registration with the paths as arguments instead of as
+constants. It **already moved down** into `OmnetppDescription`
+(`package/description/main/src/NedNetworkModel.jl`), which is where its own
+docstring said it belonged; `OmnetppRunner` re-exports it, so its old callers
+did not move. This plan therefore does not have to prove the shape or promote
+anything: `InetQueuing` takes the `OmnetppDescription` dependency that wave 0
+step 1 already asks for, and calls it.
 
 **Land on that.** A migration that ends in a network only `run_network!` can
 drive is not finished — it has no execution to start, hold, step or watch, so
@@ -295,8 +297,13 @@ record the decision here.
 ## 7. Where the code goes
 
 - `package/queuing/main/` — every element type, in the folder of its INET
-  package. Follow [plan/pending/folder-layout-alignment.md](folder-layout-alignment.md):
-  a compound goes to `compound/`, and `common/` splits.
+  package. The layout is settled:
+  [folder-layout-alignment.md](../done/folder-layout-alignment.md) executed,
+  `common/` is gone, and a compound or a joining element goes to
+  `composition/`. A new INET package that has no folder here gets one beside
+  the others — `buffer/`, `gate/`, `marker/`, `meter/`, `shaper/`,
+  `tokengenerator/` — one folder per INET package, which is the rule the
+  existing folders already follow.
 - `package/queuing/example/tutorial-ned/` — the two original files, byte for
   byte, and a `SOURCE.md` that records the `inet-cpp` commit.
 - `package/queuing/test/inet-reference/queueing/` — the C++ reference results.

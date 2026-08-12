@@ -103,20 +103,28 @@ Open gates, by the rung they block:
   the hot path, and every phase 0 allocation number reproduces exactly. P0.2
   below is now ratification of a rule the code already meets rather than a
   choice between two. The `packet` rung is auditable.
-- **`protocol-header-gallery.md` / `protocol-header-inventory.md`** — more
-  header material in `packet` and `inet`; same rung, same gate.
+- **`protocol-header-inventory.md` is done and `protocol-header-gallery.md` is
+  done through stage 2.** The inventory took `protocol/` from 19 files to 38
+  and the declared wire formats to 354; the gallery added `HeaderFacts.jl` to
+  `packet` and a `headerview/` slice to `inet`, and its stage 3 is optional and
+  waits on a reader rather than on code. Neither gates the `packet` rung any
+  more — but audit `protocol/` knowing it is now the larger half of the
+  package.
 - **`queueing-tutorial-from-ned-ini.md`** — rebuilds the tutorial's steps from
   NED/INI sources; gates the `queuing` example rung (Wave D).
 - **`queuing-model-migration.md`** — wave 2 of the element library
   (WRR/token/buffer/cloner families); gates the `queuing` element rungs
   whenever it resumes.
-- **`executable-options.md`, `executable-with-user-interface.md`,
-  `package-convention-repl-leaves.md`** — all three reshape `runner` and
-  `repl`; audit those two packages only after they settle. Branches `options`
-  and `headers` sit alongside them.
+- **`executable-options.md` and `executable-with-user-interface.md`** — both
+  reshape `runner`; audit that package only after they settle.
+  `executable-options.md` has one phase left and it belongs to the other plan.
+  `package-convention-repl-leaves.md` is **done** and no longer gates `repl`.
+  No side branch exists: everything named here is on `main`.
 
-That leaves `common`, `linklayer` and the `queuing` contract/composition
-layers as the rungs actually available now.
+That leaves `packet`, `common`, `linklayer`, the `queuing` contract, base and
+composition layers, and `repl` as the rungs actually available now — a much
+wider front than when this plan was written, because three of the five gates
+have cleared.
 
 ## 5. Phase 0 — ratify the requirements documents
 
@@ -126,13 +134,28 @@ layers as the rungs actually available now.
   models) and `IR-TUTORIAL-IS-LIVE` (scoped to the queueing tutorial, or to
   all learning material). Note that later plans already cite these IDs, so
   review is ratification, not adoption.
-- [ ] **P0.2** Owner review of `documentation/architecture-requirements.md`.
-  One decision cannot wait, because a pending plan depends on it:
-  **`IAR-PACKET-DEPENDS-ON-NOTHING` versus
-  `IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE`**, proposed by
-  `packet-is-a-document.md`. Whichever wins, the `packet` rung is audited
-  against it. Lesser candidates flagged at drafting: `IAR-TESTS-IN-PHASES`
-  (convention or requirement) and `IAR-ACYCLIC-GROWTH` (subsumable into
+- [ ] **P0.2** Owner review of `documentation/architecture-requirements.md`,
+  17 rules. The packet question is settled in the document already:
+  `IAR-PACKET-DEPENDS-ON-NOTHING` is gone,
+  `IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE` is in, and `InetPacket`'s only
+  dependency is `ProjecturedKernel`. So the `packet` rung is auditable and the
+  review is ratification.
+
+  **One rule now contradicts the code and must be rewritten before wave A4.**
+  `IAR-FOUR-STRUCT-ELEMENT` says an element is four structs — `…Parameters`,
+  `…States`, `…Statistics`, `…Module` — and cites
+  `package/queuing/main/queue/PacketQueue.jl:69-119`. None of that holds:
+  `plan/done/queuing-elements-on-the-module-macro.md` put all seventeen module
+  kinds onto `@simulation_module`, whose `@parameters`, `@gates`,
+  `@statistics`, `@submodules` and `@connections` sections declare each field
+  by its kind, and no such struct is left in the package. The load-bearing
+  reason the rule gives is still true — configuration, run state and measured
+  values are different things with different lifetimes — so the rule needs
+  restating over the sections rather than dropping. The cited path also moved,
+  to `composition/PriorityQueue.jl` for the compound.
+
+  Lesser candidates flagged at drafting: `IAR-TESTS-IN-PHASES` (convention or
+  requirement) and `IAR-ACYCLIC-GROWTH` (subsumable into
   `IAR-LOWEST-PACKAGE`).
 - [ ] **P0.3** Decide the layering-guard question deferred by the
   component-package-split plan (S7): build a static intra-package guard now
@@ -145,12 +168,15 @@ layers as the rungs actually available now.
   files. All are entered at their include positions. Group names still need
   reconciling with whatever P0.1–P0.3 change (renaming groups is allowed;
   reordering entries is not).
-- [ ] **P0.5 Layout alignment.** Decide and execute the folder moves in
-  [folder-layout-alignment.md](folder-layout-alignment.md) (two moves inside
-  `InetQueuing` — retiring the `common/` grab-bag and filing the compound
-  queue with the compounds — plus four leave-as-is decisions to record). Its
-  gate has cleared: the tutorial landed, and `common/` now holds all three
-  files the plan anticipated.
+- [x] **P0.5 Layout alignment — executed** (2026-08-12).
+  [folder-layout-alignment.md](../done/folder-layout-alignment.md) is done and
+  moved. `common/` is retired: the predicates went to `base/`, and the
+  plumbing, the marking and the priority queue went to a new `composition/`.
+  The plan had called that folder `compound/`; the elements that landed since
+  made the name false, and `composition` is what §3 above and `SEALING.md`
+  already call the layer. Four leave-as-is decisions are recorded.
+  `SEALING.md` carries the four new paths in their original positions, so
+  waves A4 and A5 audit final paths.
 
 ## 6. The audit waves
 
@@ -159,16 +185,16 @@ notes:
 
 | wave | group | gate | watch for |
 | --- | --- | --- | --- |
-| A1 | `packet` | **blocked** — P0.2 | the dependency rule that P0.2 settles; normalization only via smart constructors; quality lattice propagation; no simulation vocabulary anywhere |
+| A1 | `packet` | open — the rule it waited for is in the document | normalization only via smart constructors; quality lattice propagation; no simulation vocabulary anywhere. 23 root files plus 38 in `protocol/` — the slice grew from 19 while the inventory ran |
 | A2 | `common/lookup` | open | neutrality: knows the simulator's vocabulary, never a protocol's |
 | A3 | `queuing` *contract* | open | generic-function vocabulary — no interface types; bodiless declarations only (upstream interface-declares-only rule) |
 | A4 | `queuing` *base* + *elements* | queuing-model-migration wave 2 | four-struct convention per element; push/pull duals honest; the landed policy presets |
-| A5 | `queuing` *composition* + *model* | open, after P0.5 | compound modules are elements; `QueuingModel` against the lifecycle contract |
+| A5 | `queuing` *composition* + *model* | open — P0.5 landed | compound modules are elements; `QueuingModel` against the lifecycle contract; the folder is `composition/` now |
 | A6 | `linklayer` `t1s` | open | derive-don't-transliterate boundary documented per file; generated files: provenance header, regeneration reproduces byte-for-byte, golden hashes unchanged; `recorder === nothing` guards on every emission site |
 | A7 | `inet` umbrella | open | re-exports, the catalog and the packet diagram only; re-exports nothing from `OmnetppSimulator` (explicit dual imports, per README) |
 | A8 | `runner`, `repl` | **blocked** — the three executable plans | the leaf rules of `packages.md`: nothing depends on a `Repl`; `@compile_workload` only in a leaf |
 | B | `tool/`, `watch/` | open | generators audited together with their `⚙️` outputs (regenerate → byte-identical → hashes reproduce); watch scripts against the substrate's presentation-placement rules |
-| C | test packages + root harness | follows each main package | phase files individually meaningful; golden hashes and comparison harness in the right phases; `packagegraph.jl` as the guard it is |
+| C | test packages + root harness | follows each main package | phase files individually meaningful; golden hashes and comparison harness in the right phases; `packagegraph.jl` as the guard it is. **Two known errors to fix here**: `phase5_capture.jl:25` and `:88` read `Capture.buffer`, which `omnetpp-julia` renamed to `buffers` — the tests have drifted from the substrate, not the other way round |
 | D | example packages | queueing-tutorial-from-ned-ini | `InetQueuingExample`, `InetPacketExample`, `InetExample` |
 
 ## 7. The per-file audit procedure
@@ -218,9 +244,17 @@ there rather than working to a contradiction.
       (2026-08-10)
 - [x] Refreshed against the current package graph and pending plans
       (2026-08-10)
-- [ ] P0.1 / P0.2 ratify the requirements documents — **P0.2's packet-rule
-      decision is what unblocks the first rung**
-- [ ] P0.3 layering guard, P0.5 layout alignment (its gate has cleared)
-- [ ] A2, A3, A6, A7 and Wave B — the rungs open now
-- [ ] A1, A4, A5, A8, Waves C and D — behind their gates
-- [ ] Wave D
+- [x] Refreshed again against the eight pending plans and the code
+      (2026-08-12): three gates cleared, and `IAR-FOUR-STRUCT-ELEMENT` found to
+      contradict the package it governs
+- [x] P0.5 layout alignment — executed 2026-08-12
+- [ ] P0.1 / P0.2 ratify the requirements documents — **P0.2 now has one real
+      edit in it, `IAR-FOUR-STRUCT-ELEMENT`, and the packet question is already
+      settled in the document**
+- [ ] P0.3 layering guard
+- [ ] A1, A2, A3, A5, A6, A7, A8 and Wave B — the rungs open now
+- [ ] A4 — behind wave 2 of `queuing-model-migration.md`
+- [ ] Waves C and D
+
+**Still zero of 223 files sealed.** Nothing in the campaign is blocked by code:
+what it waits on is P0.1 and P0.2, which are the owner's to answer.

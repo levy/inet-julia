@@ -44,9 +44,21 @@ with 0.000 s of recompilation.
       document was wrong the day it was written, and is now right.
 - [x] 4. The `ji` alias becomes `using Revise, InetRepl`. Revise stays first and
       stays out of the package's dependencies.
-- [ ] 5. `InetQueuingExample` stops depending on `Test`. An example package does
-      not need the test standard library; move what uses it into
-      `InetQueuingTest`.
+- [x] 5. `InetQueuingExample` stops depending on `Test`. `TutorialTest.jl` moved
+      to `package/queuing/test/tutorial.jl`, and `InetQueuingTest` gained the
+      three dependencies its assertions need — `InetQueuingExample`,
+      `OmnetppPresentation` and `Projectured` — which is the shape the table
+      below already prescribes for a `<Stem>Test`.
+
+      **The move found that nothing ran it.** `test_tutorial()` was exported by
+      the example package and called by no suite, so about a hundred assertions
+      over the tutorial's pages, its embeds and its simulation results were
+      dead. `runtests.jl` calls it now, inside `test_queuing()`.
+
+      One import was in scope only by accident of living inside the example
+      module: the file reaches `Projectured.…` throughout, which
+      `using Projectured.SomeModule: name` does not give it. It says
+      `using Projectured` now.
 - [x] 6. `documentation/packages.md`, with `architecture.md` and `CLAUDE.md`
       pointing at it.
 - [x] 7. Measured at `:demo`: `using InetRepl` 2.77 s, the catalog's first paint
@@ -69,9 +81,10 @@ with 0.000 s of recompilation.
 No package in this repository holds a third-party dependency today, and none
 should acquire one without being named in the table above.
 
-## Depends on
+## Depends on — cleared
 
 `OmnetppExample.precompile_workload` and `ProjecturedExample.precompile_workload`
-must exist first: `InetRepl`'s levels call through both, and this repository's
-`[sources]` reach the **main** checkouts of the other two, so their halves have
-to be on `main` before this one can be tested.
+had to exist first: `InetRepl`'s levels call through both, and this repository's
+`[sources]` reach the **main** checkouts of the other two, so their halves had
+to be on `main` before this one could be tested. Both landed —
+`omnetpp-julia`'s half is in that repository's `plan/done/`.

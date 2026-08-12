@@ -20,6 +20,13 @@ row. `test_packet()` and `test_inet()` are green. Stage 3 is not started, and
 needs a reader's verdict first. What the work found is recorded in each stage
 below and in §9.
 
+The stage-3 counts in this plan were written when 91 headers were declared
+across 19 protocol files. `protocol-header-inventory.md` has since finished its
+waves, and the figures are **354 headers across 38 files**. Stage 3 is that
+much larger, and the argument for waiting is unchanged: read the ten pages
+first, because if ten do not teach what the declaration language does, 354 will
+not either.
+
 ## 1. What the plan delivers
 
 1. Three facts a header can answer about itself, in `InetPacket`: where it is
@@ -252,7 +259,7 @@ Stage 3 is optional and is not started until the ten pages have been read.
 | --- | --- | --- | --- |
 | 1 | the facts, and one page for `Ipv4Header` | the page opens in `run_demo()` and draws all five views | **done** |
 | 2 | the other nine, and their rows | ten rows, ten pages, all rendered by the test | **done** |
-| 3 | *optional* — every declared header | 91 rows, without 91 stub files | not started |
+| 3 | *optional* — every declared header | 354 rows, without 354 stub files | not started |
 
 **What a page costs.** Ten pages once turned a ninety-second suite into one that
 ran past ten minutes, and two stack samples caught it in the same place:
@@ -300,7 +307,8 @@ The whole mechanism, proved on one header. Six steps, one commit each.
    page decides how to print them and a test asserts them without an editor.
 
    Gate: new `package/packet/test/phase21_header_facts.jl`, over the ten of §4
-   and then over `list_headers()` — the facts are generic, so run them on all 91
+   and then over `list_headers()` — the facts are generic, so run them on every
+   declared header, not only the ten that get a page
    even though only ten get a page. `eval` of the construction text gives a
    header that ENCODES the same bytes, and exactly the reported bytes change.
 
@@ -420,7 +428,7 @@ Do not start this before the ten pages have been read by a person. If ten pages
 do not teach the reader what the declaration language does, ninety-one will not
 either, and the answer is a better page and not more of them.
 
-At 91 the stub file stops being honest, so the navigator learns to expand one
+At 354 the stub file stops being honest, so the navigator learns to expand one
 link into many rows. Generalise the `sim:` special case
 ([CatalogShell.jl:35-46](../../../omnetpp-julia/package/presentation/main/src/project/CatalogShell.jl#L35),
 [CatalogShell.jl:335](../../../omnetpp-julia/package/presentation/main/src/project/CatalogShell.jl#L335))
@@ -431,7 +439,7 @@ register_entry_scheme!(:header, expand, open)
 ```
 
 * `expand(name) -> Vector{CatalogEntry}` turns one authored link into the rows it
-  stands for — 19 section rows, one per protocol file, with their headers under
+  stands for — 38 section rows, one per protocol file, with their headers under
   each.
 * `open(shell, entry, name) -> page` builds the page, and keeps it, the way
   `_SIMULATION_WINDOWS` keeps a window.
@@ -447,8 +455,9 @@ Two test assertions then need care, because a page built in memory has no file:
 ([demo.jl:112-114](../../package/inet/test/demo.jl#L112)). Exempt a scheme row
 from both, and assert instead that its page draws the header's name.
 
-Watch the cost: 91 renders in the acceptance test is far more than the walk costs
-today. Render one header per protocol family and build the facts for all 91. If
+Watch the cost: 354 renders in the acceptance test is far more than the walk costs
+today. Render one header per protocol family — 38 of them — and build the facts
+for all 354. If
 that is still too slow, cut further and **say so in the test file** — a silent cut
 reads as full coverage.
 
@@ -459,7 +468,7 @@ reads as full coverage.
 | how many headers | ten, chosen by the feature each one alone shows. The full inventory is a later stage that changes one list |
 | authored pages or derived pages | derived. The stub file holds a title and a marker; the five views come from the type |
 | how a row reaches a page, at ten | an ordinary `.md` link. The navigator needs no change, and the plan touches one file outside this repository instead of three |
-| how a row reaches a page, at ninety-one | a scheme registry, in Stage 3, and only after a person has read the ten |
+| how a row reaches a page, at three hundred and fifty-four | a scheme registry, in Stage 3, and only after a person has read the ten |
 | which reflection projection | `DocumentReflection`, and the entry already in `workbench_document_dispatch` |
 | where the prose comes from | the header's own docstring |
 | which instance the page shows | `fill_asymmetric`, with an override for the headers a page already narrates |
@@ -477,7 +486,7 @@ reads as full coverage.
 * **One page with its own inner list.** The catalog's left side would carry one
   row, and the page would grow a second navigator beside the one the window
   already has. The ask puts the protocol on the left side.
-* **The scheme registry in Stage 1.** It is the right answer at 91 and too much
+* **The scheme registry in Stage 1.** It is the right answer at 354 and too much
   machinery at 10. Stage 3 holds it, with the trigger written down.
 * **A `header:` branch in `open_page!`.** It puts INET protocol vocabulary in the
   presentation package. A registry costs the same and keeps the layering.

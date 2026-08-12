@@ -5,6 +5,19 @@ are done and green; wave 2 and the blocked list remain. Built in the worktrees
 `omnetpp-julia-queuing` (branch `module-kernel`) and `inet-julia-queuing` (branch
 `queuing-wave1`).
 
+> **§3.1 and §6 describe a convention this repository no longer uses.**
+> `plan/done/queuing-elements-on-the-module-macro.md` (2026-08-09) put all
+> seventeen module kinds of `InetQueuing` onto `@simulation_module`, whose
+> `@parameters`, `@gates`, `@statistics`, `@submodules` and `@connections`
+> sections declare each field by its *kind*. No `…Parameters`, `…States` or
+> `…Statistics` struct is left in the package. Read §3.1a before writing a
+> wave-2 element, and read §6 for its method rather than for its steps 2 to 5.
+>
+> The rest of the design stands as written, and the elements that landed use it
+> exactly as described: the contract (§3.3), the lookup (§3.5), the
+> communication rules (§3.4), the engine integration (§3.7), the statistics
+> policy (§3.8) and the parameter design (§3.9), `Volatile` included.
+
 ## 1. Goal
 
 Port the INET C++ simulation models to the omnetpp-julia discrete event simulator, into this
@@ -61,7 +74,12 @@ Two deliverables:
 
 ## 3. Architecture
 
-### 3.1 The four-struct convention
+### 3.1 The four-struct convention — superseded, kept for the reasoning
+
+**Do not write a new element this way.** §3.1a states the form that replaced it.
+This section stays because the wave-2 elements are still classified by the four
+buckets it names, and because the macro's sections are those buckets made
+declarative rather than a different idea.
 
 Every migrated INET simple module `Stem` becomes four structs in one file:
 
@@ -87,6 +105,54 @@ the contract files whose interfaces it implements (§3.2 source-file architectur
 
 NED-only parameter presets (DropTailQueue = PacketQueue + fixed parameters) become preset
 **constructor functions**, not new types.
+
+### 3.1a The form that replaced it — `@simulation_module`
+
+`plan/done/queuing-elements-on-the-module-macro.md` carried this out on
+2026-08-09, after `simulation-anatomy.md` §10 and §11 settled the field kinds
+upstream. An element is **one** struct whose fields are declared in sections
+named after what each field *is*:
+
+```julia
+@simulation_module struct PacketQueueModule
+    @parameters begin
+        packet_capacity::Union{Nothing,Int} = nothing
+        dropper::Any = nothing
+    end
+    @gates begin
+        in::InputGate
+        out::OutputGate
+    end
+    @statistics begin … end
+end
+```
+
+A compound adds `@submodules` and `@connections`, and subtypes
+`AbstractCompoundModule` — `PriorityQueueModule` is the one that does.
+
+What this changes for a wave-2 element:
+
+- **One struct, not four.** The macro generates what the four structs held. The
+  classification of §3.1 is still how an INET class is read; it is now the
+  choice of which *section* a field goes in.
+- **The recipe's steps 2 to 5 collapse into one step**: write the sections.
+  §6 is otherwise unchanged, and its "derive, don't transliterate" method is
+  the part that mattered.
+- **The lifecycle hooks are the kernel's**, and are named
+  `initialize_module!` (topology, at build), `start_module!` (behaviour, as a
+  root event), `finalize_module!` (end-of-run scalars) and
+  `register_module_statistics!` (the recorder, which belongs to the run). Three
+  more exist that this plan never named: `decorate_module!`, `module_icon` and
+  `module_status`, which are what a running module shows in the editor.
+- **`InetLinkLayer` was not migrated.** It still builds its `Network` by hand
+  and declares no `@simulation_module`. That is its own plan's work, as
+  `queueing-tutorial-from-ned-ini.md` §9 says.
+
+One consequence for the audit campaign: `IAR-FOUR-STRUCT-ELEMENT` in
+`documentation/architecture-requirements.md` still states the superseded form
+and cites line numbers in `PacketQueue.jl` that no longer hold. It is a rule to
+rewrite, and `architecture-audit-and-seal.md` P0.2 is where that decision
+belongs.
 
 ### 3.2 The module framework — omnetpp-julia kernel + inet-julia contract
 

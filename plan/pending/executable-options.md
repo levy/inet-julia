@@ -180,7 +180,14 @@ parallel run.
       hand rather than asserted: the suite's run tests each name a result
       directory, and asserting an absence there would assert the temporary
       directory more than the option.
-- [ ] The two-engine comparison of phase 2, in `package/runner/test`.
+- ~~The two-engine comparison of phase 2, in `package/runner/test`.~~
+      **Withdrawn**, for the reason phase 2 gives: a queuing element calls its
+      peer directly and may find that peer through a lookup rather than through
+      a gate, so the parallel engine cannot see that interaction and its
+      assumption does not hold for these models. The invariance is asserted in
+      `omnetpp-julia`'s `EngineInvarianceTest.jl`, on a network whose channels
+      carry delays. This repository asserts nothing about it, and
+      `package/runner/doc/runner.md` says why.
 
 ## 7. Out of scope
 

@@ -70,11 +70,18 @@ that function belongs — one layer down, in `OmnetppDescription` — and that i
 waits for a second caller to prove the shape. **This plan is the second
 caller.** So:
 
-- [ ] Promote `ned_network_model` from `OmnetppRunner` into
-      `OmnetppDescription` (a change in `omnetpp-julia`).
+- [x] Promote `ned_network_model` from `OmnetppRunner` into
+      `OmnetppDescription` (a change in `omnetpp-julia`). **Landed on that
+      repository's `main`**: it is `package/description/main/src/NedNetworkModel.jl`,
+      exported from `OmnetppDescription`, and `OmnetppRunner` re-exports it so
+      its own callers did not have to move.
 - [ ] `InetRunner.run_options` builds through it, and answers the same result
       files it answers today.
 - [ ] `InetRunnerEditor` hands the same type to the window.
+
+The seam this plan asked for exists, and this repository does not use it yet.
+So §3.1's remaining work is two steps rather than three, and it needs no change
+in another repository.
 
 Do not copy the function into this repository. Two copies of a builder that
 caches registered models by a hash of its arguments is two caches.
@@ -162,8 +169,10 @@ can be compared step by step.
 
 ### Phase 0 — wait for the seams — **partly answered, and not the way this plan asked**
 
-- [ ] `ned_network_model` sits in `OmnetppDescription` (§3.1).
-- [ ] The window sits in `OmnetppPresentation` (§3.2).
+- [x] `ned_network_model` sits in `OmnetppDescription` (§3.1) — **done**.
+- [ ] The window sits in `OmnetppPresentation` (§3.2) — **not done**.
+      `session_example_document` and its neighbours are still in
+      `package/presentation/example/src/SessionExample.jl`.
 
 Both are changes in `omnetpp-julia`. Note the memory of this workspace: the
 `[sources]` of this repository reach that repository's **main checkout**, so a
@@ -191,6 +200,13 @@ The sibling took road 1 and recorded the debt in its §6. Two callers now exist,
 which is the condition its plan named for the promotion, so road 2 has become
 the cheaper one to justify. Decide before writing `InetRunnerEditor`, not
 after.
+
+**Half of road 2 is already paid.** The model half of the promotion landed —
+`ned_network_model` is in `OmnetppDescription` — so the choice is now only
+about the *window*: depend on `OmnetppPresentationExample` from a product
+binary, or promote `session_example_document` into `OmnetppPresentation`
+first. That is one promotion, not two, and it is the only thing standing
+between this plan and phase 3.
 
 ### Phase 1 — the builder takes parameters
 
