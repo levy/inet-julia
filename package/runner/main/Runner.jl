@@ -272,11 +272,23 @@ check_engine(options::Options) = (engine_spec(options); nothing)
 """
     engine_text(spec) -> String
 
-What the run says it is running on. The sequential engine is the default and
-says nothing, so the line appears only when there is something to say.
+What the run says it is running on, and what to make of it. The sequential
+engine is the default and says nothing, so the block appears only when there is
+something to say.
+
+Two warnings and not one. The first is the engine's, and `omnetpp-julia` prints
+it too. The second is this repository's own: the queuing elements interact by
+direct call rather than through a connection with a delay, which is outside the
+colourer's argument entirely — `package/runner/doc/runner.md` carries the
+measurement.
 """
 engine_text(::SequentialEngineSpec) = ""
-engine_text(spec::ParallelEngineSpec) =
-    "Engine: parallel, $(spec.n_workers) worker(s) on $(Threads.nthreads()) thread(s)."
+engine_text(spec::ParallelEngineSpec) = string(
+    "Engine: parallel, $(spec.n_workers) worker(s) on $(Threads.nthreads()) thread(s).\n",
+    "Warning: the parallel engine is not yet deterministic — see\n",
+    "         omnetpp-julia's plan/pending/omnetpp-parity.md §5.1.\n",
+    "Warning: a queuing element pushes a packet by calling its peer directly, so\n",
+    "         that interaction never becomes an edge the colourer can see. This\n",
+    "         repository's models are outside what the engine's argument covers.")
 
 end # module RunnerModule
