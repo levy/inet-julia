@@ -651,3 +651,133 @@ end
     @test unknown.header isa Ospfv3Header
     @test unknown.header.data == Octets(UInt8[7, 7])
 end
+
+@testset "BGP UPDATE — a prefix in bits, and a length field that changes width" begin
+    # ---------- a prefix whose length counts bits, RFC 4271 clause 4.3 ------
+    for (prefix_length, octets) in ((0, 0), (1, 1), (8, 1), (24, 3), (25, 4),
+                                    (32, 4), (64, 8))
+        @test measure_prefix_octets(prefix_length) == octets
+        prefix = BgpPrefix(prefix_length = UInt8(prefix_length),
+                           prefix = zeros(UInt8, octets))
+        @test chunk_length(prefix) == Bytes(1 + octets)
+        prefix_bytes = encode_header(prefix)
+        read_back = decode_header(BgpPrefix, prefix_bytes)
+        @test Base.length(read_back.prefix) == octets
+        @test encode_header(read_back) == prefix_bytes
+    end
+    # A /24 is three octets of prefix, not four.
+    @test hex22(encode_header(BgpPrefix(prefix_length = UInt8(24),
+                                        prefix = UInt8[10, 0, 1]))) == "18 0a 00 01"
+    @test_throws Exception encode_header(BgpPrefix(prefix_length = UInt8(24),
+                                                   prefix = UInt8[10]))
+
+    # ---------- the attributes, RFC 4271 clause 5 ---------------------------
+    origin = BgpAttributeOrigin(value = BGP_ORIGIN_EGP)
+    # Flags 0x40 is transitive and nothing else, then the type, the length, the
+    # value — RFC 4271 clause 4.3.
+    @test hex22(encode_header(origin)) == "40 01 01 01"
+
+    as_path = BgpAttributeAsPath(
+        segments = [BgpAsPathSegment(as_numbers = UInt16[65001, 65002])])
+    # The segment length counts AS numbers, and the attribute length octets.
+    @test hex22(encode_header(as_path)) == "40 02 06 02 02 fd e9 fd ea"
+    as_path_back = decode_header(BgpAttribute, encode_header(as_path))
+    @test as_path_back isa BgpAttributeAsPath
+    @test as_path_back.segments[1].length == 2
+    @test as_path_back.segments[1].as_numbers.values == UInt16[65001, 65002]
+
+    # ATOMIC_AGGREGATE has no value at all: its presence is the message.
+    @test chunk_length(BgpAttributeAtomicAggregate()) == Bytes(3)
+    @test hex22(encode_header(BgpAttributeAtomicAggregate())) == "40 06 00"
+
+    # ---------- the Extended Length bit, RFC 4271 clause 4.3 ----------------
+    # It is the one length field in the inventory whose own width changes.
+    narrow = BgpAttributeRaw(base = BgpAttributeHeader(type_code = 99),
+                             value = UInt8[1, 2])
+    @test hex22(encode_header(narrow)) == "40 63 02 01 02"
+    @test measure_attribute_header_bytes(narrow.base) == 3
+
+    wide = BgpAttributeRaw(base = BgpAttributeHeader(type_code = 99,
+                                                     optional = true,
+                                                     extended_length = true),
+                           value = zeros(UInt8, 300))
+    wide_bytes = encode_header(wide)
+    @test Base.length(wide_bytes) == 4 + 300
+    # Optional, transitive, not partial, extended: 1101 0000.
+    @test hex22(wide_bytes[1:4]) == "d0 63 01 2c"
+    wide_back = decode_header(BgpAttribute, wide_bytes)
+    @test wide_back isa BgpAttributeRaw
+    @test measure_attribute_length(wide_back.base) == 300
+    @test Base.length(wide_back.value) == 300
+    @test encode_header(wide_back) == wide_bytes
+
+    # With the bit clear the high octet was never on the wire, so it reads back
+    # absent; with the bit set it is there.
+    @test decode_header(BgpAttribute, encode_header(narrow)).base.length_high === nothing
+    @test wide_back.base.length_high == 1
+
+    # ---------- MP_REACH_NLRI, RFC 4760 clause 3 ---------------------------
+    # One prefix header serves IPv4 and IPv6; INET declares two structs.
+    reach = BgpAttributeMpReachNlri(next_hop = collect(UInt8, 1:16),
+                                    prefixes = [BgpPrefix(prefix_length = UInt8(64),
+                                                          prefix = zeros(UInt8, 8))])
+    @test chunk_length(reach) == Bytes(3 + 2 + 1 + 1 + 16 + 1 + 9)
+    reach_back = decode_header(BgpAttribute, encode_header(reach))
+    @test reach_back isa BgpAttributeMpReachNlri
+    @test reach_back.next_hop_length == 16       # the writer measured it
+    @test Base.length(reach_back.prefixes) == 1
+    @test reach_back.prefixes[1].prefix_length == 64
+
+    unreach = BgpAttributeMpUnreachNlri(
+        withdrawn_routes = [BgpPrefix(prefix_length = UInt8(48),
+                                      prefix = zeros(UInt8, 6))])
+    unreach_back = decode_header(BgpAttribute, encode_header(unreach))
+    @test unreach_back isa BgpAttributeMpUnreachNlri
+    @test Base.length(unreach_back.withdrawn_routes) == 1
+
+    # ---------- the whole message, RFC 4271 clause 4.3 ---------------------
+    update = BgpUpdate(
+        withdrawn_routes = [BgpPrefix(prefix_length = UInt8(24),
+                                      prefix = UInt8[10, 0, 1])],
+        path_attributes = [origin, as_path,
+                           BgpAttributeNextHop(value = Ipv4Address("10.0.0.1"))],
+        nlri = [BgpPrefix(prefix_length = UInt8(16), prefix = UInt8[10, 1])])
+    update_bytes = encode_header(update)
+    @test Base.length(update_bytes) == 50
+    # Both length fields are measurements, so the writer takes them.
+    @test hex22(update_bytes[20:21]) == "00 04"     # one /24 is four octets
+    @test hex22(update_bytes[26:27]) == "00 14"     # four, nine and seven
+
+    update_back = decode_header(BgpMessage, update_bytes)
+    @test update_back isa BgpUpdate
+    @test update_back.base.total_length == 50
+    @test map(typeof, update_back.path_attributes.values) ==
+          [BgpAttributeOrigin, BgpAttributeAsPath, BgpAttributeNextHop]
+    @test Base.length(update_back.withdrawn_routes) == 1
+    @test update_back.withdrawn_routes[1].prefix == Octets(UInt8[10, 0, 1])
+    @test Base.length(update_back.nlri) == 1
+    @test update_back.nlri[1].prefix_length == 16
+    @test encode_header(update_back) == update_bytes
+
+    # An UPDATE with nothing in it is twenty-three octets.
+    empty = BgpUpdate()
+    @test chunk_length(empty) == Bytes(BGP_UPDATE_BYTES)
+    @test decode_header(BgpMessage, encode_header(empty)) isa BgpUpdate
+
+    # An attribute of a code nothing models keeps its octets AND its place.
+    mixed = BgpUpdate(path_attributes = [narrow, origin])
+    mixed_back = decode_header(BgpMessage, encode_header(mixed))
+    @test map(typeof, mixed_back.path_attributes.values) ==
+          [BgpAttributeRaw, BgpAttributeOrigin]
+    @test mixed_back.path_attributes[2].value == BGP_ORIGIN_EGP
+
+    # ---------- every message now measures itself, RFC 4271 clause 4.1 -----
+    with_parameters = BgpOpen(my_as = UInt16(65001), identifier = Ipv4Address(0),
+                              parameters = [BgpParameterCapabilities(
+                                  capabilities = [BgpCapabilityMultiprotocol()])])
+    @test encode_header(with_parameters)[17] == 0x00
+    # The default said twenty-nine; the writer measured thirty-seven.
+    @test with_parameters.base.total_length == BGP_OPEN_BYTES
+    @test decode_header(BgpMessage, encode_header(with_parameters)).base.total_length ==
+          bytes(chunk_length(with_parameters))
+end

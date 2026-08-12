@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 264 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 278 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -272,9 +272,8 @@ Three findings, none of which needed a language change:
    RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
    in but not on the way out turns the list around at every hop.
 
-**Left — about 35 formats.** BGP's UPDATE, SCTP, and the VoIP stream packet.
-Then the IEEE 802.11 management bodies and the twenty-one physical-layer formats
-of Wave 3.
+**Left — about 20 formats.** SCTP and the VoIP stream packet, then the IEEE
+802.11 management bodies and the twenty-one physical-layer formats of Wave 3.
 
 **BGP's UPDATE is the one still to declare, and carefully.** The header, the
 KEEPALIVE, the OPEN and the NOTIFICATION are in. UPDATE has two shapes nothing
@@ -397,6 +396,54 @@ Two departures from INET:
   are declared. The AS external LSA is also the inventory's best use of the
   `when` clause: three of its fields are there only when a bit says so, and one
   of the three is conditional on a value rather than a flag.
+
+### 3.10 BGP's UPDATE — the two shapes §3.7 named
+
+**Done — 14 formats.** The UPDATE message, the prefix, the path attribute header
+and its nine members.
+
+Both shapes §3.7 predicted worked, and the language needed no change.
+
+* **A prefix whose length counts bits.** `length(Bytes(measure_prefix_octets(
+  prefix_length)))` says it, and a /24 writes three octets where a naive
+  declaration would write four. RFC 4760 clauses 3 and 4 use the same shape for
+  an IPv6 prefix, so one header serves both; INET declares two structs that emit
+  the same octets.
+* **A length field whose own width changes.** The `Optional{U8}` high octet with
+  a `when(extended_length)` clause is exactly right, and `measure_attribute_length`
+  reads the pair as one number.
+
+**One thing §3.7 did not foresee: the high octet must default to zero, not to
+absent.** A member derives its whole base to write the measured length, and the
+derive calls `measure_header`, which walks the STORED fields — so the stored base
+must already satisfy its own `when` clause. A base built with the extended bit
+set and no high octet fails that walk before the derive can fix it. Defaulting
+the octet to zero makes every base a caller can build self-consistent, and a
+reader still gives the octet back absent when the bit was clear, because then it
+was never on the wire.
+
+**`total_length` is now derived on all four messages**, which §3.8 named as the
+last length a model could still set wrong. `BgpCommon`'s docstring said a shared
+header cannot measure the member that embeds it; that is true of the header and
+not of the member, and the member is where the derive goes.
+
+### 3.11 Open: a check on an embedded header
+
+A `check` marks on read. `mark_incorrect` returns a `MarkedFields`, which is not
+a subtype of the header it wraps — so a header that ANOTHER header embeds cannot
+carry a check: a malformed packet becomes an error where it should become a
+mark. The same applies to a variant family used as the element type of a list.
+
+Three places already work around it. `BgpOpen` puts its version check on itself
+rather than on `BgpCommon`. `Ospfv2Common` and `Ospfv3Common` carry no version
+check at all, where INET marks. `BgpAttributeHeader` carries neither of RFC 4271
+clause 4.3's two flag rules.
+
+The fix is for `MarkedFields` to be transparent where a header is expected —
+either by making the field types accept it, or by having the codec lift a mark
+from a field to the header that holds it. The second is the better one: a
+malformed option inside a packet makes the packet malformed, which is what
+INET's `markIncorrect` on the enclosing chunk already says.
 
 ## 4. The design
 
