@@ -282,6 +282,25 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        MIPV6_HOME_TEST, MIPV6_CARE_OF_TEST, MIPV6_BINDING_UPDATE,
        MIPV6_BINDING_ACKNOWLEDGEMENT, MIPV6_BINDING_ERROR,
        MIPV6_LIFETIME_UNIT, MIPV6_NO_NEXT_HEADER,
+       Ospfv2Packet, Ospfv2Common, Ospfv2Header, Ospfv2Options,
+       Ospfv2Hello, Ospfv2DatabaseDescription, Ospfv2LinkStateRequest,
+       Ospfv2LinkStateUpdate, Ospfv2LinkStateAcknowledgement, Ospfv2LsaRequest,
+       Ospfv2Lsa, Ospfv2LsaHeader, Ospfv2RouterLsa, Ospfv2NetworkLsa,
+       Ospfv2SummaryLsa, Ospfv2AsExternalLsa, Ospfv2RawLsa,
+       Ospfv2Link, Ospfv2RouterTos, Ospfv2SummaryTos, Ospfv2ExternalTos,
+       measure_lsa_length, measure_packet_length,
+       OSPF_VERSION_2, OSPF_HELLO_PACKET, OSPF_DATABASE_DESCRIPTION_PACKET,
+       OSPF_LINK_STATE_REQUEST_PACKET, OSPF_LINK_STATE_UPDATE_PACKET,
+       OSPF_LINK_STATE_ACKNOWLEDGEMENT_PACKET,
+       OSPF_AUTHENTICATION_NULL, OSPF_AUTHENTICATION_SIMPLE,
+       OSPF_AUTHENTICATION_CRYPTOGRAPHIC,
+       OSPF_ROUTER_LSA, OSPF_NETWORK_LSA, OSPF_SUMMARY_LSA,
+       OSPF_ASBR_SUMMARY_LSA, OSPF_AS_EXTERNAL_LSA, OSPF_NSSA_EXTERNAL_LSA,
+       OSPF_LINK_POINT_TO_POINT, OSPF_LINK_TRANSIT, OSPF_LINK_STUB,
+       OSPF_LINK_VIRTUAL,
+       OSPFV2_HEADER_BYTES, OSPFV2_HELLO_BODY_BYTES,
+       OSPFV2_DATABASE_DESCRIPTION_BYTES, OSPFV2_LSA_HEADER_BYTES,
+       OSPFV2_REQUEST_BYTES,
        mark_quality, mark_incomplete, mark_incorrect, mark_misrepresented,
        MarkedFields,
        TagSet, RegionTagSet, RegionTag, tryget, add_region_tag!, region_tags,
@@ -343,6 +362,7 @@ include("protocol/Bgp.jl")
 include("protocol/Rtp.jl")
 include("protocol/Dhcp.jl")
 include("protocol/Mipv6.jl")
+include("protocol/Ospfv2.jl")
 include("PeekFields.jl")
 include("QualityOps.jl")
 include("Tags.jl")

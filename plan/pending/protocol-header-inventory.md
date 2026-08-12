@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 223 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 242 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -272,9 +272,8 @@ Three findings, none of which needed a language change:
    RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
    in but not on the way out turns the list around at every hop.
 
-**Left — about 70 formats.** OSPFv2 and v3 (13), BGP (4), MIPv6 (9), RTP and
-RTCP (7), DHCP, SCTP, and the small `protocolelement` and `applications`
-headers. Then the IEEE 802.11 management bodies and the twenty-one
+**Left — about 55 formats.** OSPFv2 and v3 (13), BGP's UPDATE, SCTP, and the
+VoIP stream packet. Then the IEEE 802.11 management bodies and the twenty-one
 physical-layer formats of Wave 3.
 
 **BGP's UPDATE is the one still to declare, and carefully.** The header, the
@@ -308,6 +307,56 @@ else in the inventory has.
   width that another field decides is not what a value is. The `when` clause is
   the right tool; it just needs writing down before someone reaches for a
   second `length` clause.
+
+### 3.8 OSPFv2 — a variant family inside a variant family
+
+**Done — 19 formats.** The five packets with their shared twenty-four octets,
+the five LSA bodies with their shared twenty, and the small headers they repeat:
+the router link, its TOS entry, the summary TOS entry, the external metric, the
+link state request entry, and the options octet.
+
+This is the first format where a variant family is the ELEMENT TYPE of a list. A
+link state update carries many LSAs and each one says its own type and its own
+length, so `Repeated{Ospfv2Lsa}` is the field. It needed nothing new in the
+codec: `is_fixed_length` already answers `false` for an abstract type, so a
+family is a variable-width field, and `deserialize` already routes an abstract
+type to `deserialize_variant`. One line went into `fill_asymmetric`, so the
+round-trip corpus fills a family with the first member it lists.
+
+Two decisions came out of it.
+
+1. **A family used as an element type needs a member that claims everything, not
+   a fallback.** `deserialize_variant` wraps the fallback in `mark_misrepresented`,
+   and a `MarkedFields` is not a member of the family — so it cannot go into the
+   list's vector. `Ospfv2RawLsa` is therefore an ordinary member that matches any
+   type, which is what `BgpParameterRaw` and `Ipv6NdOptionRaw` already are in an
+   option family. The mark is for a family at the top of a chunk, where the
+   packet family still uses it.
+2. **A length in a shared header can be derived after all.** `BgpCommon` says a
+   shared header cannot measure the member that embeds it, and that is true of
+   the header alone. The member can: it derives the whole base with the measured
+   length written in, using `set_field`. An LSA needs it — its body ends where
+   `lsa_length` says, so a length a model set by hand would make the LSA
+   unreadable. The OSPF packet uses it too. **BGP's `total_length` should get the
+   same treatment**; it is the one length left in the inventory that a model can
+   still set wrong.
+
+Three departures from INET, all in the file that departs:
+
+* `Ospfv2PacketSerializer` reads an LSA of an unknown type, marks the packet
+  incorrect and reads **no body**. The stream then sits in the middle of that
+  LSA, so every later LSA in the same update is garbage. `Ospfv2RawLsa` keeps
+  the octets and leaves the stream where the next LSA starts.
+* INET throws on LS type 7. RFC 3101 clause 2.2 gives the NSSA external LSA the
+  same body as the type 5 AS external LSA, so one member reads both.
+* INET serialises the router LSA's TOS entry and the summary LSA's TOS entry
+  from one `Ospfv2TosData` struct and writes them differently — appendix A.4.2
+  puts a zero octet and a sixteen-bit metric where appendix A.4.4 puts a
+  twenty-four-bit one. They are two headers here.
+
+One reading note for whoever takes OSPFv3: INET writes the options octet through
+`serializeOspfOptions`, a helper, so a compact read of the serializer shows
+`helloInterval` next to `routerPriority` and hides the octet between them.
 
 ## 4. The design
 

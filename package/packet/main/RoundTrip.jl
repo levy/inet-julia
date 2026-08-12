@@ -100,6 +100,10 @@ clause pins — those keep the value the declaration gives, because a header
 that fails its own check tests the check and not the round trip.
 """
 function fill_asymmetric(::Type{H}, seed::Int = 0) where {H <: Fields}
+    # A variant family has no fields of its own, so the corpus fills it with the
+    # first member the family lists. That is a `Repeated{Ospfv2Lsa}`: the element
+    # type is the family, and every element is one of its members.
+    isabstracttype(H) && return fill_asymmetric(first(list_variants(H)), seed)
     checked = list_checked(H)
     values = Any[]
     for index in 1:header_count(H)

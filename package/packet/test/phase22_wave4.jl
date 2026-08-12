@@ -278,3 +278,166 @@ end
         @test got == header
     end
 end
+
+@testset "OSPFv2 — two variant families, one inside the other" begin
+    @test chunk_length(Ospfv2Common) == Bytes(OSPFV2_HEADER_BYTES)
+    @test chunk_length(Ospfv2Options) == Bytes(1)
+    @test chunk_length(Ospfv2LsaHeader) == Bytes(OSPFV2_LSA_HEADER_BYTES)
+    @test chunk_length(Ospfv2LsaRequest) == Bytes(OSPFV2_REQUEST_BYTES)
+    # RFC 2328 appendix A.4.2 spends four octets on a router TOS entry and
+    # appendix A.4.4 four on a summary one. Same width, different shape.
+    @test chunk_length(Ospfv2RouterTos) == Bytes(4)
+    @test chunk_length(Ospfv2SummaryTos) == Bytes(4)
+    @test chunk_length(Ospfv2ExternalTos) == Bytes(12)
+
+    common(type) = Ospfv2Common(type = type, router_id = Ipv4Address("10.0.0.1"),
+                                area_id = Ipv4Address("0.0.0.0"))
+
+    # ---------- the hello, RFC 2328 appendix A.3.2 --------------------------
+    hello = Ospfv2Hello(base = common(OSPF_HELLO_PACKET),
+                        network_mask = Ipv4Address("255.255.255.0"),
+                        neighbors = [Ipv4Address("10.0.0.2"),
+                                     Ipv4Address("10.0.0.3")])
+    bytes = encode_header(hello)
+    @test Base.length(bytes) == OSPFV2_HEADER_BYTES + OSPFV2_HELLO_BODY_BYTES + 8
+    @test hex22(bytes[1:4]) == "02 01 00 34"     # version, type, and the length
+    @test hex22(bytes[5:8]) == "0a 00 00 01"     # the router identifier
+    @test hex22(bytes[25:28]) == "ff ff ff 00"   # the network mask
+    @test hex22(bytes[29:30]) == "00 0a"         # ten seconds between hellos
+    # The options octet sits between the hello interval and the priority, which
+    # is the octet INET writes through a helper.
+    @test bytes[31] == 0x00
+    @test bytes[32] == 0x01                      # the router priority
+    @test hex22(bytes[33:36]) == "00 00 00 28"   # forty seconds to declare dead
+
+    # A length nobody set by hand: the writer measured the packet.
+    @test hello.base.packet_length == OSPFV2_HEADER_BYTES
+    back = decode_header(Ospfv2Packet, bytes)
+    @test back isa Ospfv2Hello
+    @test back.base.packet_length == 52
+    @test Base.length(back.neighbors) == 2
+    @test back.neighbors[2] == Ipv4Address("10.0.0.3")
+    @test encode_header(back) == bytes
+
+    # ---------- the options octet, RFC 2328 appendix A.2 --------------------
+    # The external routing bit is bit 1 and the demand circuits bit is bit 5.
+    lit = Ospfv2Hello(base = common(OSPF_HELLO_PACKET),
+                      options = Ospfv2Options(external_routing = true,
+                                              demand_circuits = true))
+    @test encode_header(lit)[31] == 0x22
+
+    # ---------- the router LSA, RFC 2328 appendix A.4.2 ---------------------
+    link = Ospfv2Link(link_id = Ipv4Address("10.0.0.0"),
+                      link_data = UInt32(0xffffff00), type = OSPF_LINK_STUB,
+                      link_cost = UInt16(10),
+                      tos_data = [Ospfv2RouterTos(tos = 4, tos_metric = 20)])
+    @test chunk_length(link) == Bytes(12 + 4)
+    router = Ospfv2RouterLsa(links = [link], area_border_router = true)
+    router_bytes = encode_header(router)
+    # Twenty octets of header, four of flags and count, and sixteen of link.
+    @test Base.length(router_bytes) == 40
+    # The LS type is the fourth octet, after the age and the options.
+    @test router_bytes[4] == UInt8(OSPF_ROUTER_LSA)
+    # The LSA length is the last field of the header, and it is derived.
+    @test hex22(router_bytes[19:20]) == "00 28"
+    @test router_bytes[21] == 0x01               # five zero bits, then V, E, B
+    @test hex22(router_bytes[23:24]) == "00 01"  # one link
+    @test router_bytes[33] == UInt8(OSPF_LINK_STUB)
+    @test router_bytes[34] == 0x01               # one TOS entry on that link
+
+    got = decode_header(Ospfv2Lsa, router_bytes)
+    @test got isa Ospfv2RouterLsa
+    @test got.area_border_router
+    @test Base.length(got.links) == 1
+    @test got.links[1].number_of_tos == 1
+    @test got.links[1].tos_data[1].tos_metric == 20
+
+    # ---------- the network LSA, RFC 2328 appendix A.4.3 --------------------
+    network = Ospfv2NetworkLsa(network_mask = Ipv4Address("255.255.255.0"),
+                               attached_routers = [Ipv4Address("10.0.0.1"),
+                                                   Ipv4Address("10.0.0.2")])
+    @test chunk_length(network) == Bytes(OSPFV2_LSA_HEADER_BYTES + 4 + 8)
+
+    # ---------- one body for LS types 3 and 4, appendix A.4.4 ---------------
+    summary = Ospfv2SummaryLsa(base = Ospfv2LsaHeader(ls_type = OSPF_ASBR_SUMMARY_LSA),
+                               route_cost = UInt32(30))
+    @test decode_header(Ospfv2Lsa, encode_header(summary)) isa Ospfv2SummaryLsa
+
+    # ---------- RFC 3101 clause 2.2: LS type 7 has the type 5 body ----------
+    # INET throws on this type.
+    nssa = Ospfv2AsExternalLsa(base = Ospfv2LsaHeader(ls_type = OSPF_NSSA_EXTERNAL_LSA),
+                               network_mask = Ipv4Address("255.255.0.0"),
+                               metrics = [Ospfv2ExternalTos(route_cost = UInt32(20),
+                                                            external_metric_type = true)])
+    nssa_back = decode_header(Ospfv2Lsa, encode_header(nssa))
+    @test nssa_back isa Ospfv2AsExternalLsa
+    @test nssa_back.base.ls_type == OSPF_NSSA_EXTERNAL_LSA
+    @test nssa_back.metrics[1].external_metric_type
+
+    # ---------- the update, RFC 2328 appendix A.3.5 -------------------------
+    update = Ospfv2LinkStateUpdate(base = common(OSPF_LINK_STATE_UPDATE_PACKET),
+                                   lsas = [router, network])
+    update_bytes = encode_header(update)
+    @test hex22(update_bytes[25:28]) == "00 00 00 02"    # the writer counted them
+    update_back = decode_header(Ospfv2Packet, update_bytes)
+    @test update_back isa Ospfv2LinkStateUpdate
+    @test map(typeof, update_back.lsas.values) == [Ospfv2RouterLsa, Ospfv2NetworkLsa]
+    @test encode_header(update_back) == update_bytes
+
+    # An LSA of a type nothing models keeps its octets AND its place, so the
+    # LSA after it still starts where it should. INET reads no body for an
+    # unknown type, and every later LSA in the same update is then garbage.
+    raw = Ospfv2RawLsa(base = Ospfv2LsaHeader(ls_type = 9), data = UInt8[1, 2, 3, 4])
+    mixed = Ospfv2LinkStateUpdate(base = common(OSPF_LINK_STATE_UPDATE_PACKET),
+                                  lsas = [raw, network])
+    mixed_bytes = encode_header(mixed)
+    mixed_back = decode_header(Ospfv2Packet, mixed_bytes)
+    @test map(typeof, mixed_back.lsas.values) == [Ospfv2RawLsa, Ospfv2NetworkLsa]
+    @test mixed_back.lsas[1].data == Octets(UInt8[1, 2, 3, 4])
+    @test mixed_back.lsas[2].attached_routers[2] == Ipv4Address("10.0.0.2")
+    @test encode_header(mixed_back) == mixed_bytes
+
+    # ---------- the database description, appendix A.3.3 --------------------
+    description = Ospfv2DatabaseDescription(
+        base = common(OSPF_DATABASE_DESCRIPTION_PACKET),
+        interface_mtu = UInt16(1500), initial = true, more = true, master = true,
+        dd_sequence_number = UInt32(1000),
+        lsa_headers = [Ospfv2LsaHeader(ls_type = OSPF_ROUTER_LSA)])
+    description_bytes = encode_header(description)
+    @test Base.length(description_bytes) ==
+          OSPFV2_HEADER_BYTES + OSPFV2_DATABASE_DESCRIPTION_BYTES +
+          OSPFV2_LSA_HEADER_BYTES
+    @test hex22(description_bytes[25:26]) == "05 dc"     # the interface MTU
+    @test description_bytes[28] == 0x07                  # five zeros, I, M, MS
+    description_back = decode_header(Ospfv2Packet, description_bytes)
+    @test description_back isa Ospfv2DatabaseDescription
+    @test description_back.master
+    @test Base.length(description_back.lsa_headers) == 1
+
+    # ---------- the request and the acknowledgement -------------------------
+    request = Ospfv2LinkStateRequest(
+        base = common(OSPF_LINK_STATE_REQUEST_PACKET),
+        requests = [Ospfv2LsaRequest(link_state_id = Ipv4Address("10.0.0.0"),
+                                     advertising_router = Ipv4Address("10.0.0.2"))])
+    @test chunk_length(request) == Bytes(OSPFV2_HEADER_BYTES + OSPFV2_REQUEST_BYTES)
+    request_back = decode_header(Ospfv2Packet, encode_header(request))
+    @test request_back isa Ospfv2LinkStateRequest
+    @test request_back.requests[1].advertising_router == Ipv4Address("10.0.0.2")
+
+    acknowledgement = Ospfv2LinkStateAcknowledgement(
+        base = common(OSPF_LINK_STATE_ACKNOWLEDGEMENT_PACKET),
+        lsa_headers = [Ospfv2LsaHeader(ls_type = OSPF_NETWORK_LSA),
+                       Ospfv2LsaHeader(ls_type = OSPF_ROUTER_LSA)])
+    acknowledgement_back =
+        decode_header(Ospfv2Packet, encode_header(acknowledgement))
+    @test acknowledgement_back isa Ospfv2LinkStateAcknowledgement
+    @test Base.length(acknowledgement_back.lsa_headers) == 2
+
+    # ---------- a packet type nothing models -------------------------------
+    unknown = decode_header(Ospfv2Packet,
+                            encode_header(Ospfv2Header(base = common(99),
+                                                       data = UInt8[7, 7])))
+    @test unknown isa MarkedFields
+    @test unknown.header isa Ospfv2Header
+    @test unknown.header.data == Octets(UInt8[7, 7])
+end
