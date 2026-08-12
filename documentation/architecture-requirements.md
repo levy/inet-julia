@@ -38,7 +38,6 @@ is its own heading, so it can be cited as
 
 | ID | Rule |
 | --- | --- |
-| [IAR-FOUR-STRUCT-ELEMENT](#iar-four-struct-element) | An element is four structs: parameters, states, statistics, module |
 | [IAR-CONTRACT-BY-GENERICS](#iar-contract-by-generics) | The packet protocol is a generic-function vocabulary, not a type hierarchy |
 | [IAR-DERIVE-DONT-TRANSLITERATE](#iar-derive-dont-transliterate) | Derive from INET; keep the standard verbatim, drop the accidents |
 | [IAR-PROTOCOL-IS-A-SLICE](#iar-protocol-is-a-slice) | A protocol is a slice with its own model wrapper |
@@ -130,20 +129,6 @@ package to a higher one. The direction of every planned edge is written down in
 [architecture.md](architecture.md) before it is added.
 
 ## Element and protocol conventions
-
-### IAR-FOUR-STRUCT-ELEMENT
-
-**An element is four structs: parameters, states, statistics, module.** Every
-queuing element separates what configures it (`…Parameters`, immutable), what
-changes as it runs (`…States`), what it measures (`…Statistics`), and the
-module that ties them to the kernel (`…Module <: AbstractModule`) — see
-`PacketQueueParameters` / `PacketQueueStates` / `PacketQueueStatistics` /
-`PacketQueueModule` in `package/queuing/main/queue/PacketQueue.jl:69-119`. The
-split is load-bearing, not stylistic: parameters stay shareable across runs,
-states are what a fresh build re-creates per execution
-([OAR-FRESH-BUILD-PER-EXECUTION]), and statistics are what recording touches
-([IAR-ZERO-COST-RECORDING]). A new element that fuses these concerns into one
-struct is wrong even if it works.
 
 ### IAR-CONTRACT-BY-GENERICS
 

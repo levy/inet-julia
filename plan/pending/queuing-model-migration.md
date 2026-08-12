@@ -148,11 +148,12 @@ What this changes for a wave-2 element:
   and declares no `@simulation_module`. That is its own plan's work, as
   `queueing-tutorial-from-ned-ini.md` §9 says.
 
-One consequence for the audit campaign: `IAR-FOUR-STRUCT-ELEMENT` in
-`documentation/architecture-requirements.md` still states the superseded form
-and cites line numbers in `PacketQueue.jl` that no longer hold. It is a rule to
-rewrite, and `architecture-audit-and-seal.md` P0.2 is where that decision
-belongs.
+One consequence for the audit campaign: `IAR-FOUR-STRUCT-ELEMENT` stated the
+superseded form and cited line numbers in `PacketQueue.jl` that no longer hold.
+It is **dropped** (owner decision, 2026-08-12), and
+`architecture-audit-and-seal.md` P0.2 records why. So no requirement states the
+form of an element now: a wave-2 element answers to the macro's sections and to
+`IAR-ZERO-COST-RECORDING`.
 
 ### 3.2 The module framework — omnetpp-julia kernel + inet-julia contract
 

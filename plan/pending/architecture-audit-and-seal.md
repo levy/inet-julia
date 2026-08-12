@@ -21,7 +21,7 @@ ladder is the package graph and the layers inside each package.
 | `documentation/architecture.md` | current — the seven packages, what each owns, the placement rule, environments, testing |
 | `documentation/packages.md` | new — the five package kinds and the one dependency direction, the same shape in all three repositories |
 | `documentation/requirements.md` | `IR-…`, 12 requirements — **still not formally reviewed**, though later plans already cite them |
-| `documentation/architecture-requirements.md` | `IAR-…`, 17 rules — same state; one rule is under active challenge, see P0.2 |
+| `documentation/architecture-requirements.md` | `IAR-…`, 16 rules — same state; `IAR-FOUR-STRUCT-ELEMENT` was dropped 2026-08-12, see P0.2 |
 | `SEALING.md` | authoritative; inventory re-synced 2026-08-10 (it had drifted by 42 files); **no file sealed yet** |
 | `CLAUDE.md` | points at `SEALING.md` |
 | package-graph guard | `package/inet/test/packagegraph.jl` asserts the dependency direction and the leaf rule |
@@ -135,24 +135,29 @@ have cleared.
   all learning material). Note that later plans already cite these IDs, so
   review is ratification, not adoption.
 - [ ] **P0.2** Owner review of `documentation/architecture-requirements.md`,
-  17 rules. The packet question is settled in the document already:
+  16 rules. The packet question is settled in the document already:
   `IAR-PACKET-DEPENDS-ON-NOTHING` is gone,
   `IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE` is in, and `InetPacket`'s only
   dependency is `ProjecturedKernel`. So the `packet` rung is auditable and the
   review is ratification.
 
-  **One rule now contradicts the code and must be rewritten before wave A4.**
-  `IAR-FOUR-STRUCT-ELEMENT` says an element is four structs — `…Parameters`,
-  `…States`, `…Statistics`, `…Module` — and cites
-  `package/queuing/main/queue/PacketQueue.jl:69-119`. None of that holds:
+  **`IAR-FOUR-STRUCT-ELEMENT` is dropped** (owner decision, 2026-08-12). It said
+  an element is four structs — `…Parameters`, `…States`, `…Statistics`,
+  `…Module` — and cited `package/queuing/main/queue/PacketQueue.jl:69-119`.
+  None of that held after
   `plan/done/queuing-elements-on-the-module-macro.md` put all seventeen module
   kinds onto `@simulation_module`, whose `@parameters`, `@gates`,
   `@statistics`, `@submodules` and `@connections` sections declare each field
-  by its kind, and no such struct is left in the package. The load-bearing
-  reason the rule gives is still true — configuration, run state and measured
-  values are different things with different lifetimes — so the rule needs
-  restating over the sections rather than dropping. The cited path also moved,
-  to `composition/PriorityQueue.jl` for the compound.
+  by its kind. Restating the rule over those sections was the alternative and
+  was not taken: the macro is what an element is written with, so a requirement
+  repeating the macro's own shape earns nothing. What the rule carried and the
+  document no longer states is *why* the kinds are separate — a parameter is
+  shareable across runs, run state is what a fresh build re-creates per
+  execution, a statistic is what recording touches. That reasoning now lives
+  only in the macro's docstring, in `omnetpp-julia`. Wave A4 audits an element
+  against the macro's sections and against
+  [IAR-ZERO-COST-RECORDING](../../documentation/architecture-requirements.md#iar-zero-cost-recording),
+  which is untouched.
 
   Lesser candidates flagged at drafting: `IAR-TESTS-IN-PHASES` (convention or
   requirement) and `IAR-ACYCLIC-GROWTH` (subsumable into
@@ -248,9 +253,11 @@ there rather than working to a contradiction.
       (2026-08-12): three gates cleared, and `IAR-FOUR-STRUCT-ELEMENT` found to
       contradict the package it governs
 - [x] P0.5 layout alignment — executed 2026-08-12
-- [ ] P0.1 / P0.2 ratify the requirements documents — **P0.2 now has one real
-      edit in it, `IAR-FOUR-STRUCT-ELEMENT`, and the packet question is already
-      settled in the document**
+- [x] `IAR-FOUR-STRUCT-ELEMENT` dropped — owner decision, 2026-08-12. 17 rules
+      become 16
+- [ ] P0.1 / P0.2 ratify the requirements documents — the packet question is
+      already settled in the document, and the one rule that contradicted the
+      code is gone, so what remains is the reading itself
 - [ ] P0.3 layering guard
 - [ ] A1, A2, A3, A5, A6, A7, A8 and Wave B — the rungs open now
 - [ ] A4 — behind wave 2 of `queuing-model-migration.md`
