@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 313 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 319 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -272,8 +272,8 @@ Three findings, none of which needed a language change:
    RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
    in but not on the way out turns the list around at every hop.
 
-**Left — about 30 formats.** The IEEE 802.11 management bodies and the
-twenty-one physical-layer formats of Wave 3, and SCTP's seven extension chunks.
+**Left — about 20 formats.** The IEEE 802.11 management bodies and their
+information elements, and SCTP's seven extension chunks.
 
 **BGP's UPDATE is the one still to declare, and carefully.** The header, the
 KEEPALIVE, the OPEN and the NOTIFICATION are in. UPDATE has two shapes nothing
@@ -466,6 +466,36 @@ sometimes is the answer "all of them".
 RE-CONFIG (RFC 6525) and I-FORWARD-TSN. Its serializer is 2208 lines and this
 declaration was written from RFC 4960 with the constants checked against INET,
 not from a full audit of those lines. The seven are the honest remainder.
+
+### 3.13 The 802.11 physical layers — three orders in six headers
+
+**Done — 6 formats.** One header per modulation: FHSS, IR, DSSS, HR/DSSS, OFDM
+and ERP-OFDM. They share no base, because each physical layer was specified on
+its own.
+
+They needed one new value type and nothing else.
+
+* **A whole header can be little-endian.** The DSSS and HR/DSSS headers write
+  their length and their CRC least significant octet first — IEEE 802.11-2016
+  clause 16.2.3 — and `byte_order` already says that once per header.
+* **The OFDM SIGNAL field is transmitted least significant BIT first.** No
+  `byte_order` can express it: the field is twenty-four bits and its parts are
+  not octet-aligned, so the rate is bits zero to three and the tail is bits
+  eighteen to twenty-three. It is `Ieee80211OfdmSignal`, a value type that
+  carries its own order — the third in the file after the 802.11 duration and
+  the sequence control, and for the same reason each of those is one.
+
+**The plan's estimate of twenty-one physical-layer formats was wrong.** The
+inventory tool counted classes; INET registers eight serializers, and two of
+them — HT and VHT — have empty `serialize` bodies that write nothing. Six are
+declared. A header with no fields is not a wire format, and inventing one would
+be worse than recording that INET's is missing.
+
+**One thing INET writes that the standard does not.** Clause 16.2.3.4 says the
+DSSS length field counts the MICROSECONDS the frame will take. INET writes
+octets there. The field is sixteen bits either way, so this is a difference in
+meaning and not in layout; the declaration states the standard's meaning and
+names INET's.
 
 ### 3.11 Open: a check on an embedded header
 

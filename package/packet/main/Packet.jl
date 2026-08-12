@@ -80,6 +80,8 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        Ieee80211SequenceControl, read_fragment_number, read_sequence_number,
        header_fields, header_types, header_count, has_selection_field,
        document_schema_name,
+       Ieee80211OfdmSignal, read_ofdm_rate, read_ofdm_reserved, read_ofdm_length,
+       read_ofdm_parity, read_ofdm_tail,
        FieldSpec, HeaderLayout, describe_layout, get_field, is_constant, has_bits,
        byte_order, default_field, measure_header, unwrap_field, measure_write,
        serialize, deserialize, encode_header, decode_header, has,
@@ -203,6 +205,11 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        IEEE80211_ACK_BLOCK, IEEE80211_CATEGORY_BLOCK_ACK,
        IEEE80211_ACTION_ADDBA_REQUEST, IEEE80211_ACTION_ADDBA_RESPONSE,
        IEEE80211_ACTION_DELBA,
+       Ieee80211FhssPhyHeader, Ieee80211IrPhyHeader, Ieee80211DsssPhyHeader,
+       Ieee80211HrDsssPhyHeader, Ieee80211OfdmPhyHeader, Ieee80211ErpOfdmPhyHeader,
+       IEEE80211_FHSS_PHY_HEADER_BYTES, IEEE80211_IR_PHY_HEADER_BYTES,
+       IEEE80211_DSSS_PHY_HEADER_BYTES, IEEE80211_HR_DSSS_PHY_HEADER_BYTES,
+       IEEE80211_OFDM_PHY_HEADER_BYTES,
        IEEE80211_ACK_BYTES, IEEE80211_CTS_BYTES, IEEE80211_RTS_BYTES,
        IEEE80211_PS_POLL_BYTES, IEEE80211_MANAGEMENT_BYTES,
        IEEE80211_BLOCK_ACK_REQUEST_BYTES,
@@ -406,6 +413,7 @@ include("protocol/WirelessMac.jl")
 include("protocol/Gptp.jl")
 include("protocol/Mrp.jl")
 include("protocol/Ieee80211.jl")
+include("protocol/Ieee80211Phy.jl")
 include("protocol/ProtocolElement.jl")
 include("protocol/Ppp.jl")
 include("protocol/Mpls.jl")

@@ -489,3 +489,64 @@ write_field(io::BitWriter, ::Type{Ieee80211SequenceControl}, s::Ieee80211Sequenc
             width::Int, ::Symbol) = write_bits!(io, UInt64(s.value), 16, :le)
 read_field(io::BitReader, ::Type{Ieee80211SequenceControl}, width::Int, ::Symbol) =
     Ieee80211SequenceControl(UInt16(read_bits!(io, 16, :le)))
+
+"""
+    Ieee80211OfdmSignal(; rate, length, parity, tail, reserved)
+
+The twenty-four-bit SIGNAL field of an OFDM physical-layer header — IEEE
+802.11-2016 clause 17.3.4.
+
+It is the third field in this file that carries its own order, and the reason is
+the same as the other two: order is not an expression over sibling fields, so it
+belongs to the value.
+
+The SIGNAL field is transmitted least significant bit first, so the rate sits in
+the lowest four bits, the length in bits five to sixteen, and the tail in the
+top six. A reader that took the twenty-four bits most significant first would
+get the rate out of the tail.
+
+`length` counts the octets of the frame that follows. `parity` is even parity
+over bits zero to sixteen, and `tail` must be zero — it flushes the convolutional
+encoder.
+"""
+struct Ieee80211OfdmSignal
+    value::UInt32
+    Ieee80211OfdmSignal(value::Integer) = new(UInt32(value) & 0x00ffffff)
+end
+
+Ieee80211OfdmSignal(v::Ieee80211OfdmSignal) = v
+
+Ieee80211OfdmSignal(; rate::Integer = 0, reserved::Bool = false,
+                    length::Integer = 0, parity::Bool = false,
+                    tail::Integer = 0) =
+    Ieee80211OfdmSignal((UInt32(rate) & 0x0f) |
+                        (reserved ? UInt32(0x10) : UInt32(0)) |
+                        ((UInt32(length) & 0x0fff) << 5) |
+                        (parity ? UInt32(0x20000) : UInt32(0)) |
+                        ((UInt32(tail) & 0x3f) << 18))
+
+read_ofdm_rate(s::Ieee80211OfdmSignal)     = Int(s.value & 0x0f)
+read_ofdm_reserved(s::Ieee80211OfdmSignal) = (s.value & 0x10) != 0
+read_ofdm_length(s::Ieee80211OfdmSignal)   = Int((s.value >> 5) & 0x0fff)
+read_ofdm_parity(s::Ieee80211OfdmSignal)   = (s.value & 0x20000) != 0
+read_ofdm_tail(s::Ieee80211OfdmSignal)     = Int((s.value >> 18) & 0x3f)
+
+Base.show(io::IO, s::Ieee80211OfdmSignal) =
+    print(io, "rate ", read_ofdm_rate(s), " length ", read_ofdm_length(s))
+
+Base.convert(::Type{Ieee80211OfdmSignal}, value::Integer) = Ieee80211OfdmSignal(value)
+literal_field(s::Ieee80211OfdmSignal) =
+    string("Ieee80211OfdmSignal(", Int(s.value), ")")
+Base.:(==)(a::Ieee80211OfdmSignal, b::Ieee80211OfdmSignal) = a.value == b.value
+Base.hash(s::Ieee80211OfdmSignal, seed::UInt) = hash(s.value, seed)
+
+measure_field(::Type{Ieee80211OfdmSignal}) = 24
+encode_field(::Type{Ieee80211OfdmSignal}, s::Ieee80211OfdmSignal) = UInt64(s.value)
+decode_field(::Type{Ieee80211OfdmSignal}, bits::UInt64) =
+    Ieee80211OfdmSignal(UInt32(bits))
+classify_display(::Type{Ieee80211OfdmSignal}) = :openable
+
+write_field(io::BitWriter, ::Type{Ieee80211OfdmSignal}, s::Ieee80211OfdmSignal,
+            width::Int, ::Symbol) = write_bits!(io, UInt64(s.value), 24, :le)
+read_field(io::BitReader, ::Type{Ieee80211OfdmSignal}, width::Int, ::Symbol) =
+    Ieee80211OfdmSignal(UInt32(read_bits!(io, 24, :le)))

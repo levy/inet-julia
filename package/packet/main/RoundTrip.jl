@@ -75,6 +75,8 @@ fill_field(::Type{IpProtocol}, seed::Int) = IpProtocol(seed)
 fill_field(::Type{Port}, seed::Int) = Port(1000 + seed)
 fill_field(::Type{Checksum16}, seed::Int) = Checksum16(0x1000 + seed)
 fill_field(::Type{Ieee80211Duration}, seed::Int) = Ieee80211Duration(100 + seed)
+fill_field(::Type{Ieee80211OfdmSignal}, seed::Int) =
+    Ieee80211OfdmSignal(rate = seed % 16, length = 100 + seed)
 fill_field(::Type{Ieee80211SequenceControl}, seed::Int) =
     Ieee80211SequenceControl(fragment_number = seed % 16, sequence_number = 100 + seed)
 fill_field(::Type{Constant{T, V}}, ::Int) where {T, V} = Constant{T, V}()
