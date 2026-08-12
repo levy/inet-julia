@@ -129,11 +129,23 @@ have cleared.
 ## 5. Phase 0 — ratify the requirements documents
 
 - [ ] **P0.1** Owner review of `documentation/requirements.md`: each `IR-…`
-  accepted, reworded, or dropped. Two are worth deciding rather than assuming:
-  `IR-TAGS-TRAVEL` (a requirement while only partially exercised by current
-  models) and `IR-TUTORIAL-IS-LIVE` (scoped to the queueing tutorial, or to
-  all learning material). Note that later plans already cite these IDs, so
-  review is ratification, not adoption.
+  accepted, reworded, or dropped. Note that later plans already cite these IDs,
+  so review is ratification, not adoption.
+
+  **The two that were flagged are settled: keep both, as written** (owner
+  decision, 2026-08-12).
+
+  - `IR-TAGS-TRAVEL` stands as a requirement even though the models exercise it
+    thinly. The mechanism is complete — `RegionTagSet`, `add_region_tag!`,
+    `region_tags`, `shift_region_tags!` and `clip_region_tags!` in
+    `package/packet/main/Tags.jl`, with push and pop shifting the ranges
+    eagerly — and the packet tests prove the surgery. Three model files use
+    tags today (`base/PacketSource.jl`, `composition/PacketMarking.jl`,
+    `t1s/App.jl`), and no stack here encapsulates across layers yet. The
+    requirement is what the models grow toward, not a description of them.
+  - `IR-TUTORIAL-IS-LIVE` keeps its general statement, illustrated by the
+    queueing tutorial in its **Better** paragraph. It is not narrowed to that
+    one tutorial.
 - [ ] **P0.2** Owner review of `documentation/architecture-requirements.md`,
   16 rules. The packet question is settled in the document already:
   `IAR-PACKET-DEPENDS-ON-NOTHING` is gone,
