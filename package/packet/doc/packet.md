@@ -7,7 +7,36 @@ system. Design rationale, decisions and requirements: `plan/*/packet-chunk-api.m
 ## Where it lives
 
 `src/packet/` — a self-contained module `Inet.PacketModule`. It depends on
-neither `Omnetpp` nor the rest of `Inet`, so it is usable on its own.
+neither `Omnetpp` nor the rest of `Inet`, so it is usable on its own. Its one
+dependency is `ProjecturedKernel`, the document substrate.
+
+## Every type here is a document
+
+A packet, a chunk and a header are ProjecturEd **documents**. That is what makes
+a live packet a thing an inspector opens, a reference points into and a
+projection watches — with no shadow, no sync and no snapshot of it.
+
+Being a document costs nothing here, because each type says which layout its
+bare name is:
+
+| type | layout | why |
+| --- | --- | --- |
+| `Packet` | `[M, C]` — the mutable native struct | the envelope a simulation mutates on every hop |
+| `Filler`, `Raw`, `Slice`, `Sequence`, `MarkedFields` | `[C]` — the cell layout | a chunk is a value, and a slice's smart constructor types its own cell |
+| every `@header` | `[I, C]` — the immutable native struct | a header is a value the codec reads field by field |
+| `TagSet`, `RegionTag` | `[DC]` — the default spelling | a tag is stored by value in a field |
+
+Every one of them writes `selection::Nothing` rather than taking the injected
+`Union{Nothing, Reference, SelectionDocument}`. The injected field is a union
+over heap types, and one of them in the struct would take `Filler` from 16 bytes
+inline to 24 on the heap. **Nothing a simulation touches is reactive**, and the
+allocation numbers say so: not one hot-path measurement moved when these types
+became documents.
+
+`live_packet(pk)` is the envelope as a reactive document, over the chunks it
+already holds. That is what an editor watches. It shares the chunks rather than
+copying them, because a chunk is a value: in a cell layout of a header
+`fieldtype` is a cell, so it has no wire form at all.
 
 ## Two layers
 
@@ -25,7 +54,7 @@ Plus `Fields` (the supertype of every declared header — Phase 3) and
 `MarkedFields{H}` (a wrapper carrying non-`Q_COMPLETE` quality without
 disturbing the header struct).
 
-    payload = Filler(Bytes(1500))            # 16-byte isbits struct
+    payload = Filler(Bytes(1500))            # 16-byte isbits value, still
     bytes   = Raw(UInt8[…])                  # exact bit-length
     window  = slice(bytes, Bytes(2), Bytes(4))   # never nests
 
@@ -39,13 +68,23 @@ composites. They enforce canonicalisation by construction:
 
 ### Packet — mutable envelope over immutable content
 
-    mutable struct Packet
+    @native_document struct Packet <: Document
         content::Chunk           # shared, immutable
         front::BitLength         # consumed prefix (retained)
         back::BitLength          # consumed suffix (retained)
         packet_tags::TagSet
         region_tags::RegionTagSet
+        selection::Nothing
     end
+
+The bare name is the plain `mutable struct` it has always been, field for field.
+`@native_document` adds the family, the cell layout and the registry beside it,
+and takes nothing away.
+
+The read side of the API below takes `APacket`, the family, so both layouts
+answer — the native envelope a simulation mutates and the one an editor watches.
+The write side takes `Packet`, the native one, because a simulation is the only
+thing that writes.
 
 `dup(pk)` is O(1) — a fresh envelope pointing at the same content. That is
 the exact contract the parallel kernel wants: per-thread envelopes, shared
@@ -277,7 +316,7 @@ questions a view of a header asks next, and each is computed from the type:
     describe_construction(header)     # the call that rebuilds it
     describe_update(header)           # one field written, and the byte that moved
 
-`@header` records where it expanded, and a header written as a plain struct
+`@header` records where it expanded, and a header written by hand
 passes `@__FILE__` to `register_header`. So a view shows the declaration itself
 rather than a copy of it, and a renamed header fails loudly.
 

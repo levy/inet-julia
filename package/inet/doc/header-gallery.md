@@ -19,7 +19,7 @@ follow.
 | the stub page per header | `package/inet/example/demo/pages/header/` |
 
 The facts sit in `InetPacket` because they are computed from the type, and that
-package depends on nothing. The page sits in `InetExample` because it is
+package depends on the document substrate alone. The page sits in `InetExample` because it is
 markdown, and markdown is a domain the umbrella does not reach — `Inet` depends
 on `ProjecturedVisual` alone.
 
@@ -66,7 +66,8 @@ renders it through the projection `run_demo` uses, and asserts what it draws.
 ## Why ten and not ninety-one
 
 Ninety-one wire formats are declared. Ten are in the gallery, one per feature of
-the declaration language — a plain struct, an optional field, constants, sub-byte
+the declaration language — a header written by hand, an optional field,
+constants, sub-byte
 widths, a derive, a wide field, an extension header, a variant, and a list that
 fills its window. A gallery is read; an inventory is searched. The inventory is
 `package/packet/doc/inventory.md`, and it is generated.

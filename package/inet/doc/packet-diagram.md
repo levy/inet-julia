@@ -9,7 +9,7 @@ bytes, so it cannot disagree with them.
 
 `package/inet/main/packetdiagram/`, in the umbrella, because it needs a packet
 and the editor stack at once and no component below has both. `InetPacket`
-still depends on nothing.
+still depends on the document substrate alone.
 
 ## The chain
 

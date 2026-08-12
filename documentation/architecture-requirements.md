@@ -29,7 +29,7 @@ is its own heading, so it can be cited as
 | ID | Rule |
 | --- | --- |
 | [IAR-ONE-WAY-KERNEL-DEP](#iar-one-way-kernel-dep) | The library depends on the simulator; the simulator never depends back |
-| [IAR-PACKET-DEPENDS-ON-NOTHING](#iar-packet-depends-on-nothing) | `InetPacket` has an empty dependency set |
+| [IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE](#iar-packet-depends-on-the-document-substrate) | `InetPacket` depends on the document substrate and nothing else |
 | [IAR-LOWEST-PACKAGE](#iar-lowest-package) | New material sinks to the lowest package; a package is earned, not convenient |
 | [IAR-COMMON-IS-NEUTRAL](#iar-common-is-neutral) | `common` holds only infrastructure independent of what it serves |
 | [IAR-ACYCLIC-GROWTH](#iar-acyclic-growth) | The package graph grows edges only while staying a DAG |
@@ -82,15 +82,23 @@ When the extraction happened, `T1sModel` left the simulator's
 `default_simulation_catalog()` for `Inet`'s own `inet_simulation_catalog()`
 (`package/inet/main/Catalog.jl`) for exactly this reason.
 
-### IAR-PACKET-DEPENDS-ON-NOTHING
+### IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE
 
-**`InetPacket` has an empty dependency set.** No simulator, no kernel, no
-external packages — `package/packet/main/Project.toml` carries no `[deps]`
-section at all, and says so in a comment. The packet and chunk API is a data
-model; nothing in it knows that a simulation exists. The separate package is
-what makes this checkable rather than merely intended: the resolver enforces
-it on every instantiation. A change that needs the simulator from inside
-`InetPacket` is in the wrong package.
+**`InetPacket` depends on `ProjecturedKernel` and nothing else.** No simulator,
+no external packages — `package/packet/main/Project.toml` names one dependency,
+and says why.
+
+The packet and chunk API is a data model, and in this system a data model is a
+**document**: its values are navigable, selectable and reactive, so an inspector,
+a projection and a reference reach a live packet without a mirror of it.
+`ProjecturedKernel` is the document substrate and carries no `[deps]` of its own,
+so the edge adds one leaf package to the graph rather than the editor stack. The
+kernel is the substrate and not the editor — cells, documents, references,
+operations and the projection interface — and nothing in it opens a window.
+
+The separate package is what makes this checkable rather than merely intended:
+the resolver enforces it on every instantiation. A change that needs the
+*simulator* from inside `InetPacket` is still in the wrong package.
 
 ### IAR-LOWEST-PACKAGE
 

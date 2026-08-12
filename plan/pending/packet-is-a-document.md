@@ -848,12 +848,45 @@ backward map produces, so nothing here needs the seam closed.
 and its decoded fields — the wire. The test asserts both, which is the record of
 why `dissect` did not retire.
 
-### Phase 8 — documentation and the seal list — **PENDING**
+### Phase 8 — documentation and the seal list — **DONE**
 
-- [ ] Rewrite the requirement (§2) and the architecture table.
-- [ ] Rewrite the `packet.md` sections that say a chunk is a plain struct.
-- [ ] Say in `packet-diagram.md` what came down.
-- [ ] Move this plan to `plan/done/`.
+- `IAR-PACKET-DEPENDS-ON-NOTHING` is replaced by
+  `IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE`, in the index and in the body.
+- `architecture.md`: the `packet` row reads `ProjecturedKernel`, and the
+  "where a thing belongs" entry says what the edge buys and what it costs.
+- `packet.md` gained *"Every type here is a document"* — a table of which layout
+  each type binds its bare name to, and why — and its `Packet` listing is the
+  `@native_document` it now is.
+- `packet-diagram.md` says what came down: one entry, no back-pointer, no
+  announcement rule, and which layout refreshes.
+- `SEALING.md`: the `packet` package's dependency line, and `packetobservable.jl`
+  in the umbrella test inventory.
+- `architecture-audit-and-seal.md`: the `packet` rung is no longer blocked. Its
+  P0.2 is now ratification of a rule the code already meets rather than a choice
+  between two.
+
+**The gates, re-measured at the end, side by side against main.**
+
+The absolute numbers are larger than phase 0's because main's own codec rewrite
+landed in between — `measure_write` and the `Pad` handling. Both trees were
+measured in the same environment on the same day, and every one is identical:
+
+| | main | after |
+| --- | --- | --- |
+| `build_ethernet_frame` | 2208 | **2208** |
+| `dup(frame)` | 176 | **176** |
+| `peek(frame, EthernetMacHeader)` | 3136 | **3136** |
+| `EthernetMacHeader(a, b, t)` | 0 | **0** |
+| `chunk_length(mac)` | 256 | **256** |
+| `encode_header(mac)` | 480 | **480** |
+| `describe_layout(EthernetMacHeader)` | 192 | **192** |
+| `Filler` isbits / sizeof | true / 16 | **true / 16** |
+| slice over a `Filler` | true / 32 | **true / 32** |
+| `EthernetMacHeader` / `PhyHeader` / `Fcs` / `Ieee8021qTag` / `UdpHeader` | true, 24 / 16 / 4 / 6 / 8 | **identical** |
+
+The whole repository is 13298 / 0 / 94 where main is 13255 / 0 / 94 — the same
+94 errors, none of them from this work. They are `UndefVarError: schedule!`:
+`omnetpp-julia` renamed the verb and `inet-julia` main has not followed it yet.
 
 ## 9. Gates, in one place
 

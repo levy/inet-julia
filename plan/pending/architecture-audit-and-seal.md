@@ -93,16 +93,16 @@ work. All are ordinary unsealed entries in `SEALING.md` now.
 
 Open gates, by the rung they block:
 
-- **`packet-is-a-document.md` blocks the `packet` rung — the one this
-  campaign would otherwise start with.** It makes every packet type a
-  ProjecturEd document, gives `InetPacket` a `ProjecturedKernel` dependency,
-  and explicitly proposes replacing
-  [IAR-PACKET-DEPENDS-ON-NOTHING](../../documentation/architecture-requirements.md#iar-packet-depends-on-nothing)
-  with `IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE`. Nothing is implemented
-  yet, and the owner has since constrained it (no reactive instance and no
-  selection field on the hot path). Until it is decided, `packet` is not
-  auditable: the rule it would be audited against is the rule under
-  challenge. Branch `packet-is-a-document` is 3 commits ahead.
+- **`packet-is-a-document.md` is implemented, and the rule it challenged is
+  now the rule.** Every packet type is a ProjecturEd document, `InetPacket`
+  depends on `ProjecturedKernel`, and
+  [IAR-PACKET-DEPENDS-ON-NOTHING](../../documentation/architecture-requirements.md)
+  is replaced by
+  [IAR-PACKET-DEPENDS-ON-THE-DOCUMENT-SUBSTRATE](../../documentation/architecture-requirements.md#iar-packet-depends-on-the-document-substrate).
+  The owner's constraint held: no reactive instance and no selection field on
+  the hot path, and every phase 0 allocation number reproduces exactly. P0.2
+  below is now ratification of a rule the code already meets rather than a
+  choice between two. The `packet` rung is auditable.
 - **`protocol-header-gallery.md` / `protocol-header-inventory.md`** — more
   header material in `packet` and `inet`; same rung, same gate.
 - **`queueing-tutorial-from-ned-ini.md`** — rebuilds the tutorial's steps from

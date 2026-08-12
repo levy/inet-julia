@@ -21,7 +21,7 @@ when it earns one.
 
 | folder | package | owns | depends on |
 |---|---|---|---|
-| `packet/` | `InetPacket` | chunks, packets, headers, quality, tags, buffers, `peek` | *nothing* |
+| `packet/` | `InetPacket` | chunks, packets, headers, quality, tags, buffers, `peek` | `ProjecturedKernel` |
 | `common/` | `InetCommon` | module-interface lookup (`LookupModule`) | `OmnetppSimulator`, `ProjecturedKernel` |
 | `queuing/` | `InetQueuing` | the packet protocol, the queuing elements, `QueuingModel` | `InetPacket`, `InetCommon` |
 | `linklayer/` | `InetLinkLayer` | 10BASE-T1S / PLCA and `T1sModel` | `InetPacket` |
@@ -47,8 +47,12 @@ runner draws nothing. That rule is checked, not stated — see below.
 ## Where a thing belongs
 
 - **`packet`** — the data model of what travels. Its rule is that it depends on
-  nothing: not the simulator, not the ProjecturEd kernel. Anything that needs
-  to know a simulation exists is not packet material.
+  the document substrate and nothing else: not the simulator, no external
+  package. A data model is a document here, so a packet's values are navigable,
+  selectable and reactive, and an inspector or a projection reaches a live
+  packet without a mirror of it. `ProjecturedKernel` has no `[deps]` of its own,
+  so the edge costs one leaf package rather than the editor stack. Anything that
+  needs to know a simulation exists is still not packet material.
 - **`common`** — infrastructure every model library above it shares, INET's
   `src/inet/common` in spirit. Lookup lives here because it is deliberately
   independent of what is being looked up: putting it in `queuing` would force a

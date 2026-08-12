@@ -57,7 +57,7 @@ before fixing (the seal still holds until permission is given).
 ### Wave A — main packages
 
 - **Package `packet` — `InetPacket`** (`package/packet/main/`), depends on
-  **nothing**
+  **`ProjecturedKernel`**, the document substrate, and nothing else
   - ⬜ `InetPacket.jl` — package root
   - ⬜ `Packet.jl` — `PacketModule` root, the include order
   - ⬜ `BitLength.jl`
@@ -283,6 +283,7 @@ before fixing (the seal still holds until permission is given).
   - ⬜ `demo.jl`
   - ⬜ `packetdiagram.jl` (with its golden figure,
     `packetdiagram-figure.txt`)
+  - ⬜ `packetobservable.jl`
   - ⬜ `headergallery.jl`
 - **`InetRunnerTest`** (`package/runner/test/`)
   - ⬜ `InetRunnerTest.jl`
