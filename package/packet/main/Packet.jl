@@ -210,6 +210,26 @@ export BitLength, Bits, Bytes, bits, bytes, isbyte, ZERO_LENGTH,
        IEEE80211_FHSS_PHY_HEADER_BYTES, IEEE80211_IR_PHY_HEADER_BYTES,
        IEEE80211_DSSS_PHY_HEADER_BYTES, IEEE80211_HR_DSSS_PHY_HEADER_BYTES,
        IEEE80211_OFDM_PHY_HEADER_BYTES,
+       Ieee80211InformationElement, Ieee80211ElementSsid,
+       Ieee80211ElementSupportedRates, Ieee80211ElementExtendedRates,
+       Ieee80211ElementDsParameterSet, Ieee80211ElementIbssParameterSet,
+       Ieee80211ElementRaw,
+       Ieee80211AssociationRequest, Ieee80211AssociationResponse,
+       Ieee80211ReassociationRequest, Ieee80211ReassociationResponse,
+       Ieee80211ProbeRequest, Ieee80211ProbeResponse, Ieee80211Beacon,
+       Ieee80211Disassociation, Ieee80211Deauthentication, Ieee80211Authentication,
+       build_supported_rate, measure_supported_rate, is_basic_rate,
+       measure_beacon_interval, build_beacon_interval,
+       IEEE80211_ELEMENT_SSID, IEEE80211_ELEMENT_SUPPORTED_RATES,
+       IEEE80211_ELEMENT_DSSS_PARAMETER_SET, IEEE80211_ELEMENT_TRAFFIC_INDICATION_MAP,
+       IEEE80211_ELEMENT_IBSS_PARAMETER_SET, IEEE80211_ELEMENT_COUNTRY,
+       IEEE80211_ELEMENT_EXTENDED_RATES, IEEE80211_ELEMENT_HEADER_BYTES,
+       IEEE80211_AUTHENTICATION_OPEN_SYSTEM, IEEE80211_AUTHENTICATION_SHARED_KEY,
+       IEEE80211_STATUS_SUCCESS, IEEE80211_STATUS_UNSPECIFIED,
+       IEEE80211_STATUS_CAPABILITY_UNSUPPORTED, IEEE80211_STATUS_ASSOCIATION_DENIED,
+       IEEE80211_REASON_UNSPECIFIED, IEEE80211_REASON_LEAVING,
+       IEEE80211_REASON_INACTIVITY, IEEE80211_REASON_NOT_AUTHENTICATED,
+       IEEE80211_TIME_UNIT_MICROSECONDS,
        IEEE80211_ACK_BYTES, IEEE80211_CTS_BYTES, IEEE80211_RTS_BYTES,
        IEEE80211_PS_POLL_BYTES, IEEE80211_MANAGEMENT_BYTES,
        IEEE80211_BLOCK_ACK_REQUEST_BYTES,
@@ -414,6 +434,7 @@ include("protocol/Gptp.jl")
 include("protocol/Mrp.jl")
 include("protocol/Ieee80211.jl")
 include("protocol/Ieee80211Phy.jl")
+include("protocol/Ieee80211Mgmt.jl")
 include("protocol/ProtocolElement.jl")
 include("protocol/Ppp.jl")
 include("protocol/Mpls.jl")

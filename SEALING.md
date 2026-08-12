@@ -87,6 +87,7 @@ before fixing (the seal still holds until permission is given).
     - ⬜ `protocol/Mrp.jl`
     - ⬜ `protocol/Ieee80211.jl`
     - ⬜ `protocol/Ieee80211Phy.jl`
+    - ⬜ `protocol/Ieee80211Mgmt.jl`
     - ⬜ `protocol/ProtocolElement.jl`
     - ⬜ `protocol/Ppp.jl`
     - ⬜ `protocol/Mpls.jl`

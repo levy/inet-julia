@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 319 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 335 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -272,8 +272,8 @@ Three findings, none of which needed a language change:
    RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
    in but not on the way out turns the list around at every hop.
 
-**Left — about 20 formats.** The IEEE 802.11 management bodies and their
-information elements, and SCTP's seven extension chunks.
+**Left — SCTP's seven extension chunks.** Every other family the inventory
+names is declared.
 
 **BGP's UPDATE is the one still to declare, and carefully.** The header, the
 KEEPALIVE, the OPEN and the NOTIFICATION are in. UPDATE has two shapes nothing
@@ -496,6 +496,38 @@ DSSS length field counts the MICROSECONDS the frame will take. INET writes
 octets there. The field is sixteen bits either way, so this is a difference in
 meaning and not in layout; the declaration states the standard's meaning and
 names INET's.
+
+### 3.14 The 802.11 management bodies — a list where INET has two fields
+
+**Done — 16 formats.** The ten bodies of clause 9.3.3, five information
+elements and the raw element.
+
+The bodies are NOT a variant family, and that is the point worth recording:
+nothing in a body says which body it is. The subtype in the frame control field
+says it, and that lives in the MAC header — so a reader picks the body from the
+header it already has, and each body is an ordinary header. INET reaches the
+same place by registering ten classes against one serializer and dispatching on
+`type_info` rather than on bytes.
+
+**The improvement over INET is the element list.** Its serializer writes the
+SSID and then the supported rates, both by hand and in that order, and its
+reader expects exactly that. A beacon from real equipment carries a DS parameter
+set, a traffic indication map, a country element and more, in an order the
+standard fixes but INET does not follow — so INET reads its own beacons and
+nothing else. Here the elements are `Options`, which is the shape they always
+were, and an element this library does not model keeps its octets and its place
+between two that it does.
+
+**One field INET drops.** Clause 9.3.3.12 puts the authentication algorithm
+number in the first two octets of an authentication body. INET writes a constant
+zero and keeps no algorithm, so a Shared Key frame comes back from its
+serializer as an Open System one. The field is declared.
+
+**One field deliberately left whole.** `capability_information` is sixteen bits
+of named flags — clause 9.4.1.4 — and it is one `U16` here rather than sixteen
+`Bool`s. The octets are right either way; the bit order was not checked against
+the standard's figure, and a field whose octets are right is better than named
+bits that might not be. Splitting it is a small, checkable follow-up.
 
 ### 3.11 Open: a check on an embedded header
 

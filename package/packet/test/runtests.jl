@@ -30,4 +30,5 @@ using Test
     include("phase22_wave4.jl")
     include("phase23_sctp.jl")
     include("phase24_ieee80211_phy.jl")
+    include("phase25_ieee80211_mgmt.jl")
 end
