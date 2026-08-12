@@ -17,7 +17,7 @@ That is a complete header. `encode_header`, `decode_header`, `chunk_length`
 and `describe_layout` work on it at once, because `fieldnames` and `fieldtypes`
 already are the layout, and the codec is written once, generically, over them.
 
-Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 279 wire formats are declared and every one round-trips. The repository is green:
+Status: **IN PROGRESS**. Phases 0 to 7 are done, Waves 1 to 3 are in — IEEE 802.11 included — and Wave 4 has begun. 313 wire formats are declared and every one round-trips. The repository is green:
 3129 passes with the seven pre-existing capture and runner errors and nothing
 else. §12 marks each phase as it lands.
 
@@ -272,8 +272,8 @@ Three findings, none of which needed a language change:
    RFC 3561 clause 5.3 draws it in order, and a reader that reverses on the way
    in but not on the way out turns the list around at every hop.
 
-**Left — about 50 formats.** SCTP with its chunk types, then the IEEE 802.11
-management bodies and the twenty-one physical-layer formats of Wave 3.
+**Left — about 30 formats.** The IEEE 802.11 management bodies and the
+twenty-one physical-layer formats of Wave 3, and SCTP's seven extension chunks.
 
 **BGP's UPDATE is the one still to declare, and carefully.** The header, the
 KEEPALIVE, the OPEN and the NOTIFICATION are in. UPDATE has two shapes nothing
@@ -433,6 +433,39 @@ packet has a data length and a silence packet does not. The `when` clause reads
 the type octet beside it, and the same rule the BGP high octet found applies —
 the field defaults to zero rather than to absent, because the header derives its
 own length and the derive walks the stored fields.
+
+### 3.12 SCTP — where a length and a width are different numbers
+
+**Done — 34 formats.** The packet, the fifteen chunks of RFC 4960 and RFC 3758,
+the nine parameters and the six error causes.
+
+SCTP is type-length-value at three levels: a packet is a list of chunks, a chunk
+may carry a list of parameters, and a chunk may carry a list of error causes.
+Two things separate it from every other option list in the inventory, and the
+language already said both.
+
+* **The code is sixteen bits.** A parameter and an error cause each name
+  themselves with two octets, which is what `measure_option_code` is for — it
+  had never been overridden before. A chunk names itself with one octet and its
+  flags mean something different in each chunk, so a chunk is a variant and not
+  an option.
+* **A length and a width are different numbers.** RFC 4960 clause 3.2.1 says a
+  parameter's length field does NOT count the padding that takes the parameter
+  up to a multiple of four. Every other length in the inventory is the header's
+  own width. Here the length derives from the fields it covers and a `Pad`
+  field after them reaches the boundary, so the two numbers differ by up to
+  three: a Supported Address Types parameter with one family says six and
+  occupies eight.
+
+That second point is why `measure_header(h) ÷ 8` is not the universal derive.
+The right question is "how many octets does this length field cover", and only
+sometimes is the answer "all of them".
+
+**What is not declared.** INET carries seven chunk types beyond RFC 4960 and RFC
+3758: AUTH (RFC 4895), ASCONF and ASCONF-ACK (RFC 5061), NR-SACK, PKTDROP,
+RE-CONFIG (RFC 6525) and I-FORWARD-TSN. Its serializer is 2208 lines and this
+declaration was written from RFC 4960 with the constants checked against INET,
+not from a full audit of those lines. The seven are the honest remainder.
 
 ### 3.11 Open: a check on an embedded header
 

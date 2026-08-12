@@ -244,6 +244,15 @@ The width of a header in bits. `chunk_length` wraps it in a `BitLength`; a
 """
 measure_header(h::Fields) = bits(chunk_length(h))
 
+"""
+    measure_list_bytes(list)::Int
+
+How many octets a list of headers takes. A length field that counts a list of
+options or of chunks derives from this, and no two elements need be the same
+width.
+"""
+measure_list_bytes(list) = measure_value(list, 0) ÷ 8
+
 # The length of an INSTANCE walks the fields with a running offset, because a
 # byte run measures itself and padding measures the distance to its boundary.
 # For a header with no variable field the walk folds to the type's constant.

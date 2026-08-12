@@ -509,9 +509,6 @@ matches_variant(::Type{BgpAttributeMpUnreachNlri}, base) =
 # so a reader can step over it. The raw member claims what no other member does.
 matches_variant(::Type{BgpAttributeRaw}, base) = true
 
-"How many octets a list of headers takes."
-measure_list_bytes(list) = measure_value(list, 0) ÷ 8
-
 """
     BgpUpdate(; withdrawn_routes, path_attributes, nlri)
 
