@@ -13,7 +13,7 @@ queueing behind it.
 """
 module ActivePacketSourceElement
 
-using OmnetppSimulator: SimTime, to_simtime, MersenneTwister, NetworkModule
+using OmnetppSimulator: SimTime, to_simtime, ZERO_DELAY, schedule!, MersenneTwister, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateOutput, Network,
     output_gate, module_id, @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
@@ -76,10 +76,8 @@ end
 NetworkModule.register_module_statistics!(m::ActivePacketSourceModule, path::AbstractString, recorder) =
     register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
-NetworkModule.module_starts(::ActivePacketSourceModule) = true
-
-NetworkModule.start_module!(ctx, m::ActivePacketSourceModule) =
-    (_schedule_and_produce!(ctx, m); m)
+NetworkModule.start_module!(root, m::ActivePacketSourceModule) =
+    (schedule!(root, ZERO_DELAY, ctx -> _schedule_and_produce!(ctx, m)); m)
 
 NetworkModule.module_status(m::ActivePacketSourceModule) =
     string(m.num_packets, " sent")

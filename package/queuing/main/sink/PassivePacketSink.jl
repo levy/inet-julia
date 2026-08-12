@@ -14,7 +14,7 @@ pushing is possible again. A producer wired to it feels that as back pressure.
 """
 module PassivePacketSinkElement
 
-using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule
+using OmnetppSimulator: SimTime, seconds, to_simtime, ZERO_DELAY, schedule!, MersenneTwister, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
@@ -83,11 +83,10 @@ NetworkModule.register_module_statistics!(m::PassivePacketSinkModule, path::Abst
 
 # A sink with an initial offset has to start refusing before the first packet
 # arrives, so it needs the timer running from the outset.
-NetworkModule.module_starts(m::PassivePacketSinkModule) =
-    m.initial_consumption_offset > 0
-
-function NetworkModule.start_module!(ctx, m::PassivePacketSinkModule)
-    _schedule_consumption!(ctx, m, to_simtime(m.initial_consumption_offset))
+function NetworkModule.start_module!(root, m::PassivePacketSinkModule)
+    m.initial_consumption_offset > 0 || return m
+    schedule!(root, ZERO_DELAY, ctx ->
+        _schedule_consumption!(ctx, m, to_simtime(m.initial_consumption_offset)))
     m
 end
 

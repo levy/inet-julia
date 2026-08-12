@@ -18,7 +18,7 @@ using InetCommon.LookupModule
 
 # --- what a model built from these elements needs from the kernel -----------
 # Time, scheduling and the engine/model interface.
-using OmnetppSimulator: SimTime, to_simtime, schedule_root!, stop!,
+using OmnetppSimulator: SimTime, to_simtime, ZERO_DELAY, schedule!, schedule_root!, stop!,
     AbstractEngine, AbstractModel, SimTimeLimit
 # Parameterization: a model declares its degrees of freedom, the lifecycle
 # resolves them and hands back a `ResolvedParameters`.

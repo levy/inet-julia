@@ -21,7 +21,7 @@ modelled.
 """
 module PacketServerElement
 
-using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule
+using OmnetppSimulator: SimTime, seconds, to_simtime, ZERO_DELAY, schedule!, MersenneTwister, NetworkModule
 using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
@@ -99,9 +99,8 @@ end
 NetworkModule.register_module_statistics!(m::PacketServerModule, path::AbstractString, recorder) =
     register_statistics!(m.recording, recorder, path, STATISTIC_NAMES)
 
-NetworkModule.module_starts(::PacketServerModule) = true
-
-NetworkModule.start_module!(ctx, m::PacketServerModule) = (_start_if_possible!(ctx, m); m)
+NetworkModule.start_module!(root, m::PacketServerModule) =
+    (schedule!(root, ZERO_DELAY, ctx -> _start_if_possible!(ctx, m)); m)
 
 # A server is either working on something or it is not; how long it has been at
 # it is a statistic, not a badge.
