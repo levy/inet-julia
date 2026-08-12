@@ -25,7 +25,7 @@ ladder is the package graph and the layers inside each package.
 | `SEALING.md` | authoritative; inventory re-synced 2026-08-10 (it had drifted by 42 files); **no file sealed yet** |
 | `CLAUDE.md` | points at `SEALING.md` |
 | package-graph guard | `package/inet/test/packagegraph.jl` asserts the dependency direction and the leaf rule |
-| intra-package layering guard | still none — deferred by the component-package-split plan (S7); `SEALING.md` is the manual substitute |
+| intra-package layering guard | `test_queuing_layering()` over `InetQueuing`'s ten layers (P0.3); the other five packages still have none |
 
 The two requirements documents were drafted from what the done plans and the
 code already practice. They have since been *used* — `packet-is-a-document.md`
@@ -174,11 +174,36 @@ have cleared.
   Lesser candidates flagged at drafting: `IAR-TESTS-IN-PHASES` (convention or
   requirement) and `IAR-ACYCLIC-GROWTH` (subsumable into
   `IAR-LOWEST-PACKAGE`).
-- [ ] **P0.3** Decide the layering-guard question deferred by the
-  component-package-split plan (S7): build a static intra-package guard now
-  (model: `projectured-julia`'s `check_layering`) or keep `SEALING.md` as the
-  only intra-package enforcement — `packagegraph.jl` already covers the
-  package graph — until `queuing`/`linklayer` grow more layers.
+- [x] **P0.3 — a static guard, built** (owner decision, 2026-08-12). The
+  question deferred by the component-package-split plan (S7) is answered: build
+  it now rather than leave `SEALING.md` as the only intra-package enforcement.
+
+  `test_queuing_layering()` in `InetQueuingTest` calls `check_layering` — the
+  guard `projectured-julia` already shares across eight of its test packages —
+  over `InetQueuing`'s ten layer folders, in the order `InetQueuing.jl`
+  includes them. It reads the sources without loading them, in about a second,
+  and asserts that every file is included exactly once, that each module is
+  defined by one file, that the include order is a valid topological sort over
+  the imports, and that no layer imports from a higher one. Seven checks, green
+  on the first clean run. `InetQueuingTest` takes `ProjecturedKernelTest` for
+  it; that is the same dependency the eight upstream test packages take.
+
+  **It needed one change upstream.** The walker rejected any ownerless fragment
+  that names a sibling module, and `QueuingModel.jl` and `QueuingCapture.jl`
+  are exactly that — as are `T1sModel.jl` and `T1sCapture.jl`, so the shape is
+  four files across two packages and D3 of
+  [folder-layout-alignment.md](../done/folder-layout-alignment.md) keeps it on
+  purpose. Converting them to modules would have undone D3 to satisfy a guard
+  whose model lacked the shape, so the guard learned it instead:
+  `allow_root_fragments`, defaulting to false, so every `projectured-julia`
+  package keeps the rule it had. The cost is that those four files' imports go
+  unchecked; they attach to the package root, which lives in no layer folder
+  and was exempt from the layer check either way.
+
+  **Not yet extended.** `packet`, `common`, `linklayer`, `inet` and `runner`
+  have no guard. Only `queuing` has layers, but the other four checks are worth
+  having everywhere — `linklayer` especially, which has the root-fragment shape
+  and will need the same option.
 - [x] **P0.4 `SEALING.md` re-synced** (2026-08-10). The inventory had drifted
   by 42 files: the `runner` and `repl` packages, the landed
   `InetQueuingExample`, `PacketMarking.jl`, new test phases and new `tool/`
@@ -270,7 +295,7 @@ there rather than working to a contradiction.
 - [ ] P0.1 / P0.2 ratify the requirements documents — the packet question is
       already settled in the document, and the one rule that contradicted the
       code is gone, so what remains is the reading itself
-- [ ] P0.3 layering guard
+- [x] P0.3 layering guard — built 2026-08-12, `queuing` only
 - [ ] A1, A2, A3, A5, A6, A7, A8 and Wave B — the rungs open now
 - [ ] A4 — behind wave 2 of `queuing-model-migration.md`
 - [ ] Waves C and D

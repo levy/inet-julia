@@ -26,6 +26,7 @@ OmnetppSimulator = "c7c75596-d0aa-4729-9b4f-00bf016ec83d"
 OmnetppUnits = "9affc4b9-111a-4929-bbfb-901be4983719"
 Projectured = "92922de3-b970-4d9a-8b2a-9d6f361397b5"
 ProjecturedKernel = "a3e3499a-684d-4df9-a0d6-de2d1797b1f3"
+ProjecturedKernelTest = "8053727f-93c2-44b0-a108-4c98e4ff6a44"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
@@ -40,6 +41,7 @@ OmnetppSimulator = {path = "../../../../omnetpp-julia/package/simulator/main"}
 OmnetppUnits = {path = "../../../../omnetpp-julia/package/units/main"}
 Projectured = {path = "../../../../projectured-julia/package/projectured/main"}
 ProjecturedKernel = {path = "../../../../projectured-julia/package/kernel/main"}
+ProjecturedKernelTest = {path = "../../../../projectured-julia/package/kernel/test"}
 
 [compat]
 julia = "1.11"
