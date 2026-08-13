@@ -36,7 +36,7 @@ comparison meaningless.
 
 `InetQueuing` holds about 20 element kinds. It has no NED, no INI, and no NED
 type names. An element is a Julia struct with a `Parameters` struct beside it,
-and a model builds a `Network` by hand with `add_module!` and `connect!`.
+and a model builds a `Network` by hand with `add_module!` and `connect_gates!`.
 
 `InetPacket` holds the packet and chunk model, the tags and the region tags.
 `InetCommon` holds the interface lookup that replaces INET's protocol

@@ -88,10 +88,10 @@ function _build_content_classifier_network(m)
     end
     push!(predicates, _ -> true)
     fork = add_module!(network, content_based_classifier(:classifier, predicates))
-    connect!(source.out, fork.in)
+    connect_gates!(source.out, fork.in)
     for index in 1:m.classes
         sink = _step_sink(network, Symbol(:sink, index))
-        connect!(fork.out[index], sink.in)
+        connect_gates!(fork.out[index], sink.in)
     end
     initialize_network!(network)
     check_packet_connections(network)
@@ -101,7 +101,7 @@ end
 reset_model!(m::AContentBasedClassifierModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::AContentBasedClassifierModel,
-                                  engine::AbstractEngine, recorder)
+                                  engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -171,13 +171,13 @@ function _build_priority_chain_network(m)
     server = add_module!(network, PacketServerModule(:server;
         processing_time = m.processing_time))
     sink = _step_sink(network, :sink)
-    connect!(source.out, fork.in)
-    connect!(fork.out[1], first.in)
-    connect!(fork.out[2], second.in)
-    connect!(first.out, join.in[1])
-    connect!(second.out, join.in[2])
-    connect!(join.out, server.in)
-    connect!(server.out, sink.in)
+    connect_gates!(source.out, fork.in)
+    connect_gates!(fork.out[1], first.in)
+    connect_gates!(fork.out[2], second.in)
+    connect_gates!(first.out, join.in[1])
+    connect_gates!(second.out, join.in[2])
+    connect_gates!(join.out, server.in)
+    connect_gates!(server.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -186,7 +186,7 @@ end
 reset_model!(m::APriorityQueueChainModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::APriorityQueueChainModel,
-                                  engine::AbstractEngine, recorder)
+                                  engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -248,8 +248,8 @@ function _build_filter_network(m)
     filter = add_module!(network, PacketFilterModule(:filter;
         predicate = packet -> packet_data(packet) == keep))
     sink = _step_sink(network, :sink)
-    connect!(source.out, filter.in)
-    connect!(filter.out, sink.in)
+    connect_gates!(source.out, filter.in)
+    connect_gates!(filter.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -257,7 +257,7 @@ end
 
 reset_model!(m::AFilterModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AFilterModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AFilterModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -365,13 +365,13 @@ function _build_shared_chain_network(m)
     server = add_module!(network, PacketServerModule(:server;
         processing_time = m.processing_time))
     sink = _step_sink(network, :sink)
-    connect!(source.out, fork.in)
-    connect!(fork.out[1], first.in)
-    connect!(fork.out[2], second.in)
-    connect!(first.out, join.in[1])
-    connect!(second.out, join.in[2])
-    connect!(join.out, server.in)
-    connect!(server.out, sink.in)
+    connect_gates!(source.out, fork.in)
+    connect_gates!(fork.out[1], first.in)
+    connect_gates!(fork.out[2], second.in)
+    connect_gates!(first.out, join.in[1])
+    connect_gates!(second.out, join.in[2])
+    connect_gates!(join.out, server.in)
+    connect_gates!(server.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -379,7 +379,7 @@ end
 
 reset_model!(m::ASharedChainModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::ASharedChainModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ASharedChainModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -445,8 +445,8 @@ function _build_named_policy_network(m)
     predicate = packet_predicate(m.policy, m.argument)
     filter = add_module!(network, PacketFilterModule(:filter; predicate = predicate))
     sink = _step_sink(network, :sink)
-    connect!(source.out, filter.in)
-    connect!(filter.out, sink.in)
+    connect_gates!(source.out, filter.in)
+    connect_gates!(filter.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -454,7 +454,7 @@ end
 
 reset_model!(m::ANamedPolicyModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::ANamedPolicyModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ANamedPolicyModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),

@@ -193,7 +193,7 @@ is done too. Everything this plan called a missing reader now exists.
 | a shipped way to run a bare `Network` | **missing** — §4.8 |
 | the reader reachable without the editor | **missing** — §2.4 |
 | the five lifecycle verbs of a run | exists, and the NED path does not use them — §4.8 |
-| a run limit | exists — `simulation_limit(; sim_time, events, wall_clock)` |
+| a run limit | exists — `simulation_limit(; simulation_time, events, wall_time)` |
 | `.sca` and `.vec` output | exists — `OmnetppTextSink` |
 | OMNeT++ result-file names and run attributes | exists — phase 3 |
 | a command line | exists — phase 2 |
@@ -628,7 +628,7 @@ forbidden: NONE
    declares the network and reports the ones it looked in when none does.
 5. Replace the built-in model table of phase 2 step 7 with the seam of §5:
    `read_ini_configuration`, `ParameterResolution`, `build_ned_network`. The
-   `SimulationType` / `expand_simulation` / `prepare_simulation_execution`
+   `SimulationType` / `expand_configuration` / `prepare_simulation_execution`
    chain goes with the table.
 6. Run the network with the promoted `run_network!` of phase 1 step 9, with
    `check_packet_connections` called by the runner beforehand. Build the

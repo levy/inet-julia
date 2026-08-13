@@ -128,7 +128,7 @@ const _INET_REF_DIR = joinpath(@__DIR__, "inet-reference")
                 :time_limit => 100e-6,
                 :scenario   => :notraffic,
                 :vec_path   => our_vec))
-            run = expand_simulation(configure_simulation(t, a))[1]
+            run = expand_configuration(configure_simulation(t, a))[1]
             inst = make_execution(run;
                                                 engine = SequentialEngineSpec())
             run_execution!(inst)

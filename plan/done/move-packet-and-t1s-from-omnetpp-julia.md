@@ -74,7 +74,7 @@ Stays in `omnetpp-julia` (not t1s-specific): `test/GOLDEN.md`,
 `T1sModule` and `T1sModel` need, from `Omnetpp`:
 
 - values/types: `SimTime`, `TIME_UNIT`, `to_simtime`, `MersenneTwister`,
-  `ScheduleContext`, `AbstractEngine`, `AbstractModel`, `AbstractParallelEngine`,
+  `EventContext`, `SimulationEngine`, `AbstractModel`, `AbstractParallelEngine`,
   `SimTimeLimit`, `Parameter`, `ParameterSpace`, `AbstractResolvedParameters`,
   `StructuralDOF`, `StochasticDOF`, `IterationDOF`, `Recorder`,
   `VectorFileWriter`, `begin_recording!`, `schedule!`, `schedule_root!`,

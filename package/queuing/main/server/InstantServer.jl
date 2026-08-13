@@ -16,7 +16,7 @@ whole burst is one event and not one event per packet.
 module InstantServerElement
 
 using OmnetppSimulator: SimTime, ZERO_DELAY, schedule_event!, NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
@@ -81,7 +81,7 @@ NetworkModule.start_module!(root, m::InstantServerModule) =
 
 NetworkModule.module_icon(::InstantServerModule) = "block/server"
 
-function NetworkModule.finalize_module!(m::InstantServerModule, ::Any)
+function NetworkModule.finish_module!(m::InstantServerModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_packets)
     record_statistic!(m.recording, "packetLengths:sum", m.total_length)
     nothing

@@ -58,7 +58,7 @@ end
                    ctx -> plca_start_frame_transmission!(ctx, plca, frame))
     schedule_root!(sim, to_simtime(200e-6), 2,
                    ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
-    run!(sim)
+    advance_engine!(sim)
 
     # A DATA frame should have been sent on the wire (via start_frame_tx).
     starts = filter(f -> f[1] === :start_frame, frames)
@@ -100,7 +100,7 @@ end
                    ctx -> plca_start_frame_transmission!(ctx, plca, frame))
     schedule_root!(sim, to_simtime(200e-6), 2,
                    ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
-    run!(sim)
+    advance_engine!(sim)
 
     # DATA_S_HOLD should have held the packet across the BEACON emission
     # (2 µs) and the SYNCING gap (1 ns), then transmitted at t = 2µs + 1 ns.

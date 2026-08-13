@@ -226,14 +226,14 @@ says, plus whatever `--cpu-time-limit` said. A user interface needs the same
 answer a run needs, so the rule lives here and not in each of them.
 """
 function run_limit(options::Options, configuration, io::IO)
-    sim_time = options.sim_time_limit === nothing ? configuration.sim_time_limit :
+    simulation_time = options.sim_time_limit === nothing ? configuration.sim_time_limit :
                                                     options.sim_time_limit
-    if sim_time === nothing && options.cpu_time_limit === nothing
+    if simulation_time === nothing && options.cpu_time_limit === nothing
         println(io, "Warning: no simulation time limit and no CPU time limit — " *
                     "this run ends when its events run out, which may be never.")
         return NO_LIMIT
     end
-    simulation_limit(sim_time = sim_time, wall_clock = options.cpu_time_limit)
+    simulation_limit(simulation_time = simulation_time, wall_time = options.cpu_time_limit)
 end
 
 """

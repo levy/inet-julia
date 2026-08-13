@@ -1,7 +1,7 @@
 # ============================================================================
 # Phase 2 conformance — WireEvent + PHY 5-state FSM.
 #
-# PHY is driven inside a SequentialSimulator; the ScheduleContext plumbing
+# PHY is driven inside a SequentialSimulator; the EventContext plumbing
 # is real. Upcalls and downlink are recording stubs so we can inspect what
 # PHY told the layer above / the wire.
 # ============================================================================
@@ -14,7 +14,7 @@ using InetLinkLayer.T1sModule
 
 # Build a tiny sim with 2 modules (module 1 = barrier convention, PHY at 2).
 _build_sim() = SequentialSimulator(2)
-_run!(sim) = (run!(sim); total_event_count(sim))
+_run!(sim) = (advance_engine!(sim); total_event_count(sim))
 
 # NOTE on style: `schedule_root!` / `schedule_event!` want the action function as
 # the LAST positional arg, so we can't use Julia's `do`-block sugar (which

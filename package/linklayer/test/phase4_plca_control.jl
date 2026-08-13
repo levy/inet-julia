@@ -67,7 +67,7 @@ end
     # Run until 50 µs to see multiple cycles.
     schedule_root!(sim, to_simtime(50e-6), 2,
                    ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
-    run!(sim)
+    advance_engine!(sim)
 
     # BEACON emissions
     beacons = filter(r -> r.kind === SIG_BEACON && !r.endp, log)
@@ -101,7 +101,7 @@ end
     end
     schedule_root!(sim, to_simtime(50e-6), 2,
                    ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
-    run!(sim)
+    advance_engine!(sim)
 
     # Timeline (see plan §5.4):
     # t=0: SEND_BEACON, cur_id=0
@@ -155,7 +155,7 @@ end
     cur_id_at_10 = Ref(-1)
     schedule_root!(sim, to_simtime(10e-6), 2,
                    ctx -> (cur_id_at_10[] = plca.cur_id))
-    run!(sim)
+    advance_engine!(sim)
 
     # Follower starts in RESYNC — no signals emitted from downlink at all
     # (followers don't send BEACON).

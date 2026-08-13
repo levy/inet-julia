@@ -67,11 +67,11 @@ function _build_labeler_network(m)
     end
     push!(predicates, _ -> true)
     fork = add_module!(network, content_based_classifier(:classifier, predicates))
-    connect!(source.out, labeler.in)
-    connect!(labeler.out, fork.in)
+    connect_gates!(source.out, labeler.in)
+    connect_gates!(labeler.out, fork.in)
     for index in 1:m.labels
         sink = _step_sink(network, Symbol(:sink, index))
-        connect!(fork.out[index], sink.in)
+        connect_gates!(fork.out[index], sink.in)
     end
     initialize_network!(network)
     check_packet_connections(network)
@@ -80,7 +80,7 @@ end
 
 reset_model!(m::ALabelerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::ALabelerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ALabelerModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -136,18 +136,18 @@ function _build_cloner_network(m)
     network = Network(:Cloning)
     source = _step_source(network, m)
     cloner = add_module!(network, PacketClonerModule(:cloner; outputs = m.branches))
-    connect!(source.out, cloner.in)
+    connect_gates!(source.out, cloner.in)
     # The first branch is thickened again; the rest go straight to a sink, so
     # the counts can be compared.
     every = m.duplicate_every
     duplicator = add_module!(network, PacketDuplicatorModule(:duplicator;
         predicate = ordinal_predicate(n -> n % every == 0)))
     first_sink = _step_sink(network, :sink1)
-    connect!(cloner.out[1], duplicator.in)
-    connect!(duplicator.out, first_sink.in)
+    connect_gates!(cloner.out[1], duplicator.in)
+    connect_gates!(duplicator.out, first_sink.in)
     for index in 2:m.branches
         sink = _step_sink(network, Symbol(:sink, index))
-        connect!(cloner.out[index], sink.in)
+        connect_gates!(cloner.out[index], sink.in)
     end
     initialize_network!(network)
     check_packet_connections(network)
@@ -156,7 +156,7 @@ end
 
 reset_model!(m::AClonerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AClonerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AClonerModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),

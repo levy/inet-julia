@@ -18,7 +18,7 @@ traffic exactly as a network path does.
 module PacketPlumbingElement
 
 using OmnetppSimulator: SimTime, seconds, to_simtime, MersenneTwister, NetworkModule, schedule_event!
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.VolatileModule: evaluate
 using InetPacket.PacketModule: Packet, bits, data_length
@@ -203,7 +203,7 @@ NetworkModule.register_module_statistics!(m::PacketDelayerModule, path::Abstract
 
 NetworkModule.module_icon(::PacketDelayerModule) = "block/delay"
 
-NetworkModule.finalize_module!(m::PacketDelayerModule, ::Any) =
+NetworkModule.finish_module!(m::PacketDelayerModule, ::Any) =
     (record_statistic!(m.recording, "packets:count", m.num_packets); nothing)
 
 # A delayer holds packets rather than blocking, so what it can take depends

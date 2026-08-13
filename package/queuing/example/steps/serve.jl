@@ -72,9 +72,9 @@ function _build_priority_queue_network(m)
     server = add_module!(network, PacketServerModule(:server;
         processing_time = m.processing_time))
     sink = _step_sink(network, :sink)
-    connect!(source.out, queue.in)
-    connect!(queue.out, server.in)
-    connect!(server.out, sink.in)
+    connect_gates!(source.out, queue.in)
+    connect_gates!(queue.out, server.in)
+    connect_gates!(server.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -82,7 +82,7 @@ end
 
 reset_model!(m::APriorityQueueModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::APriorityQueueModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::APriorityQueueModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -154,10 +154,10 @@ function _build_backpressure_network(m)
         predicate = _ -> rand(rng) < pass_rate,
         backpressure = m.backpressure))
     sink = _step_sink(network, :sink)
-    connect!(source.out, queue.in)
-    connect!(queue.out, server.in)
-    connect!(server.out, filter.in)
-    connect!(filter.out, sink.in)
+    connect_gates!(source.out, queue.in)
+    connect_gates!(queue.out, server.in)
+    connect_gates!(server.out, filter.in)
+    connect_gates!(filter.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -166,7 +166,7 @@ end
 reset_model!(m::ABackpressureFilterModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::ABackpressureFilterModel,
-                                  engine::AbstractEngine, recorder)
+                                  engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),

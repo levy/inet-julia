@@ -11,10 +11,10 @@ using InetQueuing: ActivePacketSourceModule,
     PassivePacketSourceModule,
     ActivePacketSinkModule,
     PassivePacketSinkModule, PacketTemplate, check_packet_connections
-using OmnetppSimulator: AbstractModel, AbstractEngine, AResolvedParameters,
+using OmnetppSimulator: AbstractModel, SimulationEngine, AResolvedParameters,
     Parameter, ParameterSpace, StructuralDOF, StochasticDOF, SimTimeLimit,
     schedule_root!, stop!, to_simtime
-using OmnetppSimulator.NetworkModule: Network, add_module!, connect!,
+using OmnetppSimulator.NetworkModule: Network, add_module!, connect_gates!,
     network_module_count, network_barrier, network_delay_edges, network_topology,
     initialize_network!, register_network_statistics!, start_network!,
     reset_network!, finalize_network!
@@ -82,7 +82,7 @@ function _build_source_sink_network(m)
         packet = PacketTemplate(length = Bytes(m.packet_bytes)),
         seed = m.seed))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
-    connect!(source.out, sink.in)
+    connect_gates!(source.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -91,7 +91,7 @@ end
 reset_model!(m::AActiveSourcePassiveSinkModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::AActiveSourcePassiveSinkModel,
-                                  engine::AbstractEngine, recorder)
+                                  engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -157,7 +157,7 @@ function _build_pull_network(m)
     sink = add_module!(network, ActivePacketSinkModule(:sink;
         collection_interval = interval,
         seed = m.seed + 1))
-    connect!(source.out, sink.in)
+    connect_gates!(source.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -166,7 +166,7 @@ end
 reset_model!(m::APassiveSourceActiveSinkModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::APassiveSourceActiveSinkModel,
-                                  engine::AbstractEngine, recorder)
+                                  engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),

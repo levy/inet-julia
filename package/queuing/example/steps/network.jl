@@ -67,7 +67,7 @@ function _build_complex_network(m)
             production_interval = Volatile(exponential(1 / m.arrival_rate)),
             packet = PacketTemplate(length = Bytes(100)),
             seed = m.seed + index))
-        connect!(source.out, join.in[index])
+        connect_gates!(source.out, join.in[index])
     end
     # One compound queue for both of them, drained by one server.
     queue = priority_queue(network, :queue, m.priorities;
@@ -81,10 +81,10 @@ function _build_complex_network(m)
     filter = add_module!(network, PacketFilterModule(:filter;
         predicate = _ -> rand(rng) < pass_rate))
     sink = _step_sink(network, :sink)
-    connect!(join.out, queue.in)
-    connect!(queue.out, server.in)
-    connect!(server.out, filter.in)
-    connect!(filter.out, sink.in)
+    connect_gates!(join.out, queue.in)
+    connect_gates!(queue.out, server.in)
+    connect_gates!(server.out, filter.in)
+    connect_gates!(filter.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -93,7 +93,7 @@ end
 reset_model!(m::AComplexNetworkModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::AComplexNetworkModel,
-                                  engine::AbstractEngine, recorder)
+                                  engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),

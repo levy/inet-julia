@@ -12,7 +12,7 @@ _run(scenario::Symbol = :notraffic; time_limit = 100e-6) =
                 :n_nodes    => 5,
                 :time_limit => time_limit,
                 :scenario   => scenario)),
-        r = expand_simulation(configure_simulation(t, a))[1],
+        r = expand_configuration(configure_simulation(t, a))[1],
         ex = make_execution(r; engine = SequentialEngineSpec())
         run_execution!(ex)
         finish_execution!(ex)

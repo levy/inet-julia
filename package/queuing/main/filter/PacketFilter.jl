@@ -19,7 +19,7 @@ packet stays upstream.
 module PacketFilterElement
 
 using OmnetppSimulator: NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
@@ -82,7 +82,7 @@ NetworkModule.register_module_statistics!(m::PacketFilterModule, path::AbstractS
 
 NetworkModule.module_icon(::PacketFilterModule) = "block/filter"
 
-function NetworkModule.finalize_module!(m::PacketFilterModule, ::Any)
+function NetworkModule.finish_module!(m::PacketFilterModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_passed)
     record_statistic!(m.recording, "droppedPackets:count", m.num_dropped)
     record_statistic!(m.recording, "droppedPacketLengths:sum", m.dropped_length)

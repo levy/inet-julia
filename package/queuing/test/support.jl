@@ -16,10 +16,10 @@ function run_network!(network; until::Real = 1.0, recorder = nothing)
     initialize_network!(network)
     check_packet_connections(network)
     engine = SequentialSimulator(network_module_count(network))
-    engine.limit = simulation_limit(sim_time = Float64(until))
+    engine.limit = simulation_limit(simulation_time = Float64(until))
     register_network_statistics!(network, recorder)
     start_network!(engine, network)
-    run!(engine)
+    advance_engine!(engine)
     finalize_network!(network, recorder)
     engine
 end

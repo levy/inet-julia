@@ -140,7 +140,7 @@ What this changes for a wave-2 element:
   the part that mattered.
 - **The lifecycle hooks are the kernel's**, and are named
   `initialize_module!` (topology, at build), `start_module!` (behaviour, as a
-  root event), `finalize_module!` (end-of-run scalars) and
+  root event), `finish_module!` (end-of-run scalars) and
   `register_module_statistics!` (the recorder, which belongs to the run). Three
   more exist that this plan never named: `decorate_module!`, `module_icon` and
   `module_status`, which are what a running module shows in the editor.
@@ -179,12 +179,12 @@ the future declarative module description, `plan/pending/native-module-descripti
 generate these values):
 
 ```julia
-abstract type AbstractModule end        # supertype of every StemModule
+abstract type SimulationModule end        # supertype of every StemModule
 
 @enum GateDirection GateInput GateOutput
 
 mutable struct Gate
-    owner::Any                    # the AbstractModule (Any: no circular type refs)
+    owner::Any                    # the SimulationModule (Any: no circular type refs)
     name::Symbol
     index::Int                    # 1-based position in a gate vector; 1 for scalar gates
     direction::GateDirection
@@ -193,7 +193,7 @@ mutable struct Gate
     annotations::Vector{Any}      # uninterpreted metadata slot (NED-property analog);
 end                               # inet-julia's lookup claims live here (§3.5)
 
-connect!(out_gate, in_gate; delay = ZERO_DELAY)
+connect_gates!(out_gate, in_gate; delay = ZERO_DELAY)
 ```
 
 File split: interface specification (`ModuleInterface.jl` — gate access, chain traversal,
@@ -209,7 +209,7 @@ init hooks), data types + core operations, `ModuleDefaults.jl`. Details:
   it from `Omnetpp`, tests stay green).
 - Network-builder helpers: modid assignment, `model_delay_edges` derived from connections,
   the two-stage init driver (§3.10).
-- Note: `AbstractModule` (a network component) vs `AbstractModel` (a whole simulation) are
+- Note: `SimulationModule` (a network component) vs `AbstractModel` (a whole simulation) are
   one letter apart; this mirrors the OMNeT++ module/model vocabulary and is accepted.
 
 **inet-julia** keeps the INET half:
@@ -463,7 +463,7 @@ The INET stage system collapses to two (more only when a future model demands it
    on one class. → Roles = generic-function vocabularies + declared claims (§3.3, §3.5);
    interface tokens are abstract types used as first-class lookup keys, never supertypes.
 2. **No gates/connections in omnetpp-julia** (`Structure.jl` has id→id connections only,
-   named ports explicitly "future"). → Build `Gate`/`connect!`/chain traversal as a new
+   named ports explicitly "future"). → Build `Gate`/`connect_gates!`/chain traversal as a new
    omnetpp-julia module layer (§3.2); the engine still sees only modids + delay edges,
    derived from the connections (§3.7).
 3. **Synchronous backpressure reentrancy** — nested push/pull callbacks on one stack.
@@ -505,7 +505,7 @@ The INET stage system collapses to two (more only when a future model demands it
 
 | INET / OMNeT++ | Julia port |
 |---|---|
-| `cModule` / `cGate` (omnetpp kernel) | omnetpp-julia `src/model/module/` (`AbstractModule`, `Gate`) |
+| `cModule` / `cGate` (omnetpp kernel) | omnetpp-julia `src/model/module/` (`SimulationModule`, `Gate`) |
 | `queueing/` | inet-julia `package/queuing/main/` |
 | `queueing/contract/*.h` | `package/queuing/main/contract/*.jl` interface specification files (tokens + method vocabularies) |
 | `PacketProcessorBase` etc. base classes | `ContractDefaults.jl` + shared helpers + composition — no base-class towers |
@@ -548,7 +548,7 @@ element:
 Each phase = one commit series in the worktree; check off + append implementation notes here.
 
 ### Phase 0a — module kernel (omnetpp-julia, `src/model/module/`)
-- [x] `AbstractModule`, `Gate`, `GateDirection`, `connect!`, chain traversal, compound
+- [x] `SimulationModule`, `Gate`, `GateDirection`, `connect_gates!`, chain traversal, compound
       boundary gates, `annotations` slot — separate Julia-module source files,
       `using`-linked, with the `ModuleInterface.jl` / `ModuleDefaults.jl` split
 - [x] `TimerHandle` moved here from `T1sModule` (t1s updated; tests still green)
@@ -674,7 +674,7 @@ queuing tests**, 0 fail.
   with `evaluate(value, rng)`; a bare distribution at a use site is an error naming the fix.
   No `@document` field ever holds a bare `Function`, so the thunk trap never arises.
 - **Statistics per module under INET's names and paths** (`queueLength:vector`,
-  `Queuing.queue`), scalars derived in `finalize_module!`. Queue length is *integrated* as the
+  `Queuing.queue`), scalars derived in `finish_module!`. Queue length is *integrated* as the
   queue changes rather than sampled, so `queueLength:timeavg` is exact and costs nothing.
 
 **Two deliberate departures from INET's behaviour**, both fixing something:

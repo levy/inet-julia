@@ -33,9 +33,9 @@ using OmnetppSimulator.VolatileModule
         wants_seven = add_module!(network, PacketFilterModule(:filter;
             predicate = data_predicate(==, 7)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, labeler.in)
-        connect!(labeler.out, wants_seven.in)
-        connect!(wants_seven.out, sink.in)
+        connect_gates!(source.out, labeler.in)
+        connect_gates!(labeler.out, wants_seven.in)
+        connect_gates!(wants_seven.out, sink.in)
         run_network!(network; until = 1.0)
 
         @test labeler.num_packets == 11
@@ -50,9 +50,9 @@ using OmnetppSimulator.VolatileModule
         cloner = add_module!(network, PacketClonerModule(:cloner; outputs = 3))
         sinks = [add_module!(network, PassivePacketSinkModule(Symbol(:sink, index)))
                  for index in 1:3]
-        connect!(source.out, cloner.in)
+        connect_gates!(source.out, cloner.in)
         for index in 1:3
-            connect!(cloner.out[index], sinks[index].in)
+            connect_gates!(cloner.out[index], sinks[index].in)
         end
         run_network!(network; until = 1.0)
 
@@ -70,8 +70,8 @@ using OmnetppSimulator.VolatileModule
         duplicator = add_module!(network, PacketDuplicatorModule(:duplicator;
             predicate = ordinal_predicate(n -> n % 2 == 0)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, duplicator.in)
-        connect!(duplicator.out, sink.in)
+        connect_gates!(source.out, duplicator.in)
+        connect_gates!(duplicator.out, sink.in)
         run_network!(network; until = 1.0)
 
         # Eleven packets, every second one sent twice: five duplicates.
@@ -99,13 +99,13 @@ using OmnetppSimulator.VolatileModule
             predicate = data_predicate(==, 2)))
         first_sink = add_module!(network, PassivePacketSinkModule(:sink1))
         second_sink = add_module!(network, PassivePacketSinkModule(:sink2))
-        connect!(source.out, cloner.in)
-        connect!(cloner.out[1], first_label.in)
-        connect!(first_label.out, first_filter.in)
-        connect!(first_filter.out, first_sink.in)
-        connect!(cloner.out[2], second_label.in)
-        connect!(second_label.out, second_filter.in)
-        connect!(second_filter.out, second_sink.in)
+        connect_gates!(source.out, cloner.in)
+        connect_gates!(cloner.out[1], first_label.in)
+        connect_gates!(first_label.out, first_filter.in)
+        connect_gates!(first_filter.out, first_sink.in)
+        connect_gates!(cloner.out[2], second_label.in)
+        connect_gates!(second_label.out, second_filter.in)
+        connect_gates!(second_filter.out, second_sink.in)
         run_network!(network; until = 1.0)
 
         @test first_sink.num_packets == 3
@@ -121,9 +121,9 @@ using OmnetppSimulator.VolatileModule
                    for index in 1:2]
         merge = add_module!(network, PacketMultiplexerModule(:merge; inputs = 2))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(sources[1].out, merge.in[1])
-        connect!(sources[2].out, merge.in[2])
-        connect!(merge.out, sink.in)
+        connect_gates!(sources[1].out, merge.in[1])
+        connect_gates!(sources[2].out, merge.in[2])
+        connect_gates!(merge.out, sink.in)
         run_network!(network; until = 1.0)
 
         # Everything both sources made arrives, and the merge counted all of it.
@@ -141,9 +141,9 @@ using OmnetppSimulator.VolatileModule
         merge = add_module!(network, PacketMultiplexerModule(:merge; inputs = 2))
         slow = add_module!(network, PassivePacketSinkModule(:sink;
             consumption_interval = 0.25))
-        connect!(sources[1].out, merge.in[1])
-        connect!(sources[2].out, merge.in[2])
-        connect!(merge.out, slow.in)
+        connect_gates!(sources[1].out, merge.in[1])
+        connect_gates!(sources[2].out, merge.in[2])
+        connect_gates!(merge.out, slow.in)
         run_network!(network; until = 2.0)
 
         # The pair is held to the shared sink's rate. Room is offered to the
@@ -165,10 +165,10 @@ using OmnetppSimulator.VolatileModule
         sinks = [add_module!(network, ActivePacketSinkModule(Symbol(:sink, index);
             collection_interval = 0.2 * index))
                  for index in 1:2]
-        connect!(source.out, queue.in)
-        connect!(queue.out, split.in)
-        connect!(split.out[1], sinks[1].in)
-        connect!(split.out[2], sinks[2].in)
+        connect_gates!(source.out, queue.in)
+        connect_gates!(queue.out, split.in)
+        connect_gates!(split.out[1], sinks[1].in)
+        connect_gates!(split.out[2], sinks[2].in)
         run_network!(network; until = 2.0)
 
         collected = sum(sink -> sink.num_packets, sinks)
@@ -185,8 +185,8 @@ using OmnetppSimulator.VolatileModule
             production_interval = 0.1))
         delayer = add_module!(network, PacketDelayerModule(:delayer; delay = 0.25))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, delayer.in)
-        connect!(delayer.out, sink.in)
+        connect_gates!(source.out, delayer.in)
+        connect_gates!(delayer.out, sink.in)
         run_network!(network; until = 1.0)
 
         # Several packets are in flight at once — the delayer holds them, it
@@ -207,8 +207,8 @@ using OmnetppSimulator.VolatileModule
             delay = Volatile(uniform(0.05, 0.5)),
             seed = 8))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, delayer.in)
-        connect!(delayer.out, sink.in)
+        connect_gates!(source.out, delayer.in)
+        connect_gates!(delayer.out, sink.in)
         run_network!(network; until = 5.0)
 
         @test sink.num_packets > 40
@@ -230,9 +230,9 @@ using OmnetppSimulator.VolatileModule
         server = add_module!(network, PacketServerModule(:server; processing_time = 0.25))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         # From outside, the compound is wired exactly like a plain queue.
-        connect!(source.out, queue.in)
-        connect!(queue.out, server.in)
-        connect!(server.out, sink.in)
+        connect_gates!(source.out, queue.in)
+        connect_gates!(queue.out, server.in)
+        connect_gates!(server.out, sink.in)
         run_network!(network; until = 3.0)
 
         # Nothing outside knew it was a compound: the source found the
@@ -261,9 +261,9 @@ using OmnetppSimulator.VolatileModule
         queue = priority_queue(network, :queue, 2)
         server = add_module!(network, PacketServerModule(:server; processing_time = 0.05))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, queue.in)
-        connect!(queue.out, server.in)
-        connect!(server.out, sink.in)
+        connect_gates!(source.out, queue.in)
+        connect_gates!(queue.out, server.in)
+        connect_gates!(server.out, sink.in)
         initialize_network!(network)
 
         # The lookups reach inside: what the source found is the classifier and
@@ -284,7 +284,7 @@ using OmnetppSimulator.VolatileModule
         type = SimulationType(QueuingModel)
         assignment = ParameterAssignment(Dict{Symbol,Any}(
             :arrival_rate => 5.0, :service_rate => 10.0, :time_limit => 2000.0, :seed => 7))
-        run = expand_simulation(configure_simulation(type, assignment))[1]
+        run = expand_configuration(configure_simulation(type, assignment))[1]
         execution = make_execution(run; engine = SequentialEngineSpec())
         run_execution!(execution)
         result = finish_execution!(execution)
@@ -301,7 +301,7 @@ using OmnetppSimulator.VolatileModule
 
         # The same run again is the same run.
         again = make_execution(
-            expand_simulation(configure_simulation(type, assignment))[1];
+            expand_configuration(configure_simulation(type, assignment))[1];
             engine = SequentialEngineSpec())
         run_execution!(again)
         @test finish_execution!(again).network_hash == result.network_hash

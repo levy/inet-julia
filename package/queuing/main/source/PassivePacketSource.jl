@@ -15,7 +15,7 @@ that there is something to pull again.
 module PassivePacketSourceElement
 
 using OmnetppSimulator: SimTime, to_simtime, ZERO_DELAY, schedule_event!, MersenneTwister, NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
 using OmnetppSimulator.VolatileModule: evaluate
@@ -86,7 +86,7 @@ end
 
 NetworkModule.module_icon(::PassivePacketSourceModule) = "block/source"
 
-function NetworkModule.finalize_module!(m::PassivePacketSourceModule, ::Any)
+function NetworkModule.finish_module!(m::PassivePacketSourceModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_packets)
     record_statistic!(m.recording, "packetLengths:sum", m.total_length)
     nothing

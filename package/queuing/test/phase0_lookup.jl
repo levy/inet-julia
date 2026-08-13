@@ -11,7 +11,7 @@ using OmnetppSimulator.NetworkModule
 using ProjecturedKernel.ReferenceModule: Reference, FieldReferenceStep, ElementReferenceStep
 
 # A push endpoint pair: `Producer` drives, `Consumer` accepts.
-mutable struct Producer <: AbstractModule
+mutable struct Producer <: SimulationModule
     name::Symbol
     module_id::Int
     out::Gate
@@ -30,7 +30,7 @@ end
 PacketProtocolModule.handle_can_push_packet_changed!(::Any, m::Producer, ::Gate) =
     (m.resumed += 1; nothing)
 
-mutable struct Consumer <: AbstractModule
+mutable struct Consumer <: SimulationModule
     name::Symbol
     module_id::Int
     in::Gate
@@ -52,7 +52,7 @@ PacketProtocolModule.push_packet!(::Any, m::Consumer, ::Gate, packet::Packet) =
     (push!(m.pushed, packet); nothing)
 
 # A pull endpoint pair: `Collector` drives, `Provider` hands packets over.
-mutable struct Provider <: AbstractModule
+mutable struct Provider <: SimulationModule
     name::Symbol
     module_id::Int
     out::Gate
@@ -72,7 +72,7 @@ PacketProtocolModule.can_pull_packet(m::Provider, ::Gate) =
     isempty(m.packets) ? nothing : m.packets[1]
 PacketProtocolModule.pull_packet!(::Any, m::Provider, ::Gate) = popfirst!(m.packets)
 
-mutable struct Collector <: AbstractModule
+mutable struct Collector <: SimulationModule
     name::Symbol
     module_id::Int
     in::Gate
@@ -93,7 +93,7 @@ PacketProtocolModule.handle_can_pull_packet_changed!(::Any, m::Collector, ::Gate
 
 # A transparent element: it takes packets in and passes them on, and answers a
 # lookup on behalf of whatever is behind it.
-mutable struct Relay <: AbstractModule
+mutable struct Relay <: SimulationModule
     name::Symbol
     module_id::Int
     in::Gate
@@ -113,7 +113,7 @@ function Relay(name::Symbol)
 end
 
 # A module that decides in code rather than by claims — the dispatcher pattern.
-mutable struct Chooser <: AbstractModule
+mutable struct Chooser <: SimulationModule
     name::Symbol
     module_id::Int
     in::Gate
@@ -139,7 +139,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network = Network(:Net)
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer))
-        connect!(producer.out, consumer.in)
+        connect_gates!(producer.out, consumer.in)
 
         ref = find_module_interface(producer.out, PassivePacketSink)
         @test ref !== nothing
@@ -165,8 +165,8 @@ a_packet() = Packet(Filler(Bytes(100)))
         producer = add_module!(network, Producer(:producer))
         relay = add_module!(network, Relay(:relay))
         consumer = add_module!(network, Consumer(:consumer))
-        connect!(producer.out, relay.in; delay = to_simtime(0.001))
-        connect!(relay.out, consumer.in; delay = to_simtime(0.002))
+        connect_gates!(producer.out, relay.in; delay = to_simtime(0.001))
+        connect_gates!(relay.out, consumer.in; delay = to_simtime(0.002))
 
         # The relay answers for what is behind it, but it is the relay that is
         # found: packets go through it, so the delay is only the first hop's.
@@ -180,22 +180,22 @@ a_packet() = Packet(Filler(Bytes(100)))
         network = Network(:Net)
         producer = add_module!(network, Producer(:producer))
         relay = add_module!(network, Relay(:relay))
-        connect!(producer.out, relay.in)
+        connect_gates!(producer.out, relay.in)
 
         # A relay with nothing behind it cannot promise to accept a push, so
         # the lookup fails at the relay rather than finding it.
         @test find_module_interface(producer.out, PassivePacketSink) === nothing
 
         consumer = add_module!(network, Consumer(:consumer))
-        connect!(relay.out, consumer.in)
+        connect_gates!(relay.out, consumer.in)
         @test find_module_interface(producer.out, PassivePacketSink).target === relay
 
         # A forward naming a gate the module does not have is a modelling error.
         upstream = Producer(:upstream)
         broken = Relay(:broken)
         push!(empty!(broken.in.annotations), ForwardClaim(PassivePacketSink, :nowhere))
-        connect!(upstream.out, broken.in)
-        connect!(broken.out, Consumer(:c2).in)
+        connect_gates!(upstream.out, broken.in)
+        connect_gates!(broken.out, Consumer(:c2).in)
         @test_throws ErrorException find_module_interface(upstream.out, PassivePacketSink)
     end
 
@@ -203,7 +203,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network = Network(:Net)
         producer = add_module!(network, Producer(:producer))
         chooser = add_module!(network, Chooser(:chooser, :own))
-        connect!(producer.out, chooser.in)
+        connect_gates!(producer.out, chooser.in)
         @test find_module_interface(producer.out, PassivePacketSink).target === chooser
 
         # Saying no ends the walk: a module that refuses is not deferring to
@@ -212,9 +212,9 @@ a_packet() = Packet(Filler(Bytes(100)))
         producer2 = add_module!(network2, Producer(:producer))
         refuser = add_module!(network2, Chooser(:refuser, :refuse))
         consumer2 = add_module!(network2, Consumer(:consumer))
-        connect!(producer2.out, refuser.in)
+        connect_gates!(producer2.out, refuser.in)
         refuser_out = Gate(refuser, :out, GateOutput)
-        connect!(refuser_out, consumer2.in)
+        connect_gates!(refuser_out, consumer2.in)
         @test find_module_interface(producer2.out, PassivePacketSink) === nothing
 
         # Staying silent defers instead: the walk carries on wherever the
@@ -225,9 +225,9 @@ a_packet() = Packet(Filler(Bytes(100)))
         quiet = add_module!(network3, Chooser(:quiet, :silent))
         consumer3 = add_module!(network3, Consumer(:consumer))
         quiet_out = Gate(quiet, :out, GateOutput)
-        connect!(producer3.out, quiet.in)
-        connect!(quiet.in, quiet_out)               # a pass-through
-        connect!(quiet_out, consumer3.in)
+        connect_gates!(producer3.out, quiet.in)
+        connect_gates!(quiet.in, quiet_out)               # a pass-through
+        connect_gates!(quiet_out, consumer3.in)
         @test find_module_interface(producer3.out, PassivePacketSink).target === consumer3
 
         # Where the connections stop, so does the walk: a module that says
@@ -235,7 +235,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network4 = Network(:Net4)
         producer4 = add_module!(network4, Producer(:producer))
         deadend = add_module!(network4, Chooser(:deadend, :silent))
-        connect!(producer4.out, deadend.in)
+        connect_gates!(producer4.out, deadend.in)
         @test find_module_interface(producer4.out, PassivePacketSink) === nothing
     end
 
@@ -243,7 +243,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network = Network(:Net)
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer))
-        connect!(producer.out, consumer.in)
+        connect_gates!(producer.out, consumer.in)
         producer.consumer = resolve_interface(producer.out, PassivePacketSink)
         @test producer.consumer.target === consumer
 
@@ -261,7 +261,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network = Network(:Net)
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer))
-        connect!(producer.out, consumer.in)
+        connect_gates!(producer.out, consumer.in)
 
         # Modules a parameter names rather than a connection reaches are found
         # by evaluating a reference against the network.
@@ -286,7 +286,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network = Network(:Net)
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer))
-        connect!(producer.out, consumer.in)
+        connect_gates!(producer.out, consumer.in)
         producer.consumer = resolve_interface(producer.out, PassivePacketSink)
 
         engine = SequentialSimulator(network_module_count(network))
@@ -299,7 +299,7 @@ a_packet() = Packet(Filler(Bytes(100)))
             push_or_schedule!(ctx, producer.consumer, packet)
             @test consumer.pushed == [packet]
         end)
-        run!(engine)
+        advance_engine!(engine)
         @test length(consumer.pushed) == 1
 
         # Over a connection with a delay it becomes a scheduled event instead,
@@ -307,7 +307,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network2 = Network(:Net2)
         producer2 = add_module!(network2, Producer(:producer))
         consumer2 = add_module!(network2, Consumer(:consumer))
-        connect!(producer2.out, consumer2.in; delay = to_simtime(0.5))
+        connect_gates!(producer2.out, consumer2.in; delay = to_simtime(0.5))
         producer2.consumer = resolve_interface(producer2.out, PassivePacketSink)
         engine2 = SequentialSimulator(network_module_count(network2))
         arrival = Ref(to_simtime(-1.0))
@@ -317,7 +317,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         end)
         schedule_root!(engine2, to_simtime(1.0), module_id(consumer2),
                        ctx -> (arrival[] = ctx.timestamp))
-        run!(engine2)
+        advance_engine!(engine2)
         @test consumer2.pushed == [delayed]
         @test arrival[] == to_simtime(1.0)
     end
@@ -326,7 +326,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network = Network(:Net)
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer; accepts = false))
-        connect!(producer.out, consumer.in)
+        connect_gates!(producer.out, consumer.in)
         producer.consumer = resolve_interface(producer.out, PassivePacketSink)
         consumer_producer = resolve_interface(consumer.in, ActivePacketSource)
 
@@ -338,7 +338,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         network2 = Network(:Net2)
         provider = add_module!(network2, Provider(:provider))
         collector = add_module!(network2, Collector(:collector))
-        connect!(provider.out, collector.in)
+        connect_gates!(provider.out, collector.in)
         collector.provider = resolve_interface(collector.in, PassivePacketSource)
         provider_collector = resolve_interface(provider.out, ActivePacketSink)
 
@@ -366,7 +366,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         good = Network(:Good)
         producer = add_module!(good, Producer(:producer))
         consumer = add_module!(good, Consumer(:consumer))
-        connect!(producer.out, consumer.in)
+        connect_gates!(producer.out, consumer.in)
         @test check_packet_connections(good) === good
 
         # One end pushes, the other waits to be pulled from: no packet would
@@ -374,7 +374,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         crossed = Network(:Crossed)
         producer2 = add_module!(crossed, Producer(:producer))
         collector = add_module!(crossed, Collector(:collector))
-        connect!(producer2.out, collector.in)
+        connect_gates!(producer2.out, collector.in)
         err = try check_packet_connections(crossed); nothing catch ex; ex end
         @test err isa ErrorException
         @test occursin("producer.out", err.msg)
@@ -383,7 +383,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         delayed = Network(:Delayed)
         provider = add_module!(delayed, Provider(:provider))
         collector2 = add_module!(delayed, Collector(:collector))
-        connect!(provider.out, collector2.in; delay = to_simtime(0.001))
+        connect_gates!(provider.out, collector2.in; delay = to_simtime(0.001))
         err2 = try check_packet_connections(delayed); nothing catch ex; ex end
         @test err2 isa ErrorException
         @test occursin("propagation delay", err2.msg)
@@ -392,7 +392,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         idle = Network(:Idle)
         provider2 = add_module!(idle, Provider(:provider))
         consumer3 = add_module!(idle, Consumer(:consumer))
-        connect!(provider2.out, consumer3.in)
+        connect_gates!(provider2.out, consumer3.in)
         @test_throws ErrorException check_packet_connections(idle)
     end
 end

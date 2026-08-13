@@ -101,7 +101,7 @@ end
 
 Record one end-of-run scalar, under the module's path — `"Net.source.packets:count"`.
 Scalars are a module's summary of the whole run, so this belongs in
-`finalize_module!`, where the terminal state is known.
+`finish_module!`, where the terminal state is known.
 """
 function record_statistic!(statistics::ModuleStatistics, name::AbstractString, value)
     statistics.recorder === nothing && return nothing

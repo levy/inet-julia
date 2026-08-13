@@ -46,13 +46,13 @@ function priority_chain(; production_interval = 0.1, processing_time = 0.25,
     server = add_module!(network, PacketServerModule(:server;
         processing_time = processing_time))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
-    connect!(source.out, fork.in)
+    connect_gates!(source.out, fork.in)
     for index in 1:2
-        connect!(fork.out[index], queues[index].in)
-        connect!(queues[index].out, join.in[index])
+        connect_gates!(fork.out[index], queues[index].in)
+        connect_gates!(queues[index].out, join.in[index])
     end
-    connect!(join.out, server.in)
-    connect!(server.out, sink.in)
+    connect_gates!(join.out, server.in)
+    connect_gates!(server.out, sink.in)
     (; network, source, fork, queues, join, server, sink)
 end
 
@@ -89,13 +89,13 @@ end
         join = add_module!(network, priority_scheduler(:scheduler, 2))
         server = add_module!(network, PacketServerModule(:server; processing_time = 100.0))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, fork.in)
-        connect!(fork.out[1], first.in)
-        connect!(fork.out[2], second.in)
-        connect!(first.out, join.in[1])
-        connect!(second.out, join.in[2])
-        connect!(join.out, server.in)
-        connect!(server.out, sink.in)
+        connect_gates!(source.out, fork.in)
+        connect_gates!(fork.out[1], first.in)
+        connect_gates!(fork.out[2], second.in)
+        connect_gates!(first.out, join.in[1])
+        connect_gates!(second.out, join.in[2])
+        connect_gates!(join.out, server.in)
+        connect_gates!(server.out, sink.in)
         run_network!(network; until = 1.0)
 
         @test queue_length(first) == 2                  # filled, then passed over
@@ -136,11 +136,11 @@ end
         join = add_module!(network, weighted_round_robin_scheduler(:scheduler, [1, 1]))
         server = add_module!(network, PacketServerModule(:server; processing_time = 0.01))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, second.in)          # the FIRST queue is never fed
-        connect!(first.out, join.in[1])
-        connect!(second.out, join.in[2])
-        connect!(join.out, server.in)
-        connect!(server.out, sink.in)
+        connect_gates!(source.out, second.in)          # the FIRST queue is never fed
+        connect_gates!(first.out, join.in[1])
+        connect_gates!(second.out, join.in[2])
+        connect_gates!(join.out, server.in)
+        connect_gates!(server.out, sink.in)
         run_network!(network; until = 1.0)
 
         @test source.num_packets == 11
@@ -268,8 +268,8 @@ end
         keep_short = add_module!(network, PacketFilterModule(:filter;
             predicate = packet -> bits(data_length(packet)) < 400))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, keep_short.in)
-        connect!(keep_short.out, sink.in)
+        connect_gates!(source.out, keep_short.in)
+        connect_gates!(keep_short.out, sink.in)
         run_network!(network; until = 2.0)
 
         @test keep_short.num_passed + keep_short.num_dropped ==
@@ -295,10 +295,10 @@ end
                 predicate = _ -> false,
                 backpressure = backpressure))
             sink = add_module!(network, PassivePacketSinkModule(:sink))
-            connect!(source.out, queue.in)
-            connect!(queue.out, server.in)
-            connect!(server.out, filter.in)
-            connect!(filter.out, sink.in)
+            connect_gates!(source.out, queue.in)
+            connect_gates!(queue.out, server.in)
+            connect_gates!(server.out, filter.in)
+            connect_gates!(filter.out, sink.in)
             run_network!(network; until = 1.0)
             (; source, queue, server, filter, sink)
         end
@@ -327,8 +327,8 @@ end
         pass = add_module!(network, PacketFilterModule(:filter; predicate = _ -> true))
         slow = add_module!(network, PassivePacketSinkModule(:sink;
             consumption_interval = 0.25))
-        connect!(source.out, pass.in)
-        connect!(pass.out, slow.in)
+        connect_gates!(source.out, pass.in)
+        connect_gates!(pass.out, slow.in)
         run_network!(network; until = 1.0)
 
         # The filter holds nothing, so the sink's rate is what the source ends

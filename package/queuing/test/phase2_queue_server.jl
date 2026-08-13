@@ -28,9 +28,9 @@ function queue_chain(; production_interval, processing_time, packet_capacity = n
         processing_time = processing_time,
         seed = seed + 100))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
-    connect!(source.out, queue.in)
-    connect!(queue.out, server.in)
-    connect!(server.out, sink.in)
+    connect_gates!(source.out, queue.in)
+    connect_gates!(queue.out, server.in)
+    connect_gates!(server.out, sink.in)
     (; network, source, queue, server, sink)
 end
 
@@ -134,9 +134,9 @@ end
         queue = add_module!(network, PacketQueueModule(:queue; comparator = shortest_first))
         server = add_module!(network, PacketServerModule(:server; processing_time = 10.0))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, queue.in)
-        connect!(queue.out, server.in)
-        connect!(server.out, sink.in)
+        connect_gates!(source.out, queue.in)
+        connect_gates!(queue.out, server.in)
+        connect_gates!(server.out, sink.in)
         run_network!(network; until = 1.0)
 
         held = [data_length(queue_packet(queue, i)) for i in 1:queue_length(queue)]
@@ -169,9 +169,9 @@ end
             processing_time = 0.0,
             processing_bitrate = 1000.0))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, queue.in)
-        connect!(queue.out, server.in)
-        connect!(server.out, sink.in)
+        connect_gates!(source.out, queue.in)
+        connect_gates!(queue.out, server.in)
+        connect_gates!(server.out, sink.in)
         run_network!(network; until = 5.0)
 
         @test server.num_packets == 5
@@ -185,9 +185,9 @@ end
         queue = add_module!(network, PacketQueueModule(:queue))
         server = add_module!(network, InstantServerModule(:server))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, queue.in)
-        connect!(queue.out, server.in)
-        connect!(server.out, sink.in)
+        connect_gates!(source.out, queue.in)
+        connect_gates!(queue.out, server.in)
+        connect_gates!(server.out, sink.in)
         run_network!(network; until = 1.0)
 
         # Nothing waits: every packet crosses the whole chain in the event that
@@ -237,9 +237,9 @@ end
             processing_time = Volatile(exponential(0.1)),
             seed = 21))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, queue.in)
-        connect!(queue.out, server.in)
-        connect!(server.out, sink.in)
+        connect_gates!(source.out, queue.in)
+        connect_gates!(queue.out, server.in)
+        connect_gates!(server.out, sink.in)
         # A long run is what makes the averages meaningful, and keeping every
         # sample of a long run is what makes it slow: the scalars are derived
         # from the model's own state, so the time series can be left out.

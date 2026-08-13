@@ -20,7 +20,7 @@ nowhere to put.
 module PacketClassifierElement
 
 using OmnetppSimulator: NetworkModule, MersenneTwister
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
@@ -206,7 +206,7 @@ NetworkModule.register_module_statistics!(m::PacketClassifierModule, path::Abstr
 
 NetworkModule.module_icon(::PacketClassifierModule) = "block/classifier"
 
-function NetworkModule.finalize_module!(m::PacketClassifierModule, ::Any)
+function NetworkModule.finish_module!(m::PacketClassifierModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_packets)
     for index in 1:length(m.per_output)
         record_statistic!(m.recording, "packets[$index]:count", m.per_output[index])

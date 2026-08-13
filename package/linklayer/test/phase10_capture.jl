@@ -24,7 +24,7 @@ function _t1s_captured_bestcase(captures::Vector{Capture})
     t = SimulationType(T1sModel)
     a = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :bestcase))
-    run = expand_simulation(configure_simulation(t, a))[1]
+    run = expand_configuration(configure_simulation(t, a))[1]
     ex = make_execution(run; engine = SequentialEngineSpec(),
                                       captures = captures)
     run_execution!(ex)
@@ -118,7 +118,7 @@ end
     a = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
     cap = Capture()
-    ex = make_execution(expand_simulation(configure_simulation(t, a))[1];
+    ex = make_execution(expand_configuration(configure_simulation(t, a))[1];
                                       captures = [cap])
     run_execution!(ex); finish_execution!(ex)
     paths = [capture_point(cap, Int(id)).path for id in cap.buffer.point_ids]

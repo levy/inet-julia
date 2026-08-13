@@ -19,7 +19,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = 0.1,
             packet = PacketTemplate(length = Bytes(100))))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
         # The first packet is produced as the run starts and one every interval
@@ -39,7 +39,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = 0.1))
         sink = add_module!(network, PassivePacketSinkModule(:sink;
             consumption_interval = 0.25))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
         # The sink refuses for a quarter of a second after each packet, so the
@@ -59,7 +59,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             packet = PacketTemplate(length = Bytes(100),
                                     data = 7)))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         run_network!(network; until = 0.5)
         @test sink.num_packets == 6
 
@@ -70,7 +70,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
                                     data = Volatile(intuniform(0, 3))),
             seed = 5))
         collector = add_module!(varied, PassivePacketSinkModule(:sink))
-        connect!(varied_source.out, collector.in)
+        connect_gates!(varied_source.out, collector.in)
         run_network!(varied, until = 2.0)
         @test collector.num_packets == 21
 
@@ -89,7 +89,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             packet = PacketTemplate(length = Bytes(50))))
         sink = add_module!(network, ActivePacketSinkModule(:sink;
             collection_interval = 0.2))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
         @test sink.num_packets == 6
@@ -103,7 +103,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             providing_interval = 0.25))
         sink = add_module!(network, ActivePacketSinkModule(:sink;
             collection_interval = 0.1))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
         # The sink asks every tenth of a second and is told no until the source
@@ -117,7 +117,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         source = add_module!(network, PassivePacketSourceModule(:source))
         sink = add_module!(network, ActivePacketSinkModule(:sink;
             collection_interval = 0.5))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         initialize_network!(network)
 
         # A collector may look before committing, and gets the same packet when
@@ -130,7 +130,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         schedule_root!(engine, to_simtime(0.0), module_id(sink), function (ctx)
             @test pull_packet!(ctx, sink.provider) === offered
         end)
-        run!(engine)
+        advance_engine!(engine)
         @test source.num_packets == 1
     end
 
@@ -139,7 +139,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in; delay = to_simtime(0.05))
+        connect_gates!(source.out, sink.in; delay = to_simtime(0.05))
         run_network!(network; until = 1.0)
 
         # Every packet spends the propagation delay in flight, so each arrives
@@ -156,7 +156,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
             seed = 7))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         run_network!(network; until = 1.0)
 
         @test sink.num_packets == 11
@@ -171,7 +171,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = Volatile(exponential(0.1)),
             seed = 3))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         run_network!(network; until = 10.0)
 
         # Around a hundred packets in ten seconds at a mean interval of 0.1s,
@@ -183,7 +183,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = Volatile(exponential(0.1)),
             seed = 3))
         sink2 = add_module!(again, PassivePacketSinkModule(:sink))
-        connect!(source2.out, sink2.in)
+        connect_gates!(source2.out, sink2.in)
         run_network!(again; until = 10.0)
         @test sink2.num_packets == sink.num_packets
     end
@@ -195,7 +195,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
                 production_interval = Volatile(exponential(0.1)),
                 seed = 11))
             sink = add_module!(network, PassivePacketSinkModule(:sink))
-            connect!(source.out, sink.in)
+            connect_gates!(source.out, sink.in)
             network
         end
         first_run = run_network!(build(); until = 5.0)
@@ -209,7 +209,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = Volatile(exponential(0.1)),
             seed = 12))
         sink = add_module!(other, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
         @test network_hash(run_network!(other; until = 5.0)) != network_hash(first_run)
     end
 
@@ -219,7 +219,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = 0.25,
             packet = PacketTemplate(length = Bytes(125))))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in; delay = to_simtime(0.01))
+        connect_gates!(source.out, sink.in; delay = to_simtime(0.01))
         recorder = Recorder()
         run_network!(network; until = 1.0, recorder = recorder)
 
@@ -246,7 +246,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = 0.25,
             packet = PacketTemplate(length = Bytes(125))))
         sink2 = add_module!(plain, PassivePacketSinkModule(:sink))
-        connect!(source2.out, sink2.in; delay = to_simtime(0.01))
+        connect_gates!(source2.out, sink2.in; delay = to_simtime(0.01))
         run_network!(plain; until = 1.0)
         @test sink2.num_packets == 4
     end
@@ -257,7 +257,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = Volatile(exponential(0.1)),
             seed = 5))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
 
         first_run = run_network!(network; until = 2.0)
         produced = sink.num_packets
@@ -280,7 +280,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
             production_interval = 0.25,
             packet = PacketTemplate(length = Bytes(125))))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
-        connect!(source.out, sink.in)
+        connect_gates!(source.out, sink.in)
 
         first_recorder = Recorder()
         run_network!(network; until = 1.0, recorder = first_recorder)

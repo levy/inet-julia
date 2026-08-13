@@ -16,7 +16,7 @@ using .PacketQueueElement: PacketQueueModule, drop_at_end,
     queue_length
 using .PacketServerElement: PacketServerModule
 using .PassivePacketSinkElement: PassivePacketSinkModule
-using OmnetppSimulator.NetworkModule: Network, add_module!, connect!,
+using OmnetppSimulator.NetworkModule: Network, add_module!, connect_gates!,
     network_module_count, network_barrier, network_delay_edges, network_topology,
     initialize_network!, register_network_statistics!, start_network!,
     reset_network!, finalize_network!
@@ -87,9 +87,9 @@ function _build_queuing_network(m)
         processing_time = Volatile(exponential(1 / m.service_rate)),
         seed = m.seed + 1))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
-    connect!(source.out, queue.in)
-    connect!(queue.out, server.in)
-    connect!(server.out, sink.in)
+    connect_gates!(source.out, queue.in)
+    connect_gates!(queue.out, server.in)
+    connect_gates!(server.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -97,7 +97,7 @@ end
 
 reset_model!(m::AQueuingModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AQueuingModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AQueuingModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     # The run ends by the clock rather than by running out of packets: the

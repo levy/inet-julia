@@ -28,7 +28,7 @@ const PRELUDE = """
     end
 end
 
-mutable struct PassiveSinkModule <: AbstractModule
+mutable struct PassiveSinkModule <: SimulationModule
     name::Symbol
     statistics::PassiveSinkStatistics
 end
@@ -187,7 +187,7 @@ end
     # A compound keeps its submodules in a typed field, and that declaration is
     # the only thing that says what a lambda over them receives.
     r = port("""
-    mutable struct CompoundModule <: AbstractModule
+    mutable struct CompoundModule <: SimulationModule
         name::Symbol
         sources::Vector{ActiveSourceModule}
         sink::PassiveSinkModule

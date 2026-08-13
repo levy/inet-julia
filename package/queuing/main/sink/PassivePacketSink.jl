@@ -15,7 +15,7 @@ pushing is possible again. A producer wired to it feels that as back pressure.
 module PassivePacketSinkElement
 
 using OmnetppSimulator: SimTime, seconds, to_simtime, ZERO_DELAY, schedule_event!, MersenneTwister, NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
 using OmnetppSimulator.VolatileModule: evaluate
@@ -95,7 +95,7 @@ NetworkModule.module_status(m::PassivePacketSinkModule) =
 
 NetworkModule.module_icon(::PassivePacketSinkModule) = "block/sink"
 
-function NetworkModule.finalize_module!(m::PassivePacketSinkModule, ::Any)
+function NetworkModule.finish_module!(m::PassivePacketSinkModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_packets)
     record_statistic!(m.recording, "packetLengths:sum", m.total_length)
     m.num_packets == 0 && return nothing

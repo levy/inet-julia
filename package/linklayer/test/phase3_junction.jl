@@ -64,7 +64,7 @@ end
     # A transmits a BEACON at t=0. Expected: B sees rx_start at t = delay_A + delay_B = 7.5 ns.
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> phy_start_signal_transmission!(ctx, phy_A, SIG_BEACON))
-    run!(sim)
+    advance_engine!(sim)
 
     # First upcall on B should be reception_start (via carrier_sense_start).
     starts = filter(x -> x[1] === :reception_start, rx_log)
@@ -104,7 +104,7 @@ end
 
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> phy_start_signal_transmission!(ctx, phy_A, SIG_BEACON))
-    run!(sim)
+    advance_engine!(sim)
 
     startsB = filter(x -> x[1] === :reception_start, logB)
     startsC = filter(x -> x[1] === :reception_start, logC)
@@ -164,7 +164,7 @@ end
 
     schedule_root!(sim, to_simtime(0.0), 1,
                    ctx -> phy_start_signal_transmission!(ctx, phy_coord, SIG_BEACON))
-    run!(sim)
+    advance_engine!(sim)
 
     # Expected rx-start times:
     #   node0: d_seg (coord→j0) + d_stub (j0→n0) = 7.5 ns
@@ -209,7 +209,7 @@ end
 
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> phy_start_signal_transmission!(ctx, phy_A, SIG_BEACON))
-    run!(sim)
+    advance_engine!(sim)
 
     @test isempty(filter(x -> x[1] === :reception_start, logA))
     @test !isempty(filter(x -> x[1] === :reception_start, logB))

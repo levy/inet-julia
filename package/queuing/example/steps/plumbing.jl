@@ -66,8 +66,8 @@ function _build_delayer_network(m)
         delay = delay,
         seed = m.seed + 1))
     sink = _step_sink(network, :sink)
-    connect!(source.out, delayer.in)
-    connect!(delayer.out, sink.in)
+    connect_gates!(source.out, delayer.in)
+    connect_gates!(delayer.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)
     network
@@ -75,7 +75,7 @@ end
 
 reset_model!(m::ADelayerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::ADelayerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ADelayerModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -130,14 +130,14 @@ function _build_multiplexer_network(m)
     network = Network(:Multiplexer)
     join = add_module!(network, PacketMultiplexerModule(:multiplexer; inputs = m.sources))
     sink = _step_sink(network, :sink)
-    connect!(join.out, sink.in)
+    connect_gates!(join.out, sink.in)
     # Each source gets its own seed, or they would all produce the same stream.
     for index in 1:m.sources
         source = add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
             production_interval = Volatile(exponential(1 / m.arrival_rate)),
             packet = PacketTemplate(length = Bytes(100)),
             seed = m.seed + index))
-        connect!(source.out, join.in[index])
+        connect_gates!(source.out, join.in[index])
     end
     initialize_network!(network)
     check_packet_connections(network)
@@ -146,7 +146,7 @@ end
 
 reset_model!(m::AMultiplexerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AMultiplexerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AMultiplexerModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -207,14 +207,14 @@ function _build_demultiplexer_network(m)
         packet = PacketTemplate(length = Bytes(100)),
         seed = m.seed))
     fork = add_module!(network, PacketDemultiplexerModule(:demultiplexer; outputs = m.sinks))
-    connect!(source.out, fork.in)
+    connect_gates!(source.out, fork.in)
     # Each sink collects on its own clock, so which one gets a given packet is
     # decided by who asks first.
     for index in 1:m.sinks
         sink = add_module!(network, ActivePacketSinkModule(Symbol(:sink, index);
             collection_interval = m.collection_interval,
             seed = m.seed + index))
-        connect!(fork.out[index], sink.in)
+        connect_gates!(fork.out[index], sink.in)
     end
     initialize_network!(network)
     check_packet_connections(network)
@@ -223,7 +223,7 @@ end
 
 reset_model!(m::ADemultiplexerModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::ADemultiplexerModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::ADemultiplexerModel, engine::SimulationEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),

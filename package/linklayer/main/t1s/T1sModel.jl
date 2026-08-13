@@ -304,7 +304,7 @@ function reset_model!(m::AT1sModel)
     m
 end
 
-function schedule_initial_events!(m::AT1sModel, engine::AbstractEngine, recorder)
+function schedule_initial_events!(m::AT1sModel, engine::SimulationEngine, recorder)
     # Wire the recorder into every node's state structs before scheduling.
     # See plan/done/ten-base-t1s-statistics.md §3.
     _wire_recorder!(m, recorder)
@@ -375,7 +375,7 @@ _inet_signal_name(sym::Symbol) = "$(sym):vector"
 
 # Emit each MAC / PHY signal at t=0 with its initial value, matching
 # INET's initialize() emit() convention. plca_start! handles PLCA signals.
-function _emit_initial_stats!(engine::AbstractEngine, m::AT1sModel)
+function _emit_initial_stats!(engine::SimulationEngine, m::AT1sModel)
     st = m.state
     for (i, node) in enumerate(st.nodes)
         schedule_root!(engine, to_simtime(0.0), node.module_id,
@@ -408,7 +408,7 @@ function _emit_node_initial_stats!(ctx, node)
 end
 
 # Emit each layer's CURRENT signal value at sim-end (mirrors INET's finish()).
-function _emit_final_stats!(engine::AbstractEngine, m::AT1sModel)
+function _emit_final_stats!(engine::SimulationEngine, m::AT1sModel)
     st = m.state
     for node in st.nodes
         schedule_root!(engine, m.time_limit, node.module_id,
@@ -486,7 +486,7 @@ function _wire_recorder!(m::AT1sModel, recorder)
 end
 
 # Attach a result sink when `:vec_path` is set (matches RoutingModel).
-function make_recorder(m::AT1sModel, engine::AbstractEngine)
+function make_recorder(m::AT1sModel, engine::SimulationEngine)
     rec = Recorder()
     path = _t1s_vec_path(m)
     if path !== nothing

@@ -23,7 +23,7 @@ downstream of a cloner mark each copy differently.
 module PacketMarkingModule
 
 using OmnetppSimulator: NetworkModule, MersenneTwister
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.VolatileModule: evaluate
 using InetPacket.PacketModule: Packet, dup, bits, data_length
@@ -97,7 +97,7 @@ NetworkModule.register_module_statistics!(m::PacketLabelerModule, path::Abstract
 
 NetworkModule.module_icon(::PacketLabelerModule) = "block/process"
 
-function NetworkModule.finalize_module!(m::PacketLabelerModule, ::Any)
+function NetworkModule.finish_module!(m::PacketLabelerModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_packets)
     nothing
 end
@@ -179,7 +179,7 @@ NetworkModule.register_module_statistics!(m::PacketClonerModule, path::AbstractS
 
 NetworkModule.module_icon(::PacketClonerModule) = "block/broadcast"
 
-function NetworkModule.finalize_module!(m::PacketClonerModule, ::Any)
+function NetworkModule.finish_module!(m::PacketClonerModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_packets)
     record_statistic!(m.recording, "clonedPackets:count", m.num_copies)
     nothing
@@ -262,7 +262,7 @@ NetworkModule.register_module_statistics!(m::PacketDuplicatorModule, path::Abstr
 
 NetworkModule.module_icon(::PacketDuplicatorModule) = "block/fork"
 
-function NetworkModule.finalize_module!(m::PacketDuplicatorModule, ::Any)
+function NetworkModule.finish_module!(m::PacketDuplicatorModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_packets)
     record_statistic!(m.recording, "duplicatePackets:count", m.num_duplicates)
     nothing

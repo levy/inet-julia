@@ -20,7 +20,7 @@ connections are what the engine reads:
 <<definition(file("../../../queuing/main/QueuingModel.jl"), "_build_queuing_network")>>
 ```
 
-Four `add_module!` calls and three `connect!` calls. There is no network
+Four `add_module!` calls and three `connect_gates!` calls. There is no network
 description language here and nothing generated from one: the function above
 *is* the network, and `model_topology` derives the diagram from the same
 connections rather than from a second description that could disagree with it.

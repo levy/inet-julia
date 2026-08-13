@@ -44,8 +44,8 @@ those is what the macro is supposed to stop a person writing.
 **The macro generates the module contract that already exists.** It does not
 introduce a second runtime.
 
-`OmnetppSimulator.NetworkModule` gives `AbstractModule`, `Gate`, `add_module!`,
-`connect!` and the two initialization stages, and every element implements that
+`OmnetppSimulator.NetworkModule` gives `SimulationModule`, `Gate`, `add_module!`,
+`connect_gates!` and the two initialization stages, and every element implements that
 contract today. `@simulation_module` emits a struct that satisfies it — a
 `name`, a `module_id`, the gate fields — plus the seams and the generated
 `reset_module!`.

@@ -25,7 +25,7 @@ run_t1s(scenario, limit) =
     let t = SimulationType(T1sModel),
         a = ParameterAssignment(Dict{Symbol,Any}(
                 :n_nodes => 5, :time_limit => limit, :scenario => scenario)),
-        r = expand_simulation(configure_simulation(t, a))[1],
+        r = expand_configuration(configure_simulation(t, a))[1],
         ex = make_execution(r; engine = SequentialEngineSpec())
         run_execution!(ex)
         finish_execution!(ex)

@@ -139,7 +139,7 @@ function test_tutorial()
             @test any(t -> occursin("M/M/1/K", t), drawn)
             # … the model source, inline, in its own domain …
             @test any(t -> occursin("_build_queuing_network", t), drawn)
-            @test any(t -> occursin("connect!", t), drawn)
+            @test any(t -> occursin("connect_gates!", t), drawn)
             # … and the live card, as a real widget.
             @test "Run" in drawn
             @test any(t -> occursin("arrival_rate", t), drawn)
@@ -208,7 +208,7 @@ function test_tutorial()
             # The page arrives with its embeds live: prose, the model's source,
             # and the card's own button …
             @test any(t -> occursin("M/M/1/K", t), drawn)
-            @test any(t -> occursin("connect!", t), drawn)
+            @test any(t -> occursin("connect_gates!", t), drawn)
             @test "Run" in drawn
             # … and the navigator is still beside it.
             @test "Contents" in drawn

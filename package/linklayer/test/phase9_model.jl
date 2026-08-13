@@ -23,7 +23,7 @@ using InetLinkLayer.T1sModule
     t = SimulationType(T1sModel)
     a = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
-    run = expand_simulation(configure_simulation(t, a))[1]
+    run = expand_configuration(configure_simulation(t, a))[1]
     inst = make_execution(run; engine = SequentialEngineSpec())
     run_execution!(inst)
     res = finish_execution!(inst)
@@ -40,7 +40,7 @@ end
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
     hashes = UInt128[]
     for _ in 1:3
-        run = expand_simulation(configure_simulation(t, a))[1]
+        run = expand_configuration(configure_simulation(t, a))[1]
         inst = make_execution(run; engine = SequentialEngineSpec())
         run_execution!(inst)
         push!(hashes, finish_execution!(inst).network_hash)
@@ -54,7 +54,7 @@ end
     for n in (3, 5, 7)
         a = ParameterAssignment(Dict{Symbol,Any}(
             :n_nodes => n, :time_limit => 50e-6, :scenario => :notraffic))
-        run = expand_simulation(configure_simulation(t, a))[1]
+        run = expand_configuration(configure_simulation(t, a))[1]
         inst = make_execution(run; engine = SequentialEngineSpec())
         run_execution!(inst)
         push!(hashes, finish_execution!(inst).network_hash)
@@ -72,7 +72,7 @@ end
     t = SimulationType(T1sModel)
     a = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => 4, :time_limit => 500e-6, :scenario => :bestcase))
-    run = expand_simulation(configure_simulation(t, a))[1]
+    run = expand_configuration(configure_simulation(t, a))[1]
     inst = make_execution(run; engine = SequentialEngineSpec())
     model = simulation_model(inst)
     run_execution!(inst)

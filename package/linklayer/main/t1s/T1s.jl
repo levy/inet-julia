@@ -18,7 +18,7 @@
 module T1sModule
 
 using InetPacket.PacketModule
-using OmnetppSimulator: SimTime, to_simtime, schedule_event!, schedule_root!, ScheduleContext,
+using OmnetppSimulator: SimTime, to_simtime, schedule_event!, schedule_root!, EventContext,
                MersenneTwister,
                emit_indexed_vector!, record_scalar!, seconds
 # Cancellable timers are a kernel utility rather than a 10BASE-T1S one; they are

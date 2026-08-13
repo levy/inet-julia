@@ -13,7 +13,7 @@ _run_stats() = let t = SimulationType(T1sModel),
                        :n_nodes    => 5,
                        :time_limit => 100e-6,
                        :scenario   => :notraffic)),
-                   r = expand_simulation(configure_simulation(t, a))[1],
+                   r = expand_configuration(configure_simulation(t, a))[1],
                    ex = make_execution(r; engine = SequentialEngineSpec())
     run_execution!(ex)
     finish_execution!(ex)

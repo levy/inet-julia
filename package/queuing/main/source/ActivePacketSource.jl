@@ -14,7 +14,7 @@ queueing behind it.
 module ActivePacketSourceElement
 
 using OmnetppSimulator: SimTime, to_simtime, ZERO_DELAY, schedule_event!, MersenneTwister, NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateOutput, Network,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, GateOutput, Network,
     output_gate, module_id, @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
 using OmnetppSimulator.VolatileModule: evaluate
@@ -84,7 +84,7 @@ NetworkModule.module_status(m::ActivePacketSourceModule) =
 
 NetworkModule.module_icon(::ActivePacketSourceModule) = "block/source"
 
-function NetworkModule.finalize_module!(m::ActivePacketSourceModule, ::Any)
+function NetworkModule.finish_module!(m::ActivePacketSourceModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_packets)
     record_statistic!(m.recording, "packetLengths:sum", m.total_length)
     nothing

@@ -86,7 +86,7 @@ a = ParameterAssignment(Dict{Symbol,Any}(          # the lifecycle, from Omnetpp
     :n_nodes    => 5,
     :time_limit => 100e-6,
     :scenario   => :notraffic))
-run  = expand_simulation(configure_simulation(t, a))[1]
+run  = expand_configuration(configure_simulation(t, a))[1]
 inst = make_execution(run; engine = SequentialEngineSpec())
 run_execution!(inst)
 res  = finish_execution!(inst)

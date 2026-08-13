@@ -16,7 +16,7 @@ function _run_notraffic_with_stats(; n_nodes = 5, time_limit = 100e-6)
         :n_nodes    => n_nodes,
         :time_limit => time_limit,
         :scenario   => :notraffic))
-    run = expand_simulation(configure_simulation(t, a))[1]
+    run = expand_configuration(configure_simulation(t, a))[1]
     inst = make_execution(run; engine = SequentialEngineSpec())
     run_execution!(inst)
     return finish_execution!(inst)

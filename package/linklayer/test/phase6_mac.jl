@@ -33,7 +33,7 @@ end
                    ctx -> mac_upper_packet!(ctx, mac, frame))
     schedule_root!(sim, to_simtime(200e-6), 2,
                    ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
-    run!(sim)
+    advance_engine!(sim)
 
     # MAC should have started tx immediately, then ended after tx_bits/bitrate.
     starts = filter(x -> x[1] === :start_frame, log)
@@ -53,7 +53,7 @@ end
     mac = MacState(2, UInt64(0x1))
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> mac_handle_carrier_sense_start!(ctx, mac))
-    run!(sim)
+    advance_engine!(sim)
     @test fsm_state(mac.fsm_mac) == MAC_S_RECEIVING
     @test mac.carrier_sense == true
 end
@@ -75,7 +75,7 @@ end
         mac_handle_reception_end!(ctx, mac, SIG_DATA, frame_us)
         mac_handle_reception_end!(ctx, mac, SIG_DATA, frame_other)
     end)
-    run!(sim)
+    advance_engine!(sim)
 
     @test Base.length(delivered) == 1
     @test delivered[1] === frame_us
@@ -96,7 +96,7 @@ end
     end)
     schedule_root!(sim, to_simtime(500e-6), 2,
                    ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
-    run!(sim)
+    advance_engine!(sim)
 
     # Sequence: start_frame → (collision at 10µs) → end_frame → start_signal(JAM)
     #           → end_signal (after 3.2µs) → BACKOFF (random 0..1 slot times)

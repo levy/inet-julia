@@ -65,7 +65,7 @@ function build_watch(; n_nodes::Int = 4, time_limit::Float64 = 500e-6, node::Int
     type = SimulationType(T1sModel)
     assignment = ParameterAssignment(Dict{Symbol,Any}(
         :n_nodes => n_nodes, :time_limit => time_limit, :scenario => :bestcase))
-    run = expand_simulation(configure_simulation(type, assignment))[1]
+    run = expand_configuration(configure_simulation(type, assignment))[1]
     execution = make_execution(run; engine = SequentialEngineSpec())
     mac = simulation_model(execution).state.nodes[node].mac
 

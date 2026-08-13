@@ -22,7 +22,7 @@ comparator ranks first rather than whatever arrived first.
 module PacketQueueElement
 
 using OmnetppSimulator: SimTime, seconds, to_simtime, NetworkModule
-using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, BitLength, Bits, Bytes, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,
@@ -167,7 +167,7 @@ NetworkModule.module_status(m::PacketQueueModule) =
 
 NetworkModule.module_icon(::PacketQueueModule) = "block/queue"
 
-function NetworkModule.finalize_module!(m::PacketQueueModule, ::Any)
+function NetworkModule.finish_module!(m::PacketQueueModule, ::Any)
     record_statistic!(m.recording, "packets:count", m.num_pushed)
     record_statistic!(m.recording, "droppedPacketsQueueOverflow:count", m.num_dropped)
     # The mean length over the run, from the integral kept as the queue changed
