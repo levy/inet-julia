@@ -32,7 +32,7 @@ end
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> mac_upper_packet!(ctx, mac, frame))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # MAC should have started tx immediately, then ended after tx_bits/bitrate.
@@ -95,7 +95,7 @@ end
                   ctx2 -> mac_handle_collision_start!(ctx2, mac))
     end)
     schedule_root!(sim, to_simtime(500e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # Sequence: start_frame → (collision at 10µs) → end_frame → start_signal(JAM)

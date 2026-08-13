@@ -57,7 +57,7 @@ end
     schedule_root!(sim, to_simtime(0.5e-6), 2,
                    ctx -> plca_start_frame_transmission!(ctx, plca, frame))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # A DATA frame should have been sent on the wire (via start_frame_tx).
@@ -99,7 +99,7 @@ end
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> plca_start_frame_transmission!(ctx, plca, frame))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # DATA_S_HOLD should have held the packet across the BEACON emission

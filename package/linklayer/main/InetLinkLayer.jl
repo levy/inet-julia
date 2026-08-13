@@ -21,7 +21,7 @@ using InetPacket.PacketModule
 # Time, scheduling and the engine/model interface.
 using OmnetppSimulator: SimTime, to_simtime, EventContext, schedule_event!,
     schedule_root!, stop!, AbstractEngine, AbstractParallelEngine, AbstractModel,
-    SimTimeLimit
+    LimitReached
 # Parameterization: a model declares its degrees of freedom, the lifecycle
 # resolves them and hands back a `ResolvedParameters`.
 using OmnetppSimulator: Parameter, ParameterSpace, AResolvedParameters,

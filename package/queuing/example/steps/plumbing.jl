@@ -79,7 +79,7 @@ function schedule_initial_events!(m::ADelayerModel, engine::AbstractEngine, reco
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
-                   ctx -> stop!(ctx.sim, SimTimeLimit))
+                   ctx -> stop!(ctx.sim, LimitReached(:simulation_time)))
     engine
 end
 
@@ -150,7 +150,7 @@ function schedule_initial_events!(m::AMultiplexerModel, engine::AbstractEngine, 
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
-                   ctx -> stop!(ctx.sim, SimTimeLimit))
+                   ctx -> stop!(ctx.sim, LimitReached(:simulation_time)))
     engine
 end
 
@@ -227,7 +227,7 @@ function schedule_initial_events!(m::ADemultiplexerModel, engine::AbstractEngine
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
-                   ctx -> stop!(ctx.sim, SimTimeLimit))
+                   ctx -> stop!(ctx.sim, LimitReached(:simulation_time)))
     engine
 end
 

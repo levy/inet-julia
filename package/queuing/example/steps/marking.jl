@@ -84,7 +84,7 @@ function schedule_initial_events!(m::ALabelerModel, engine::AbstractEngine, reco
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
-                   ctx -> stop!(ctx.sim, SimTimeLimit))
+                   ctx -> stop!(ctx.sim, LimitReached(:simulation_time)))
     engine
 end
 
@@ -160,7 +160,7 @@ function schedule_initial_events!(m::AClonerModel, engine::AbstractEngine, recor
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
-                   ctx -> stop!(ctx.sim, SimTimeLimit))
+                   ctx -> stop!(ctx.sim, LimitReached(:simulation_time)))
     engine
 end
 

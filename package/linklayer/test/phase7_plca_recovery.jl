@@ -36,7 +36,7 @@ _build_sim(n::Int) = SequentialSimulator(n)
     schedule_root!(sim, to_simtime(45e-6), 2,
                    ctx -> (ds_at_45[] = fsm_state(plca.fsm_data)))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # After hold_timer (default 40 µs = 400 bits @ 10 Mb), DATA_S_HOLD → DATA_S_COLLIDE.
@@ -69,7 +69,7 @@ end
     schedule_root!(sim, to_simtime(100e-6), 2,
                    ctx -> (ds_late[] = fsm_state(plca.fsm_data)))
     schedule_root!(sim, to_simtime(200e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # At t=50µs, we're in DATA_S_DELAY_PENDING (started at t=45µs, pending_timer=51.2µs).
@@ -103,7 +103,7 @@ end
     schedule_root!(sim, to_simtime(5e-6), 2,
                    ctx -> plca_start_frame_transmission!(ctx, plca, frame))
     schedule_root!(sim, to_simtime(100e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # Frame should have been sent from DATA_S_TRANSMIT.

@@ -335,7 +335,7 @@ function schedule_initial_events!(m::AT1sModel, engine::AbstractEngine, recorder
     end
     # Stop at time_limit.
     schedule_root!(engine, m.time_limit, T1S_BARRIER_MODULE_ID,
-                   ctx -> stop!(ctx.sim, SimTimeLimit))
+                   ctx -> stop!(ctx.sim, LimitReached(:simulation_time)))
     engine
 end
 

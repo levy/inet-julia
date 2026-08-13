@@ -35,7 +35,7 @@ end
     schedule_root!(sim, to_simtime(0.0), 2,
                    ctx -> app_generate!(ctx, app))
     schedule_root!(sim, to_simtime(500e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # 500 µs / 100 µs interval = 5 generations at t=0, 100, 200, 300, 400 µs.

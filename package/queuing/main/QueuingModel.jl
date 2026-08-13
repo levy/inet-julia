@@ -103,7 +103,7 @@ function schedule_initial_events!(m::AQueuingModel, engine::AbstractEngine, reco
     # The run ends by the clock rather than by running out of packets: the
     # source produces for as long as it is allowed to.
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
-                   ctx -> stop!(ctx.sim, SimTimeLimit))
+                   ctx -> stop!(ctx.sim, LimitReached(:simulation_time)))
     engine
 end
 

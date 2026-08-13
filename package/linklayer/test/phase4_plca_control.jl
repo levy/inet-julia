@@ -66,7 +66,7 @@ end
                    ctx -> plca_start!(ctx, plca))
     # Run until 50 µs to see multiple cycles.
     schedule_root!(sim, to_simtime(50e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # BEACON emissions
@@ -100,7 +100,7 @@ end
         schedule_root!(sim, t, 2, ctx -> push!(cur_ids, plca.cur_id))
     end
     schedule_root!(sim, to_simtime(50e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
     advance_engine!(sim)
 
     # Timeline (see plan §5.4):
@@ -149,7 +149,7 @@ end
                        plca_on_carrier_sense_end!(ctx, plca)
                    end)
     schedule_root!(sim, to_simtime(20e-6), 2,
-                   ctx -> stop!(ctx.sim, OmnetppSimulator.SimTimeLimit))
+                   ctx -> stop!(ctx.sim, OmnetppSimulator.LimitReached(:simulation_time)))
 
     # Sample follower cur_id at 10µs (should be past its own TO).
     cur_id_at_10 = Ref(-1)
