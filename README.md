@@ -82,7 +82,7 @@ says so, which keeps it visible which layer a name comes from:
 using OmnetppSimulator, Inet
 
 t = SimulationType(T1sModel)                       # the model, from Inet
-a = ParameterAssignment(Dict{Symbol,Any}(          # the lifecycle, from OmnetppSimulator
+a = ParameterBindings(Dict{Symbol,Any}(          # the lifecycle, from OmnetppSimulator
     :n_nodes    => 5,
     :time_limit => 100e-6,
     :scenario   => :notraffic))

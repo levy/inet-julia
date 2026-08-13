@@ -66,7 +66,7 @@ Notraffic cycle time (N=5): 2µs BEACON + 1 ns syncing + 5·3.2 µs TOs
 ```julia
 using Omnetpp, Inet          # lifecycle from the kernel, the model from here
 t = SimulationType(T1sModel)
-a = ParameterAssignment(Dict{Symbol,Any}(
+a = ParameterBindings(Dict{Symbol,Any}(
     :n_nodes    => 5,
     :time_limit => 100e-6,       # seconds
     :scenario   => :notraffic))   # :notraffic | :bestcase | :worstcase
@@ -143,7 +143,7 @@ default (in-memory `Recorder` only, populates `SimulationResult.vectors`;
 useful for tests). Set it to write a `.vec` file:
 
 ```julia
-a = ParameterAssignment(Dict{Symbol,Any}(
+a = ParameterBindings(Dict{Symbol,Any}(
     :n_nodes    => 5,
     :time_limit => 100e-6,
     :scenario   => :notraffic,

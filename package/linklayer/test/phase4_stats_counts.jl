@@ -10,7 +10,7 @@ using InetLinkLayer
 using InetPacket.PacketModule, InetLinkLayer.T1sModule
 
 _run_stats() = let t = SimulationType(T1sModel),
-                   a = ParameterAssignment(Dict{Symbol,Any}(
+                   a = ParameterBindings(Dict{Symbol,Any}(
                        :n_nodes    => 5,
                        :time_limit => 100e-6,
                        :scenario   => :notraffic)),

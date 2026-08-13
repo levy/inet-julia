@@ -14,7 +14,7 @@ using InetQueuing
 
 function _queuing_captured_run(captures::Vector{Capture}; seed = 7, time_limit = 10.0)
     t = SimulationType(QueuingModel)
-    a = ParameterAssignment(Dict{Symbol,Any}(:seed => seed, :time_limit => time_limit))
+    a = ParameterBindings(Dict{Symbol,Any}(:seed => seed, :time_limit => time_limit))
     run = expand_configuration(configure_simulation(t, a))[1]
     ex = make_execution(run; engine = SequentialEngineSpec(),
                                       captures = captures)

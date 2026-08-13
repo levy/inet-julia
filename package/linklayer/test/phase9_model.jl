@@ -21,7 +21,7 @@ using InetLinkLayer.T1sModule
 
 @testset "T1sModel — notraffic pins hash" begin
     t = SimulationType(T1sModel)
-    a = ParameterAssignment(Dict{Symbol,Any}(
+    a = ParameterBindings(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
     run = expand_configuration(configure_simulation(t, a))[1]
     inst = make_execution(run; engine = SequentialEngineSpec())
@@ -36,7 +36,7 @@ end
 
 @testset "T1sModel — notraffic is deterministic across runs" begin
     t = SimulationType(T1sModel)
-    a = ParameterAssignment(Dict{Symbol,Any}(
+    a = ParameterBindings(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
     hashes = UInt128[]
     for _ in 1:3
@@ -52,7 +52,7 @@ end
     t = SimulationType(T1sModel)
     hashes = UInt128[]
     for n in (3, 5, 7)
-        a = ParameterAssignment(Dict{Symbol,Any}(
+        a = ParameterBindings(Dict{Symbol,Any}(
             :n_nodes => n, :time_limit => 50e-6, :scenario => :notraffic))
         run = expand_configuration(configure_simulation(t, a))[1]
         inst = make_execution(run; engine = SequentialEngineSpec())
@@ -70,7 +70,7 @@ end
 # 100 µs only one does).
 @testset "T1sModel — bestcase pins hash (the MAC's guard)" begin
     t = SimulationType(T1sModel)
-    a = ParameterAssignment(Dict{Symbol,Any}(
+    a = ParameterBindings(Dict{Symbol,Any}(
         :n_nodes => 4, :time_limit => 500e-6, :scenario => :bestcase))
     run = expand_configuration(configure_simulation(t, a))[1]
     inst = make_execution(run; engine = SequentialEngineSpec())
@@ -88,7 +88,7 @@ end
 
 @testset "T1sModel — model interface plumbs through cleanly" begin
     m = build_model(T1sModel, resolve_parameters(model_parameter_space(T1sModel),
-                                                  ParameterAssignment()))
+                                                  ParameterBindings()))
     @test m isa AT1sModel
     @test model_module_count(m) == 1 + 5 + 4    # barrier + 5 nodes + 4 junctions
                                                  # (INET: one junction per follower;

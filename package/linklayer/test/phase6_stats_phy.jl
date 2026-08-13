@@ -8,7 +8,7 @@ using InetPacket.PacketModule, InetLinkLayer.T1sModule
 
 _run(scenario::Symbol = :notraffic; time_limit = 100e-6) =
     let t = SimulationType(T1sModel),
-        a = ParameterAssignment(Dict{Symbol,Any}(
+        a = ParameterBindings(Dict{Symbol,Any}(
                 :n_nodes    => 5,
                 :time_limit => time_limit,
                 :scenario   => scenario)),

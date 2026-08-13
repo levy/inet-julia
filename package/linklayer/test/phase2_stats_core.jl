@@ -12,7 +12,7 @@ using InetPacket.PacketModule, InetLinkLayer.T1sModule
 # Helper: run notraffic and return the recorder's captured VectorResults.
 function _run_notraffic_with_stats(; n_nodes = 5, time_limit = 100e-6)
     t = SimulationType(T1sModel)
-    a = ParameterAssignment(Dict{Symbol,Any}(
+    a = ParameterBindings(Dict{Symbol,Any}(
         :n_nodes    => n_nodes,
         :time_limit => time_limit,
         :scenario   => :notraffic))

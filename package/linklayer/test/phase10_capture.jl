@@ -22,7 +22,7 @@ using InetPacket.PacketModule
 # One captured bestcase run (5 nodes, 100 µs), returning (execution, capture).
 function _t1s_captured_bestcase(captures::Vector{Capture})
     t = SimulationType(T1sModel)
-    a = ParameterAssignment(Dict{Symbol,Any}(
+    a = ParameterBindings(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :bestcase))
     run = expand_configuration(configure_simulation(t, a))[1]
     ex = make_execution(run; engine = SequentialEngineSpec(),
@@ -115,7 +115,7 @@ end
     # notraffic: no frames anywhere, but the PLCA cycle is visible on the
     # wire — exactly the "whole network vs one protocol" scaling story.
     t = SimulationType(T1sModel)
-    a = ParameterAssignment(Dict{Symbol,Any}(
+    a = ParameterBindings(Dict{Symbol,Any}(
         :n_nodes => 5, :time_limit => 100e-6, :scenario => :notraffic))
     cap = Capture()
     ex = make_execution(expand_configuration(configure_simulation(t, a))[1];

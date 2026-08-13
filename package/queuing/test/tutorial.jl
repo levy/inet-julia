@@ -11,7 +11,7 @@ using OmnetppPresentation: SimulationEmbed, simulation_embed_entry, embed_finish
     embed_status, CatalogShellToWidget, catalog_pages, open_page!
 import OmnetppPresentation
 using OmnetppSimulator: workbench_result, workbench_assignment, model_topology,
-    build_model, model_parameter_space, resolve_parameters, ParameterAssignment
+    build_model, model_parameter_space, resolve_parameters, ParameterBindings
 # The renderer, the cell and graphics types, and `content`/`filename` are
 # reached as `Projectured.…` throughout this file, so the module itself has to
 # be in scope and not only the four names below.
@@ -584,7 +584,7 @@ function test_tutorial()
 
         @testset "the step's diagram is derived from its own wiring" begin
             model = build_model(QueuingModel,
-                resolve_parameters(model_parameter_space(QueuingModel), ParameterAssignment()))
+                resolve_parameters(model_parameter_space(QueuingModel), ParameterBindings()))
             labels, edges = model_topology(model)
             @test labels == ["Queuing.source", "Queuing.queue", "Queuing.server", "Queuing.sink"]
             @test edges == [(1, 2), (2, 3), (3, 4)]

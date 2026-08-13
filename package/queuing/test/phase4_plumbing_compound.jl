@@ -282,7 +282,7 @@ using OmnetppSimulator.VolatileModule
         # Everything the lifecycle needs comes from the network the elements
         # form: how many modules, which delay edges, what to start.
         type = SimulationType(QueuingModel)
-        assignment = ParameterAssignment(Dict{Symbol,Any}(
+        assignment = ParameterBindings(Dict{Symbol,Any}(
             :arrival_rate => 5.0, :service_rate => 10.0, :time_limit => 2000.0, :seed => 7))
         run = expand_configuration(configure_simulation(type, assignment))[1]
         execution = make_execution(run; engine = SequentialEngineSpec())

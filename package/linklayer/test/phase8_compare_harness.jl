@@ -123,7 +123,7 @@ const _INET_REF_DIR = joinpath(@__DIR__, "inet-reference")
         mktempdir() do tmp
             our_vec = joinpath(tmp, "notraffic.vec")
             t = SimulationType(T1sModel)
-            a = ParameterAssignment(Dict{Symbol,Any}(
+            a = ParameterBindings(Dict{Symbol,Any}(
                 :n_nodes    => 5,
                 :time_limit => 100e-6,
                 :scenario   => :notraffic,
