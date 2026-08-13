@@ -9,3 +9,6 @@ build/
 
 # The workload level is a person's choice, not the project's.
 LocalPreferences.toml
+
+# Local cache and memories of the serena MCP server.
+.serena/
