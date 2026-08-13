@@ -11,7 +11,7 @@ using OmnetppSimulator.NetworkModule
 using ProjecturedKernel.ReferenceModule: Reference, FieldReferenceStep, ElementReferenceStep
 
 # A push endpoint pair: `Producer` drives, `Consumer` accepts.
-mutable struct Producer <: SimulationModule
+mutable struct Producer <: AbstractModule
     name::Symbol
     module_id::Int
     out::Gate
@@ -30,7 +30,7 @@ end
 PacketProtocolModule.handle_can_push_packet_changed!(::Any, m::Producer, ::Gate) =
     (m.resumed += 1; nothing)
 
-mutable struct Consumer <: SimulationModule
+mutable struct Consumer <: AbstractModule
     name::Symbol
     module_id::Int
     in::Gate
@@ -52,7 +52,7 @@ PacketProtocolModule.push_packet!(::Any, m::Consumer, ::Gate, packet::Packet) =
     (push!(m.pushed, packet); nothing)
 
 # A pull endpoint pair: `Collector` drives, `Provider` hands packets over.
-mutable struct Provider <: SimulationModule
+mutable struct Provider <: AbstractModule
     name::Symbol
     module_id::Int
     out::Gate
@@ -72,7 +72,7 @@ PacketProtocolModule.can_pull_packet(m::Provider, ::Gate) =
     isempty(m.packets) ? nothing : m.packets[1]
 PacketProtocolModule.pull_packet!(::Any, m::Provider, ::Gate) = popfirst!(m.packets)
 
-mutable struct Collector <: SimulationModule
+mutable struct Collector <: AbstractModule
     name::Symbol
     module_id::Int
     in::Gate
@@ -93,7 +93,7 @@ PacketProtocolModule.handle_can_pull_packet_changed!(::Any, m::Collector, ::Gate
 
 # A transparent element: it takes packets in and passes them on, and answers a
 # lookup on behalf of whatever is behind it.
-mutable struct Relay <: SimulationModule
+mutable struct Relay <: AbstractModule
     name::Symbol
     module_id::Int
     in::Gate
@@ -113,7 +113,7 @@ function Relay(name::Symbol)
 end
 
 # A module that decides in code rather than by claims — the dispatcher pattern.
-mutable struct Chooser <: SimulationModule
+mutable struct Chooser <: AbstractModule
     name::Symbol
     module_id::Int
     in::Gate

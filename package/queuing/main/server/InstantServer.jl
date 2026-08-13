@@ -16,7 +16,7 @@ whole burst is one event and not one event per packet.
 module InstantServerElement
 
 using OmnetppSimulator: SimTime, ZERO_DELAY, schedule_event!, NetworkModule
-using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,

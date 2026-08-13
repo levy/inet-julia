@@ -44,14 +44,14 @@ those is what the macro is supposed to stop a person writing.
 **The macro generates the module contract that already exists.** It does not
 introduce a second runtime.
 
-`OmnetppSimulator.NetworkModule` gives `SimulationModule`, `Gate`, `add_module!`,
+`OmnetppSimulator.NetworkModule` gives `AbstractModule`, `Gate`, `add_module!`,
 `connect_gates!` and the two initialization stages, and every element implements that
 contract today. `@simulation_module` emits a struct that satisfies it — a
 `name`, a `module_id`, the gate fields — plus the seams and the generated
 `reset_module!`.
 
 So an element moves on its own, the suite stays green between elements, and no
-element ever has to work twice. A big-bang port onto a new `SimulationModule`
+element ever has to work twice. A big-bang port onto a new `AbstractModule`
 runtime would need the whole anatomy first, and the first-run plan already
 showed that is not necessary to make progress.
 
@@ -419,7 +419,7 @@ so it is worth running by hand after anything that touches a compound.
 
 - `InetLinkLayer`. `T1sModel` builds a network by hand too, and it gets its own
   plan, as `queueing-tutorial-from-ned-ini.md` §4 already said.
-- The anatomy's `SimulationModule` runtime, §12's model, §17's instance. The
+- The anatomy's `AbstractModule` runtime, §12's model, §17's instance. The
   macro targets the module contract that exists.
 - §5's seed at a reference and §16's derivation. Phase 1 keeps today's seeding.
 - Making a statistic carry a unit or a recording mode. §28 will want it; nothing

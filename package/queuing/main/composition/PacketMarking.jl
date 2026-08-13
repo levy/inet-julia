@@ -23,7 +23,7 @@ downstream of a cloner mark each copy differently.
 module PacketMarkingModule
 
 using OmnetppSimulator: NetworkModule, MersenneTwister
-using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using OmnetppSimulator.VolatileModule: evaluate
 using InetPacket.PacketModule: Packet, dup, bits, data_length

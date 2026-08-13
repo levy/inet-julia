@@ -11,7 +11,7 @@ using InetQueuing: ActivePacketSourceModule,
     PassivePacketSourceModule,
     ActivePacketSinkModule,
     PassivePacketSinkModule, PacketTemplate, check_packet_connections
-using OmnetppSimulator: AbstractModel, SimulationEngine, AResolvedParameters,
+using OmnetppSimulator: AbstractModel, AbstractEngine, AResolvedParameters,
     Parameter, ParameterSpace, StructuralDOF, StochasticDOF, SimTimeLimit,
     schedule_root!, stop!, to_simtime
 using OmnetppSimulator.NetworkModule: Network, add_module!, connect_gates!,
@@ -91,7 +91,7 @@ end
 reset_model!(m::AActiveSourcePassiveSinkModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::AActiveSourcePassiveSinkModel,
-                                  engine::SimulationEngine, recorder)
+                                  engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -166,7 +166,7 @@ end
 reset_model!(m::APassiveSourceActiveSinkModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::APassiveSourceActiveSinkModel,
-                                  engine::SimulationEngine, recorder)
+                                  engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),

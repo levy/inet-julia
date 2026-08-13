@@ -97,7 +97,7 @@ end
 
 reset_model!(m::AQueuingModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::AQueuingModel, engine::SimulationEngine, recorder)
+function schedule_initial_events!(m::AQueuingModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     # The run ends by the clock rather than by running out of packets: the

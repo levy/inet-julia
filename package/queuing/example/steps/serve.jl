@@ -82,7 +82,7 @@ end
 
 reset_model!(m::APriorityQueueModel) = (reset_network!(m.network); m)
 
-function schedule_initial_events!(m::APriorityQueueModel, engine::SimulationEngine, recorder)
+function schedule_initial_events!(m::APriorityQueueModel, engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),
@@ -166,7 +166,7 @@ end
 reset_model!(m::ABackpressureFilterModel) = (reset_network!(m.network); m)
 
 function schedule_initial_events!(m::ABackpressureFilterModel,
-                                  engine::SimulationEngine, recorder)
+                                  engine::AbstractEngine, recorder)
     register_network_statistics!(m.network, recorder)
     start_network!(engine, m.network)
     schedule_root!(engine, to_simtime(m.time_limit), model_barrier_module(m),

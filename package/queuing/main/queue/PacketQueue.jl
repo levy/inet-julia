@@ -22,7 +22,7 @@ comparator ranks first rather than whatever arrived first.
 module PacketQueueElement
 
 using OmnetppSimulator: SimTime, seconds, to_simtime, NetworkModule
-using OmnetppSimulator.NetworkModule: SimulationModule, Gate, Network, module_id,
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, Network, module_id,
     @simulation_module, decorate_module!
 using InetPacket.PacketModule: Packet, BitLength, Bits, Bytes, bits, data_length
 using InetCommon.LookupModule: ModuleRef, NO_MODULE_REF, InterfaceClaim, ForwardClaim,

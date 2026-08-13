@@ -14,7 +14,7 @@ queueing behind it.
 module ActivePacketSourceElement
 
 using OmnetppSimulator: SimTime, to_simtime, ZERO_DELAY, schedule_event!, MersenneTwister, NetworkModule
-using OmnetppSimulator.NetworkModule: SimulationModule, Gate, GateOutput, Network,
+using OmnetppSimulator.NetworkModule: AbstractModule, Gate, GateOutput, Network,
     output_gate, module_id, @simulation_module, decorate_module!
 using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, schedule_timer!
 using OmnetppSimulator.VolatileModule: evaluate

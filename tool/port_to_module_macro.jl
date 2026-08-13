@@ -235,7 +235,7 @@ function collect_elements!(elements, structs, struct_fields, file, tree)
                     for item in kids(kids(n)[2])
                     for f in (declared_field(item),) if f !== nothing)
             end
-            if kd(head) == JS.K"<:" && simple_name(kids(head)[2]) === :SimulationModule &&
+            if kd(head) == JS.K"<:" && simple_name(kids(head)[2]) === :AbstractModule &&
                name !== nothing && !haskey(elements, name)
                 elements[name] = Element(name, file, false, Dict{Symbol,Symbol}())
             end

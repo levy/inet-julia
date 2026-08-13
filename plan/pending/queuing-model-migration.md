@@ -179,12 +179,12 @@ the future declarative module description, `plan/pending/native-module-descripti
 generate these values):
 
 ```julia
-abstract type SimulationModule end        # supertype of every StemModule
+abstract type AbstractModule end        # supertype of every StemModule
 
 @enum GateDirection GateInput GateOutput
 
 mutable struct Gate
-    owner::Any                    # the SimulationModule (Any: no circular type refs)
+    owner::Any                    # the AbstractModule (Any: no circular type refs)
     name::Symbol
     index::Int                    # 1-based position in a gate vector; 1 for scalar gates
     direction::GateDirection
@@ -209,7 +209,7 @@ init hooks), data types + core operations, `ModuleDefaults.jl`. Details:
   it from `Omnetpp`, tests stay green).
 - Network-builder helpers: modid assignment, `model_delay_edges` derived from connections,
   the two-stage init driver (§3.10).
-- Note: `SimulationModule` (a network component) vs `AbstractModel` (a whole simulation) are
+- Note: `AbstractModule` (a network component) vs `AbstractModel` (a whole simulation) are
   one letter apart; this mirrors the OMNeT++ module/model vocabulary and is accepted.
 
 **inet-julia** keeps the INET half:
@@ -505,7 +505,7 @@ The INET stage system collapses to two (more only when a future model demands it
 
 | INET / OMNeT++ | Julia port |
 |---|---|
-| `cModule` / `cGate` (omnetpp kernel) | omnetpp-julia `src/model/module/` (`SimulationModule`, `Gate`) |
+| `cModule` / `cGate` (omnetpp kernel) | omnetpp-julia `src/model/module/` (`AbstractModule`, `Gate`) |
 | `queueing/` | inet-julia `package/queuing/main/` |
 | `queueing/contract/*.h` | `package/queuing/main/contract/*.jl` interface specification files (tokens + method vocabularies) |
 | `PacketProcessorBase` etc. base classes | `ContractDefaults.jl` + shared helpers + composition — no base-class towers |
@@ -548,7 +548,7 @@ element:
 Each phase = one commit series in the worktree; check off + append implementation notes here.
 
 ### Phase 0a — module kernel (omnetpp-julia, `src/model/module/`)
-- [x] `SimulationModule`, `Gate`, `GateDirection`, `connect_gates!`, chain traversal, compound
+- [x] `AbstractModule`, `Gate`, `GateDirection`, `connect_gates!`, chain traversal, compound
       boundary gates, `annotations` slot — separate Julia-module source files,
       `using`-linked, with the `ModuleInterface.jl` / `ModuleDefaults.jl` split
 - [x] `TimerHandle` moved here from `T1sModule` (t1s updated; tests still green)
