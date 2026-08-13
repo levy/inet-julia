@@ -12,7 +12,7 @@ Two upstream documents bind transitively and are not restated here:
   `../omnetpp-julia/documentation/architecture-requirements.md`. Every protocol
   model runs on the event path of that engine, so its determinism, event-path
   and observation rules apply to code in this repository verbatim.
-- the ProjecturEd architecture requirements — `AR-…` in
+- the ProjecturEd architecture requirements — `PAR-…` in
   `../projectured-julia/documentation/architecture-requirements.md`. The
   package/layer/slice/module division, naming, import and docstring disciplines
   apply to this repository as to any repository in the family.
@@ -21,6 +21,15 @@ This document adds only what is specific to the network-model layer. Each rule
 has a permanent ID (`IAR-…`): never reused, names the rule not its section, and
 is its own heading, so it can be cited as
 [IAR-EDIT-THE-MACHINE](architecture-requirements.md#iar-edit-the-machine).
+
+**A prefix names the repository that owns the rule**, so a citation says which
+document to open without a link:
+
+| repository | product | architectural |
+| --- | --- | --- |
+| projectured-julia | `PR-` | `PAR-` |
+| omnetpp-julia | `OR-` | `OAR-` |
+| **inet-julia** | **`IR-`** | **`IAR-`** |
 
 ## Index
 
