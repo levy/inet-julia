@@ -589,7 +589,7 @@ view of the same machine rather than a second implementation.
 
 Run does collect its results: when the driver task ends and the run actually
 reached its end, the result stage is advanced — on a task, never in a cell
-(AR-NO-WRITE-IN-THUNK). `embed_finish!` is the synchronous counterpart, which
+(PAR-NO-WRITE-IN-THUNK). `embed_finish!` is the synchronous counterpart, which
 is how a test (or a batch render) runs a page's simulations without a driver.
 
 `simulation_embed_entry()` is the renderer entry a page needs:
@@ -859,7 +859,7 @@ The pane is live for a reason worth remembering: **the modules are native
 objects the engine mutates in place**, so a cell that read them would never be
 invalidated. The text is written by a refresh hook — the same per-slice moment
 the execution view uses, and a hook is an imperative context where writing a
-cell is allowed (AR-NO-WRITE-IN-THUNK forbids only thunks).
+cell is allowed (PAR-NO-WRITE-IN-THUNK forbids only thunks).
 
 `embed_topology_lines` is still there and still says all of it as text, for
 somewhere a diagram cannot go — a log, a report, an assertion.

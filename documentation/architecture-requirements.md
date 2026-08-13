@@ -103,7 +103,7 @@ the resolver enforces it on every instantiation. A change that needs the
 
 **New material sinks to the lowest package; a package is earned, not
 convenient.** Every piece of code lives in the lowest package of the DAG whose
-API it hard-references (the upstream rule [AR-LOWEST-PACKAGE] applied here). A
+API it hard-references (the upstream rule [PAR-LOWEST-PACKAGE] applied here). A
 new package is earned only by a genuinely different dependency or consumer set
 — it costs a `Project.toml`, a UUID and a `[sources]` entry in everything
 downstream. A second protocol is a slice inside `linklayer`, not a new package;
@@ -138,7 +138,7 @@ The roles an element can play are open generic functions —
 their families, declared bodiless in `package/queuing/main/contract/` — and an
 element participates by adding methods, not by inheriting an interface type.
 This is the INET module-interface idea re-expressed the Julia way: multiple
-dispatch is the registration ([AR-FRAMEWORKS-SINK]), and no
+dispatch is the registration ([PAR-FRAMEWORKS-SINK]), and no
 `IPassivePacketSink`-style interface classes exist to transliterate.
 
 ### IAR-DERIVE-DONT-TRANSLITERATE
@@ -263,8 +263,8 @@ Cited upstream rules: `AR-…` resolve in
 `../omnetpp-julia/documentation/deferred-requirements.md`; `IR-…` in
 [requirements.md](requirements.md).
 
-[AR-LOWEST-PACKAGE]: ../../projectured-julia/documentation/architecture-requirements.md#ar-lowest-package
-[AR-FRAMEWORKS-SINK]: ../../projectured-julia/documentation/architecture-requirements.md#ar-frameworks-sink
+[PAR-LOWEST-PACKAGE]: ../../projectured-julia/documentation/architecture-requirements.md#par-lowest-package
+[PAR-FRAMEWORKS-SINK]: ../../projectured-julia/documentation/architecture-requirements.md#par-frameworks-sink
 [OAR-FRESH-BUILD-PER-EXECUTION]: ../../omnetpp-julia/documentation/architecture-requirements.md#oar-fresh-build-per-execution
 [OAR-DETERMINISM-NEUTRAL-RECORDING]: ../../omnetpp-julia/documentation/architecture-requirements.md#oar-determinism-neutral-recording
 [OAR-ZERO-COST-WHEN-OFF]: ../../omnetpp-julia/documentation/architecture-requirements.md#oar-zero-cost-when-off
