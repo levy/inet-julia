@@ -6,7 +6,7 @@ entryfile = "InetQueuingTest.jl"
 
 # Test package for InetQueuing — one phase per wave of
 # plan/pending/queuing-model-migration.md, each driving elements inside a real
-# SequentialSimulator. It also covers InetCommon's lookup (phase0), whose tests
+# SequentialEngine. It also covers InetCommon's lookup (phase0), whose tests
 # are written against the packet protocol and so belong on this side of the
 # dependency edge.
 #

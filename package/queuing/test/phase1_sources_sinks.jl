@@ -126,7 +126,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         @test offered !== nothing
         @test can_pull_packet(sink.provider) === offered
         @test source.num_packets == 0        # looking is not taking
-        engine = SequentialSimulator(network_module_count(network))
+        engine = SequentialEngine(network_module_count(network))
         schedule_root!(engine, to_simtime(0.0), module_id(sink), function (ctx)
             @test pull_packet!(ctx, sink.provider) === offered
         end)

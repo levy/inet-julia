@@ -6,7 +6,7 @@ using OmnetppSimulator
 using InetPacket.PacketModule
 using InetLinkLayer.T1sModule
 
-_build_sim(n::Int) = SequentialSimulator(n)
+_build_sim(n::Int) = SequentialEngine(n)
 
 @testset "SourceConfig — fixed interval defaults" begin
     cfg = SourceConfig(dst_address = UInt64(0x1), interval = 5e-6,

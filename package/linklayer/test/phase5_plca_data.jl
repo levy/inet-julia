@@ -10,7 +10,7 @@ using OmnetppSimulator
 using InetPacket.PacketModule
 using InetLinkLayer.T1sModule
 
-_build_sim(n::Int) = SequentialSimulator(n)
+_build_sim(n::Int) = SequentialEngine(n)
 
 # Recording downlink that ALSO simulates PHY's synchronous CRS callbacks —
 # same trick as phase 4, so PLCA sees CRS toggle correctly without a real PHY.

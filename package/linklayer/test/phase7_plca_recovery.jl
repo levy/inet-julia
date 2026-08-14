@@ -12,7 +12,7 @@ using OmnetppSimulator
 using InetPacket.PacketModule
 using InetLinkLayer.T1sModule
 
-_build_sim(n::Int) = SequentialSimulator(n)
+_build_sim(n::Int) = SequentialEngine(n)
 
 @testset "DATA_S_HOLD → DATA_S_COLLIDE via hold_timer expiry" begin
     sim = _build_sim(2)

@@ -15,7 +15,7 @@ peers, check the wiring, declare the statistics, start the modules, run until
 function run_network!(network; until::Real = 1.0, recorder = nothing)
     initialize_network!(network)
     check_packet_connections(network)
-    engine = SequentialSimulator(network_module_count(network))
+    engine = SequentialEngine(network_module_count(network))
     engine.limit = simulation_limit(simulation_time = Float64(until))
     register_network_statistics!(network, recorder)
     start_network!(engine, network)

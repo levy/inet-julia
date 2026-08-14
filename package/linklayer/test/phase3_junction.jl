@@ -11,7 +11,7 @@ using InetPacket.PacketModule
 using InetLinkLayer.T1sModule
 
 # Helper: build a sim with `n` modules — module_ids are 1..n.
-_build_sim(n::Int) = SequentialSimulator(n)
+_build_sim(n::Int) = SequentialEngine(n)
 
 # Helper: hook a PHY into a junction port. Returns the port index.
 function _wire_phy_to_junction!(j, phy::PhyState, delay::SimTime)

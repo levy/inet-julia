@@ -12,7 +12,7 @@ using OmnetppSimulator
 using InetPacket.PacketModule
 using InetLinkLayer.T1sModule
 
-_build_sim(n::Int) = SequentialSimulator(n)
+_build_sim(n::Int) = SequentialEngine(n)
 
 # Recording downlink for signal-tx observation.
 struct RecordedSignalTx

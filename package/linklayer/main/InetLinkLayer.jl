@@ -20,7 +20,7 @@ using InetPacket.PacketModule
 # --- what the protocol models need from the kernel --------------------------
 # Time, scheduling and the engine/model interface.
 using OmnetppSimulator: SimTime, to_simtime, EventContext, schedule_event!,
-    schedule_root!, stop!, AbstractEngine, AbstractParallelEngine, AbstractModel,
+    schedule_root!, stop!, AbstractEngine, AParallelEngine, AbstractModel,
     LimitReached
 # Parameterization: a model declares its degrees of freedom, the lifecycle
 # resolves them and hands back a `ResolvedParameters`.

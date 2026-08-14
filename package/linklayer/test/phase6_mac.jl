@@ -9,7 +9,7 @@ using OmnetppSimulator
 using InetPacket.PacketModule
 using InetLinkLayer.T1sModule
 
-_build_sim(n::Int) = SequentialSimulator(n)
+_build_sim(n::Int) = SequentialEngine(n)
 
 # Recording downlink to observe MAC's calls into PLCA.
 function _rec_mac_downlink(log::Vector)

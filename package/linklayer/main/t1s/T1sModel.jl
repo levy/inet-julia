@@ -490,7 +490,7 @@ function make_recorder(m::AT1sModel, engine::AbstractEngine)
     rec = Recorder()
     path = _t1s_vec_path(m)
     if path !== nothing
-        run_name = engine isa AbstractParallelEngine ? "parallel" : "sequential"
+        run_name = engine isa AParallelEngine ? "parallel" : "sequential"
         attach_sink!(rec, OmnetppTextSink(path; run_name = run_name))
     end
     rec
