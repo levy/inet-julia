@@ -251,7 +251,7 @@
     schedule_timer!(ctx, to_simtime(slot * SLOT_BIT_LENGTH_10MB / m.bitrate), m.module_id, m.backoff_timer, (ctx2) -> _mac_expire_backoff_timer!(ctx2, m))
   end
   function _mac_abort_transmission!(ctx, m::MacState)
-    cancel!(m.tx_timer)
+    cancel_timer!(m.tx_timer)
     fsm_defer!(m.fsm_mac, () -> m.downlink.end_frame_tx(ctx))
     fsm_defer!(m.fsm_mac, () -> m.downlink.start_signal_tx(ctx, SIG_JAM))
   end

@@ -45,7 +45,7 @@ end
     h = TimerHandle()
     schedule_root!(sim, to_simtime(0.0), 2, ctx -> begin
         schedule_timer!(ctx, to_simtime(1e-6), 2, h, _ -> (fired[] += 1))
-        cancel!(h)
+        cancel_timer!(h)
     end)
     _run!(sim)
     @test fired[] == 0

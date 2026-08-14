@@ -223,7 +223,7 @@ function _do_start_tx!(ctx, phy::PhyState, sig::WireEvent)
         phy.upcalls.carrier_sense_start(ctx, phy.upper_ptr)
     elseif prev === PHY_CRS_ON
         _phy_transition!(phy, ctx, PHY_TRANSMITTING)
-        cancel!(phy.crs_off_timer)
+        cancel_timer!(phy.crs_off_timer)
         _install_tx!(ctx, phy, sig)
         # No carrier_sense_start — already up from previous tx/rx.
     elseif prev === PHY_RECEIVING
@@ -319,7 +319,7 @@ function phy_rx_start!(ctx, phy::PhyState, sig::WireEvent)
         phy.upcalls.reception_start(ctx, phy.upper_ptr, sig)
     elseif prev === PHY_CRS_ON
         _phy_transition!(phy, ctx, PHY_RECEIVING)
-        cancel!(phy.crs_off_timer)
+        cancel_timer!(phy.crs_off_timer)
         # No carrier_sense_start — carrier is already up.
         phy.upcalls.reception_start(ctx, phy.upper_ptr, sig)
     elseif prev === PHY_TRANSMITTING
@@ -343,7 +343,7 @@ end
 # --- Timer callbacks --------------------------------------------------------
 
 function _reschedule_rx_end!(ctx, phy::PhyState)
-    isempty(phy.rx_signals) && (cancel!(phy.rx_end_timer); return)
+    isempty(phy.rx_signals) && (cancel_timer!(phy.rx_end_timer); return)
     max_end = maximum(r.rx_end_time for r in phy.rx_signals)
     delay = max_end - ctx.timestamp
     schedule_timer!(ctx, delay, phy.module_id, phy.rx_end_timer,

@@ -23,7 +23,7 @@ using OmnetppSimulator: SimTime, to_simtime, schedule_event!, schedule_root!, Ev
                emit_indexed_vector!, record_scalar!, seconds
 # Cancellable timers are a kernel utility rather than a 10BASE-T1S one; they are
 # re-exported below so this module's names stay in a single list.
-using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, cancel!, schedule_timer!
+using OmnetppSimulator.TimerModule: TimerHandle, is_scheduled, cancel_timer!, schedule_timer!
 # The MAC's transition logic is generated (see `Mac.jl`); this is the runtime
 # it dispatches on.
 using OmnetppSimulator.FsmModule: Fsm, fsm_state, fsm_enter!, fsm_leave!, fsm_goto!,
@@ -39,7 +39,7 @@ export
     EthernetSignalKind, SIG_NONE, SIG_BEACON, SIG_COMMIT, SIG_DATA, SIG_JAM,
     EthernetEsdKind, ESD_NONE, ESD_ESD, ESD_BRS, ESD_OK, ESD_ERR, ESD_JAB,
     WireEvent,
-    TimerHandle, is_scheduled, cancel!, schedule_timer!,
+    TimerHandle, is_scheduled, cancel_timer!, schedule_timer!,
     # PHY
     PhyFsmState, PHY_IDLE, PHY_TRANSMITTING, PHY_RECEIVING, PHY_COLLISION, PHY_CRS_ON,
     PhyState, PhyUpcalls, PhyDownlink, NO_UPCALLS, NO_DOWNLINK, recording_upcalls,

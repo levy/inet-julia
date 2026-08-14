@@ -280,7 +280,7 @@
                           else
                             if fsm_state(m.fsm_control) == CONTROL_S_BURST
                               if m.tx_en
-                                cancel!(m.burst_timer)
+                                cancel_timer!(m.burst_timer)
                                 fsm_goto!(m.fsm_control, CONTROL_S_TRANSMIT, 23)
                                 prev = _from
                                 ev = event
@@ -411,7 +411,7 @@
           else
             if fsm_state(m.fsm_data) == DATA_S_HOLD
               if _is_event && event == E_COMMIT_TO
-                cancel!(m.hold_timer)
+                cancel_timer!(m.hold_timer)
                 fsm_goto!(m.fsm_data, DATA_S_TRANSMIT, 6)
                 prev = _from
                 ev = event
@@ -630,14 +630,14 @@
     m.packets_in_to = 0
   end
   function _plca_enter_early_receive!(ctx, m::PlcaState)
-    cancel!(m.to_timer)
+    cancel_timer!(m.to_timer)
     schedule_timer!(ctx, _bits_to_time(m, m.config.beacon_det_timer_length_bits), m.module_id, m.beacon_det_timer, (ctx2) -> handle_with_control_fsm!(ctx2, m))
   end
   function _plca_enter_commit!(ctx, m::PlcaState)
     _set_tx_cmd!(m, ctx, CMD_COMMIT)
     m.downlink.start_signal_tx(ctx, SIG_COMMIT)
     m.committed = true
-    cancel!(m.to_timer)
+    cancel_timer!(m.to_timer)
     m.bc = 0
     fsm_defer!(m.fsm_control, () -> m.upcalls.commit_to(ctx, m))
   end
@@ -704,7 +704,7 @@
     m.packet_arrival_time = ctx.timestamp
   end
   function _plca_abandon_frame!(ctx, m::PlcaState)
-    cancel!(m.hold_timer)
+    cancel_timer!(m.hold_timer)
     m.current_tx = nothing
   end
   function _plca_finish_frame!(ctx, m::PlcaState)
