@@ -37,7 +37,9 @@ using OmnetppSimulator
         @test length(v_curid.samples) == 3
         @test v_curid.samples[1].value == 0.0
         @test v_curid.samples[3].value == 2.0
-        @test v_curid.samples[3].time ≈ 10e-6 atol = 1e-15
+        # Exact, and no tolerance: the reader takes the time through the
+        # integer magnitude now, so a time read back IS the time written.
+        @test v_curid.samples[3].time == to_simtime(10e-6)
 
         v_delay = find_vector(file, "Net.node[1].plca", "packetPendingDelay")
         @test v_delay !== nothing
