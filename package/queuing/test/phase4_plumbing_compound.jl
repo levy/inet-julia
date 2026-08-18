@@ -198,14 +198,12 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a drawn delay reorders packets" begin
-        network = Network(:Jitter; rules = queuing_rng_rules())
+        network = Network(:Jitter; rules = queuing_rng_rules(source = 6, delayer = 8))
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1,
-            packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
-            seed = 6))
+            packet = PacketTemplate(length = Volatile(intuniform(80, 800)))))
         delayer = add_module!(network, PacketDelayerModule(:delayer;
-            delay = Volatile(uniform(0.05, 0.5)),
-            seed = 8))
+            delay = Volatile(uniform(0.05, 0.5))))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
         connect_gates!(source.out, delayer.in)
         connect_gates!(delayer.out, sink.in)
@@ -218,11 +216,10 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a priority queue behaves like one queue" begin
-        network = Network(:Compound; rules = queuing_rng_rules())
+        network = Network(:Compound; rules = queuing_rng_rules(source = 3))
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.05,
-            packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
-            seed = 3))
+            packet = PacketTemplate(length = Volatile(intuniform(80, 800)))))
         # Short packets are urgent, the rest are not.
         urgent_first = content_based_classifier(:classifier,
             [packet -> bits(data_length(packet)) < 400, _ -> true])

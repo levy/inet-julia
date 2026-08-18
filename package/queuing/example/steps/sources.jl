@@ -71,7 +71,7 @@ function build_model(::Type{ActiveSourcePassiveSinkModel}, r::AResolvedParameter
 end
 
 function _build_source_sink_network(m)
-    network = Network(:SourceSink; rules = queuing_rng_rules())
+    network = Network(:SourceSink; rules = queuing_rng_rules(source = m.seed))
     # A fixed interval produces a packet like clockwork; an exponential one
     # produces a Poisson process with the same mean, which is what the arrival
     # streams of every later step are made of.
@@ -79,8 +79,7 @@ function _build_source_sink_network(m)
                                     m.production_interval
     source = add_module!(network, ActivePacketSourceModule(:source;
         production_interval = interval,
-        packet = PacketTemplate(length = Bytes(m.packet_bytes)),
-        seed = m.seed))
+        packet = PacketTemplate(length = Bytes(m.packet_bytes))))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
     connect_gates!(source.out, sink.in)
     initialize_network!(network)
@@ -148,15 +147,13 @@ function build_model(::Type{PassiveSourceActiveSinkModel}, r::AResolvedParameter
 end
 
 function _build_pull_network(m)
-    network = Network(:PullSourceSink; rules = queuing_rng_rules())
+    network = Network(:PullSourceSink; rules = queuing_rng_rules(source = m.seed, sink = m.seed + 1))
     source = add_module!(network, PassivePacketSourceModule(:source;
-        packet = PacketTemplate(length = Bytes(m.packet_bytes)),
-        seed = m.seed))
+        packet = PacketTemplate(length = Bytes(m.packet_bytes))))
     interval = m.random_intervals ? Volatile(exponential(m.collection_interval)) :
                                     m.collection_interval
     sink = add_module!(network, ActivePacketSinkModule(:sink;
-        collection_interval = interval,
-        seed = m.seed + 1))
+        collection_interval = interval))
     connect_gates!(source.out, sink.in)
     initialize_network!(network)
     check_packet_connections(network)

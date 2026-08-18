@@ -163,7 +163,6 @@ path whose delay varies reorders what crosses it.
 @simulation_module struct PacketDelayerModule
     @parameters begin
         delay::Any                                     # no default: held for how long?
-        seed::Int = 0
     end
     @gates begin
         in::InputGate

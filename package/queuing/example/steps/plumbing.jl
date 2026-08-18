@@ -59,12 +59,11 @@ function build_model(::Type{DelayerModel}, r::AResolvedParameters)
 end
 
 function _build_delayer_network(m)
-    network = Network(:Delayer; rules = queuing_rng_rules())
+    network = Network(:Delayer; rules = queuing_rng_rules(delayer = m.seed + 1))
     source = _step_source(network, m)
     delay = m.random_delay ? Volatile(exponential(m.delay)) : m.delay
     delayer = add_module!(network, PacketDelayerModule(:delayer;
-        delay = delay,
-        seed = m.seed + 1))
+        delay = delay))
     sink = _step_sink(network, :sink)
     connect_gates!(source.out, delayer.in)
     connect_gates!(delayer.out, sink.in)
@@ -127,7 +126,9 @@ function build_model(::Type{MultiplexerModel}, r::AResolvedParameters)
 end
 
 function _build_multiplexer_network(m)
-    network = Network(:Multiplexer; rules = queuing_rng_rules())
+    network = Network(:Multiplexer;
+                      rules = queuing_rng_rules(
+                          (Symbol(:source, i) => m.seed + i for i in 1:m.sources)...))
     join = add_module!(network, PacketMultiplexerModule(:multiplexer; inputs = m.sources))
     sink = _step_sink(network, :sink)
     connect_gates!(join.out, sink.in)
@@ -135,8 +136,7 @@ function _build_multiplexer_network(m)
     for index in 1:m.sources
         source = add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
             production_interval = Volatile(exponential(1 / m.arrival_rate)),
-            packet = PacketTemplate(length = Bytes(100)),
-            seed = m.seed + index))
+            packet = PacketTemplate(length = Bytes(100))))
         connect_gates!(source.out, join.in[index])
     end
     initialize_network!(network)
@@ -201,19 +201,20 @@ function build_model(::Type{DemultiplexerModel}, r::AResolvedParameters)
 end
 
 function _build_demultiplexer_network(m)
-    network = Network(:Demultiplexer; rules = queuing_rng_rules())
+    network = Network(:Demultiplexer;
+                        rules = queuing_rng_rules(
+                            (Symbol(:sink, i) => m.seed + i for i in 1:m.sinks)...;
+                            source = m.seed))
     # A demultiplexer sits on the PULL side: one provider, several collectors.
     source = add_module!(network, PassivePacketSourceModule(:source;
-        packet = PacketTemplate(length = Bytes(100)),
-        seed = m.seed))
+        packet = PacketTemplate(length = Bytes(100))))
     fork = add_module!(network, PacketDemultiplexerModule(:demultiplexer; outputs = m.sinks))
     connect_gates!(source.out, fork.in)
     # Each sink collects on its own clock, so which one gets a given packet is
     # decided by who asks first.
     for index in 1:m.sinks
         sink = add_module!(network, ActivePacketSinkModule(Symbol(:sink, index);
-            collection_interval = m.collection_interval,
-            seed = m.seed + index))
+            collection_interval = m.collection_interval))
         connect_gates!(fork.out[index], sink.in)
     end
     initialize_network!(network)

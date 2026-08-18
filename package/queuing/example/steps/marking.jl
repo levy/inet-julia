@@ -54,12 +54,11 @@ function build_model(::Type{LabelerModel}, r::AResolvedParameters)
 end
 
 function _build_labeler_network(m)
-    network = Network(:Labeling; rules = queuing_rng_rules())
+    network = Network(:Labeling; rules = queuing_rng_rules(labeler = m.seed + 1))
     # The source writes nothing — the packets are plain.
     source = _step_source(network, m)
     labeler = add_module!(network, PacketLabelerModule(:labeler;
-        label = Volatile(intuniform(1, m.labels)),
-        seed = m.seed + 1))
+        label = Volatile(intuniform(1, m.labels))))
     # And the classifier sorts by exactly what the labeler wrote.
     predicates = Any[]
     for label in 1:(m.labels - 1)

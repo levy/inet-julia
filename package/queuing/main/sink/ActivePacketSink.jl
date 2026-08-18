@@ -39,7 +39,6 @@ means it collects its first packet as the simulation starts.
     @parameters begin
         collection_interval::Any                       # no default: it must be given
         initial_collection_offset::Float64 = -1.0
-        seed::Int = 0
     end
     @gates begin
         in::InputGate

@@ -46,7 +46,6 @@ packet, and is the end-to-end delay of the chain.
     @parameters begin
         consumption_interval::Any = 0.0
         initial_consumption_offset::Float64 = 0.0
-        seed::Int = 0
     end
     @gates begin
         in::InputGate

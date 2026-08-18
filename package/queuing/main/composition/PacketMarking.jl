@@ -56,7 +56,6 @@ vocabulary.
 @simulation_module struct PacketLabelerModule
     @parameters begin
         label::Any                                     # no default: labelled with what?
-        seed::Int = 0
     end
     @gates begin
         in::InputGate

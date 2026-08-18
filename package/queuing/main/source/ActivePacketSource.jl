@@ -43,7 +43,6 @@ appears, and negative — the default — means at once.
         production_interval::Any                       # no default: it must be given
         initial_production_offset::Float64 = -1.0
         packet::PacketTemplate = PacketTemplate()
-        seed::Int = 0
     end
     @gates begin
         out::OutputGate

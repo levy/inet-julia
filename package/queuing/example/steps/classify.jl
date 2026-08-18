@@ -25,8 +25,7 @@ export ContentBasedClassifierModel, PriorityQueueChainModel, FilterModel,
 _step_source(network, m; data = nothing) =
     add_module!(network, ActivePacketSourceModule(:source;
         production_interval = Volatile(exponential(1 / m.arrival_rate)),
-        packet = PacketTemplate(length = Bytes(100), data = data),
-        seed = m.seed))
+        packet = PacketTemplate(length = Bytes(100), data = data)))
 
 _step_sink(network, name::Symbol) = add_module!(network, PassivePacketSinkModule(name))
 
@@ -77,7 +76,7 @@ end
 _class_predicate(class::Int) = packet -> packet_data(packet) == class
 
 function _build_content_classifier_network(m)
-    network = Network(:ContentClassifier; rules = queuing_rng_rules())
+    network = Network(:ContentClassifier; rules = queuing_rng_rules(source = m.seed))
     # Each packet gets a class written on it, drawn uniformly.
     source = _step_source(network, m; data = Volatile(intuniform(1, m.classes)))
     # One predicate per output, reading the value back off the packet. The last
@@ -159,7 +158,7 @@ function build_model(::Type{PriorityQueueChainModel}, r::AResolvedParameters)
 end
 
 function _build_priority_chain_network(m)
-    network = Network(:Priority; rules = queuing_rng_rules())
+    network = Network(:Priority; rules = queuing_rng_rules(source = m.seed))
     source = _step_source(network, m)
     # A priority classifier sends each packet to the first output that will
     # take it, so the small queue is preferred until it is full.
@@ -242,7 +241,7 @@ function build_model(::Type{FilterModel}, r::AResolvedParameters)
 end
 
 function _build_filter_network(m)
-    network = Network(:Filter; rules = queuing_rng_rules())
+    network = Network(:Filter; rules = queuing_rng_rules(source = m.seed))
     source = _step_source(network, m; data = Volatile(intuniform(1, m.classes)))
     keep = m.keep
     filter = add_module!(network, PacketFilterModule(:filter;
@@ -354,7 +353,7 @@ _shared_chain_queue_parameters(m) =
     m.policy === :priority ? (packet_capacity = 10,) : (;)
 
 function _build_shared_chain_network(m)
-    network = Network(:Shared; rules = queuing_rng_rules())
+    network = Network(:Shared; rules = queuing_rng_rules(source = m.seed))
     source = _step_source(network, m)
     fork = add_module!(network, _shared_chain_classifier(m))
     parameters = _shared_chain_queue_parameters(m)
@@ -438,7 +437,7 @@ function build_model(::Type{NamedPolicyModel}, r::AResolvedParameters)
 end
 
 function _build_named_policy_network(m)
-    network = Network(:NamedPolicy; rules = queuing_rng_rules())
+    network = Network(:NamedPolicy; rules = queuing_rng_rules(source = m.seed))
     source = _step_source(network, m; data = Volatile(intuniform(1, m.classes)))
     # The name and its argument come from the step file; the predicate is built
     # here, and an unregistered name fails loudly rather than passing nothing on.

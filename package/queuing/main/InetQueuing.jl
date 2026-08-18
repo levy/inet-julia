@@ -103,12 +103,30 @@ include("QueuingCapture.jl")
 # draw the same values in every replicate of a run" — so an rng's seed is a
 # parameter at `rng.seed` that a configuration answers.
 #
-# This says what the initialiser said, in the language that answers it: every
-# module's rng starts from that module's own `seed`. A network states it once
-# and every element it holds is seeded exactly as before.
+# So a network says which of its elements starts where, BY NAME:
+#
+#     Network(:Push; rules = queuing_rng_rules(source = 5, server = 6))
+#
+# An element nobody names starts at 0, which is what its `seed::Int = 0` default
+# gave it. The parameter itself is gone: a seed is not a property of a module, it
+# is what a configuration says about that module's generator, and saying it in
+# two places is what this plan removes.
 #
 # `omnetpp-julia plan/pending/random-number-generators.md` phase 7.
-queuing_rng_rules() = configure(net -> deep(net).rng.seed = PerSite(s -> owner(s).seed))
+# A name computed in a loop — `source1`, `source2`, … — cannot be a keyword, so
+# pairs are taken positionally beside them:
+#
+#     queuing_rng_rules((Symbol(:source, i) => m.seed + i for i in 1:n)...)
+function queuing_rng_rules(pairs::Pair...; seeds...)
+    configure(net -> begin
+        # The old default first; a named element overwrites it, because a log
+        # resolves in program order and the last write wins.
+        deep(net).rng.seed = 0
+        for (name, seed) in Iterators.flatten((pairs, seeds))
+            getproperty(net, Symbol(name)).rng.seed = seed
+        end
+    end)
+end
 
 export
     queuing_rng_rules,

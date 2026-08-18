@@ -59,14 +59,15 @@ function build_model(::Type{ComplexNetworkModel}, r::AResolvedParameters)
 end
 
 function _build_complex_network(m)
-    network = Network(:Complex; rules = queuing_rng_rules())
+    network = Network(:Complex;
+                  rules = queuing_rng_rules(
+                      (Symbol(:source, i) => m.seed + i for i in 1:2)...))
     # Two independent streams, joined into one.
     join = add_module!(network, PacketMultiplexerModule(:multiplexer; inputs = 2))
     for index in 1:2
         source = add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
             production_interval = Volatile(exponential(1 / m.arrival_rate)),
-            packet = PacketTemplate(length = Bytes(100)),
-            seed = m.seed + index))
+            packet = PacketTemplate(length = Bytes(100))))
         connect_gates!(source.out, join.in[index])
     end
     # One compound queue for both of them, drained by one server.

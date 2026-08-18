@@ -33,11 +33,10 @@ using OmnetppSimulator.VolatileModule
 # queue, assembled from the parts rather than built as one.
 function priority_chain(; production_interval = 0.1, processing_time = 0.25,
                           classifier = nothing, seed = 1)
-    network = Network(:Priority; rules = queuing_rng_rules())
+    network = Network(:Priority; rules = queuing_rng_rules(source = seed))
     source = add_module!(network, ActivePacketSourceModule(:source;
         production_interval = production_interval,
-        packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
-        seed = seed))
+        packet = PacketTemplate(length = Volatile(intuniform(80, 800)))))
     fork = add_module!(network, classifier === nothing ?
         priority_classifier(:classifier, 2) : classifier)
     queues = [add_module!(network, PacketQueueModule(Symbol(:queue, index)))
@@ -260,11 +259,10 @@ end
     end
 
     @testset "a filter drops what does not match" begin
-        network = Network(:Filter; rules = queuing_rng_rules())
+        network = Network(:Filter; rules = queuing_rng_rules(source = 2))
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1,
-            packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
-            seed = 2))
+            packet = PacketTemplate(length = Volatile(intuniform(80, 800)))))
         keep_short = add_module!(network, PacketFilterModule(:filter;
             predicate = packet -> bits(data_length(packet)) < 400))
         sink = add_module!(network, PassivePacketSinkModule(:sink))

@@ -44,7 +44,6 @@ when it looked, so that the pull which follows hands over that same packet.
         providing_interval::Any = 0.0
         initial_providing_offset::Float64 = 0.0
         packet::PacketTemplate = PacketTemplate()
-        seed::Int = 0
     end
     @gates begin
         out::OutputGate

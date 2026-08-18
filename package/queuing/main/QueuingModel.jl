@@ -73,19 +73,17 @@ function build_model(::Type{QueuingModel}, r::AResolvedParameters)
 end
 
 function _build_queuing_network(m)
-    network = Network(:Queuing; rules = queuing_rng_rules())
+    network = Network(:Queuing; rules = queuing_rng_rules(source = m.seed, server = m.seed + 1))
     source = add_module!(network, ActivePacketSourceModule(:source;
         production_interval = Volatile(exponential(1 / m.arrival_rate)),
-        packet = PacketTemplate(length = Bytes(m.packet_bytes)),
-        seed = m.seed))
+        packet = PacketTemplate(length = Bytes(m.packet_bytes))))
     # A capacity with a dropper rather than back pressure: an M/M/1/K queue
     # loses what does not fit instead of stopping the arrivals.
     queue = add_module!(network, m.packet_capacity == 0 ? PacketQueueModule(:queue) :
         PacketQueueModule(:queue; packet_capacity = m.packet_capacity,
                           dropper = drop_at_end))
     server = add_module!(network, PacketServerModule(:server;
-        processing_time = Volatile(exponential(1 / m.service_rate)),
-        seed = m.seed + 1))
+        processing_time = Volatile(exponential(1 / m.service_rate))))
     sink = add_module!(network, PassivePacketSinkModule(:sink))
     connect_gates!(source.out, queue.in)
     connect_gates!(queue.out, server.in)

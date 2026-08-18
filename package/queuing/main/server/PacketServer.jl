@@ -55,7 +55,6 @@ the one it is holding.
     @parameters begin
         processing_time::Any = 0.0
         processing_bitrate::Any = Inf
-        seed::Int = 0
     end
     @gates begin
         in::InputGate
