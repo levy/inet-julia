@@ -24,7 +24,7 @@ using OmnetppSimulator.VolatileModule
         # The source says nothing about its packets; the labeler writes a value
         # every element downstream can read, because it writes the SAME tag a
         # source would have.
-        network = Network(:Labeling)
+        network = Network(:Labeling; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         labeler = add_module!(network, PacketLabelerModule(:labeler; label = 7))
@@ -44,7 +44,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a cloner sends every output its own copy" begin
-        network = Network(:Cloning)
+        network = Network(:Cloning; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         cloner = add_module!(network, PacketClonerModule(:cloner; outputs = 3))
@@ -64,7 +64,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a duplicator thickens one stream in place" begin
-        network = Network(:Duplicating)
+        network = Network(:Duplicating; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         duplicator = add_module!(network, PacketDuplicatorModule(:duplicator;
@@ -84,7 +84,7 @@ using OmnetppSimulator.VolatileModule
         # A copy shares its content and gets its own tags, so a labeler after a
         # cloner can mark each branch differently — which would be impossible
         # if the tag sets were shared.
-        network = Network(:CopyTags)
+        network = Network(:CopyTags; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.5))
         cloner = add_module!(network, PacketClonerModule(:cloner; outputs = 2))
@@ -115,7 +115,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a multiplexer merges push chains" begin
-        network = Network(:Merge)
+        network = Network(:Merge; rules = queuing_rng_rules())
         sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
             production_interval = 0.1 * index))
                    for index in 1:2]
@@ -134,7 +134,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a multiplexer passes back pressure to every producer" begin
-        network = Network(:MergeSlow)
+        network = Network(:MergeSlow; rules = queuing_rng_rules())
         sources = [add_module!(network, ActivePacketSourceModule(Symbol(:source, index);
             production_interval = 0.1))
                    for index in 1:2]
@@ -157,7 +157,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a demultiplexer lets several collectors pull" begin
-        network = Network(:Split)
+        network = Network(:Split; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         queue = add_module!(network, PacketQueueModule(:queue))
@@ -180,7 +180,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a delayer holds each packet" begin
-        network = Network(:Delay)
+        network = Network(:Delay; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         delayer = add_module!(network, PacketDelayerModule(:delayer; delay = 0.25))
@@ -198,7 +198,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a drawn delay reorders packets" begin
-        network = Network(:Jitter)
+        network = Network(:Jitter; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1,
             packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
@@ -218,7 +218,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a priority queue behaves like one queue" begin
-        network = Network(:Compound)
+        network = Network(:Compound; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.05,
             packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
@@ -255,7 +255,7 @@ using OmnetppSimulator.VolatileModule
     end
 
     @testset "a compound is invisible to the wiring" begin
-        network = Network(:Through)
+        network = Network(:Through; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         queue = priority_queue(network, :queue, 2)

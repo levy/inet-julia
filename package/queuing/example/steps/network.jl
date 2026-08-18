@@ -59,7 +59,7 @@ function build_model(::Type{ComplexNetworkModel}, r::AResolvedParameters)
 end
 
 function _build_complex_network(m)
-    network = Network(:Complex)
+    network = Network(:Complex; rules = queuing_rng_rules())
     # Two independent streams, joined into one.
     join = add_module!(network, PacketMultiplexerModule(:multiplexer; inputs = 2))
     for index in 1:2

@@ -14,7 +14,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
 @testset "sources and sinks" begin
     @testset "a source pushes into a sink" begin
-        network = Network(:Push)
+        network = Network(:Push; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1,
             packet = PacketTemplate(length = Bytes(100))))
@@ -34,7 +34,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "a sink that consumes slowly holds the source back" begin
-        network = Network(:BackPressure)
+        network = Network(:BackPressure; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         sink = add_module!(network, PassivePacketSinkModule(:sink;
@@ -53,7 +53,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         # The value a packet carries is what every content-based element
         # downstream reads; a constant is the same on every packet, a Volatile
         # is drawn per packet like the length.
-        network = Network(:Data)
+        network = Network(:Data; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1,
             packet = PacketTemplate(length = Bytes(100),
@@ -63,7 +63,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         run_network!(network; until = 0.5)
         @test sink.num_packets == 6
 
-        varied = Network(:VariedData)
+        varied = Network(:VariedData; rules = queuing_rng_rules())
         varied_source = add_module!(varied, ActivePacketSourceModule(:source;
             production_interval = 0.1,
             packet = PacketTemplate(length = Bytes(100),
@@ -84,7 +84,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "a sink pulls from a source" begin
-        network = Network(:Pull)
+        network = Network(:Pull; rules = queuing_rng_rules())
         source = add_module!(network, PassivePacketSourceModule(:source;
             packet = PacketTemplate(length = Bytes(50))))
         sink = add_module!(network, ActivePacketSinkModule(:sink;
@@ -98,7 +98,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "a source that provides slowly holds the sink back" begin
-        network = Network(:SlowProvider)
+        network = Network(:SlowProvider; rules = queuing_rng_rules())
         source = add_module!(network, PassivePacketSourceModule(:source;
             providing_interval = 0.25))
         sink = add_module!(network, ActivePacketSinkModule(:sink;
@@ -113,7 +113,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "looking at the next packet does not take it" begin
-        network = Network(:Peek)
+        network = Network(:Peek; rules = queuing_rng_rules())
         source = add_module!(network, PassivePacketSourceModule(:source))
         sink = add_module!(network, ActivePacketSinkModule(:sink;
             collection_interval = 0.5))
@@ -135,7 +135,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "a delayed connection makes delivery an event" begin
-        network = Network(:Link)
+        network = Network(:Link; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         sink = add_module!(network, PassivePacketSinkModule(:sink))
@@ -150,7 +150,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "packet length can be drawn per packet" begin
-        network = Network(:Random)
+        network = Network(:Random; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1,
             packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
@@ -166,7 +166,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "production interval can be drawn per packet" begin
-        network = Network(:RandomInterval)
+        network = Network(:RandomInterval; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = Volatile(exponential(0.1)),
             seed = 3))
@@ -178,7 +178,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         # and the same seed gives the same run.
         @test 60 <= sink.num_packets <= 140
 
-        again = Network(:RandomInterval)
+        again = Network(:RandomInterval; rules = queuing_rng_rules())
         source2 = add_module!(again, ActivePacketSourceModule(:source;
             production_interval = Volatile(exponential(0.1)),
             seed = 3))
@@ -190,7 +190,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
 
     @testset "a run is reproducible" begin
         function build()
-            network = Network(:Hashed)
+            network = Network(:Hashed; rules = queuing_rng_rules())
             source = add_module!(network, ActivePacketSourceModule(:source;
                 production_interval = Volatile(exponential(0.1)),
                 seed = 11))
@@ -204,7 +204,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         @test total_event_count(first_run) == total_event_count(second_run)
 
         # A different seed is a different run.
-        other = Network(:Hashed)
+        other = Network(:Hashed; rules = queuing_rng_rules())
         source = add_module!(other, ActivePacketSourceModule(:source;
             production_interval = Volatile(exponential(0.1)),
             seed = 12))
@@ -214,7 +214,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "what a run records" begin
-        network = Network(:Recorded)
+        network = Network(:Recorded; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.25,
             packet = PacketTemplate(length = Bytes(125))))
@@ -241,7 +241,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         @test statistic_scalar(recorder, "Recorded.sink", "packetLifeTime:mean") ≈ 0.01
 
         # Recording is optional, and a run without it computes the same thing.
-        plain = Network(:Recorded)
+        plain = Network(:Recorded; rules = queuing_rng_rules())
         source2 = add_module!(plain, ActivePacketSourceModule(:source;
             production_interval = 0.25,
             packet = PacketTemplate(length = Bytes(125))))
@@ -252,7 +252,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
     end
 
     @testset "a network can be run again" begin
-        network = Network(:Reset)
+        network = Network(:Reset; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = Volatile(exponential(0.1)),
             seed = 5))
@@ -275,7 +275,7 @@ using OmnetppSimulator: MersenneTwister, to_simtime
         # declared as, and the recording handle is one of them. That is only
         # safe because a run registers the statistics again — which is what
         # this pins.
-        network = Network(:Rerecorded)
+        network = Network(:Rerecorded; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.25,
             packet = PacketTemplate(length = Bytes(125))))

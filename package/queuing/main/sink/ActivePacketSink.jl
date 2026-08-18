@@ -44,7 +44,7 @@ means it collects its first packet as the simulation starts.
     @gates begin
         in::InputGate
     end
-    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @rng rng::MersenneTwister
     @variables begin
         timer::TimerHandle = TimerHandle()
         offset_scheduled::Bool = false

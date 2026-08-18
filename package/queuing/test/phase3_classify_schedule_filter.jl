@@ -33,7 +33,7 @@ using OmnetppSimulator.VolatileModule
 # queue, assembled from the parts rather than built as one.
 function priority_chain(; production_interval = 0.1, processing_time = 0.25,
                           classifier = nothing, seed = 1)
-    network = Network(:Priority)
+    network = Network(:Priority; rules = queuing_rng_rules())
     source = add_module!(network, ActivePacketSourceModule(:source;
         production_interval = production_interval,
         packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
@@ -78,7 +78,7 @@ end
     end
 
     @testset "a priority classifier fills the first output that will take it" begin
-        network = Network(:Priority)
+        network = Network(:Priority; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         fork = add_module!(network, priority_classifier(:classifier, 2))
@@ -128,7 +128,7 @@ end
     @testset "a weighted round robin scheduler skips what is empty" begin
         # Two queues, only the second ever filled: the scheduler must not stall
         # on the first input's turn, or nothing would ever be pulled.
-        network = Network(:Wrr)
+        network = Network(:Wrr; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         first = add_module!(network, PacketQueueModule(:first))
@@ -260,7 +260,7 @@ end
     end
 
     @testset "a filter drops what does not match" begin
-        network = Network(:Filter)
+        network = Network(:Filter; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1,
             packet = PacketTemplate(length = Volatile(intuniform(80, 800))),
@@ -285,7 +285,7 @@ end
         # so it is felt by a peer that asks with a packet in hand. A server
         # does: it will not start serving one it could not deliver.
         function filtered_chain(backpressure)
-            network = Network(:Backpressure)
+            network = Network(:Backpressure; rules = queuing_rng_rules())
             source = add_module!(network, ActivePacketSourceModule(:source;
                 production_interval = 0.1))
             queue = add_module!(network, PacketQueueModule(:queue))
@@ -321,7 +321,7 @@ end
     end
 
     @testset "a filter passes flow control through" begin
-        network = Network(:Through)
+        network = Network(:Through; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         pass = add_module!(network, PacketFilterModule(:filter; predicate = _ -> true))

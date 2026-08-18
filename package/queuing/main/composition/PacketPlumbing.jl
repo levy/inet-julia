@@ -169,7 +169,7 @@ path whose delay varies reorders what crosses it.
         in::InputGate
         out::OutputGate
     end
-    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @rng rng::MersenneTwister
     @variable consumer::ModuleRef = NO_MODULE_REF
     @statistics begin
         recording::ModuleStatistics = ModuleStatistics()

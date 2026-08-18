@@ -51,7 +51,7 @@ packet, and is the end-to-end delay of the chain.
     @gates begin
         in::InputGate
     end
-    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @rng rng::MersenneTwister
     @variables begin
         timer::TimerHandle = TimerHandle()
         producer::ModuleRef = NO_MODULE_REF

@@ -59,7 +59,7 @@ function build_model(::Type{PriorityQueueModel}, r::AResolvedParameters)
 end
 
 function _build_priority_queue_network(m)
-    network = Network(:PriorityQueue)
+    network = Network(:PriorityQueue; rules = queuing_rng_rules())
     source = _step_source(network, m)
     # One element, several submodules: `priority_queue` builds the classifier,
     # the levels and the scheduler, and registers them all in the network.
@@ -141,7 +141,7 @@ function build_model(::Type{BackpressureFilterModel}, r::AResolvedParameters)
 end
 
 function _build_backpressure_network(m)
-    network = Network(:Backpressure)
+    network = Network(:Backpressure; rules = queuing_rng_rules())
     source = _step_source(network, m)
     queue = add_module!(network, PacketQueueModule(:queue))
     server = add_module!(network, PacketServerModule(:server;

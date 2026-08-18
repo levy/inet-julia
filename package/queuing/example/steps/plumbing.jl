@@ -59,7 +59,7 @@ function build_model(::Type{DelayerModel}, r::AResolvedParameters)
 end
 
 function _build_delayer_network(m)
-    network = Network(:Delayer)
+    network = Network(:Delayer; rules = queuing_rng_rules())
     source = _step_source(network, m)
     delay = m.random_delay ? Volatile(exponential(m.delay)) : m.delay
     delayer = add_module!(network, PacketDelayerModule(:delayer;
@@ -127,7 +127,7 @@ function build_model(::Type{MultiplexerModel}, r::AResolvedParameters)
 end
 
 function _build_multiplexer_network(m)
-    network = Network(:Multiplexer)
+    network = Network(:Multiplexer; rules = queuing_rng_rules())
     join = add_module!(network, PacketMultiplexerModule(:multiplexer; inputs = m.sources))
     sink = _step_sink(network, :sink)
     connect_gates!(join.out, sink.in)
@@ -201,7 +201,7 @@ function build_model(::Type{DemultiplexerModel}, r::AResolvedParameters)
 end
 
 function _build_demultiplexer_network(m)
-    network = Network(:Demultiplexer)
+    network = Network(:Demultiplexer; rules = queuing_rng_rules())
     # A demultiplexer sits on the PULL side: one provider, several collectors.
     source = add_module!(network, PassivePacketSourceModule(:source;
         packet = PacketTemplate(length = Bytes(100)),

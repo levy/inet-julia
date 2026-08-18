@@ -61,7 +61,7 @@ the one it is holding.
         in::InputGate
         out::OutputGate
     end
-    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @rng rng::MersenneTwister
     @variables begin
         timer::TimerHandle = TimerHandle()
         packet::Union{Packet,Nothing} = nothing        # the packet being served

@@ -48,7 +48,7 @@ appears, and negative — the default — means at once.
     @gates begin
         out::OutputGate
     end
-    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @rng rng::MersenneTwister
     @variables begin
         timer::TimerHandle = TimerHandle()
         offset_scheduled::Bool = false

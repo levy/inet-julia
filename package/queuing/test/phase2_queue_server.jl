@@ -16,7 +16,7 @@ using OmnetppSimulator.VolatileModule
 # counted at the end.
 function queue_chain(; production_interval, processing_time, packet_capacity = nothing,
                        dropper = nothing, length = Bytes(100), seed = 1)
-    network = Network(:Chain)
+    network = Network(:Chain; rules = queuing_rng_rules())
     source = add_module!(network, ActivePacketSourceModule(:source;
         production_interval = production_interval,
         packet = PacketTemplate(length = length),
@@ -114,7 +114,7 @@ end
     end
 
     @testset "the preset queues" begin
-        network = Network(:Presets)
+        network = Network(:Presets; rules = queuing_rng_rules())
         tail = add_module!(network, drop_tail_queue(:tail; packet_capacity = 5))
         head = add_module!(network, drop_head_queue(:head; packet_capacity = 5))
         @test tail.packet_capacity == 5
@@ -126,7 +126,7 @@ end
         # Rank short packets ahead of long ones, so the queue is a priority
         # queue over length rather than a first-in-first-out one.
         shortest_first = (a, b) -> data_length(a) < data_length(b)
-        network = Network(:Sorted)
+        network = Network(:Sorted; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1,
             packet = PacketTemplate(length = Volatile(intuniform(80, 8000))),
@@ -158,7 +158,7 @@ end
     end
 
     @testset "service time can depend on packet length" begin
-        network = Network(:Bitrate)
+        network = Network(:Bitrate; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 1.0,
             packet = PacketTemplate(length = Bytes(125))))
@@ -179,7 +179,7 @@ end
     end
 
     @testset "an instant server takes no time" begin
-        network = Network(:Instant)
+        network = Network(:Instant; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = 0.1))
         queue = add_module!(network, PacketQueueModule(:queue))
@@ -228,7 +228,7 @@ end
         # Arrivals at 5 per second into a server taking 0.1s on average is a
         # utilisation of one half, where the theory says the mean number
         # waiting is rho^2/(1-rho) = 0.5 and the mean wait is 0.1s.
-        network = Network(:MM1)
+        network = Network(:MM1; rules = queuing_rng_rules())
         source = add_module!(network, ActivePacketSourceModule(:source;
             production_interval = Volatile(exponential(0.2)),
             seed = 20))

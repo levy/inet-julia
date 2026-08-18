@@ -49,7 +49,7 @@ when it looked, so that the pull which follows hands over that same packet.
     @gates begin
         out::OutputGate
     end
-    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @rng rng::MersenneTwister
     @variables begin
         timer::TimerHandle = TimerHandle()
         next_packet::Union{Packet,Nothing} = nothing

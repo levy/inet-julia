@@ -62,7 +62,7 @@ vocabulary.
         in::InputGate
         out::OutputGate
     end
-    @stream rng::MersenneTwister = MersenneTwister(seed)
+    @rng rng::MersenneTwister
     @variables begin
         producer::ModuleRef = NO_MODULE_REF
         consumer::ModuleRef = NO_MODULE_REF

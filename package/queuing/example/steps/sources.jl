@@ -71,7 +71,7 @@ function build_model(::Type{ActiveSourcePassiveSinkModel}, r::AResolvedParameter
 end
 
 function _build_source_sink_network(m)
-    network = Network(:SourceSink)
+    network = Network(:SourceSink; rules = queuing_rng_rules())
     # A fixed interval produces a packet like clockwork; an exponential one
     # produces a Poisson process with the same mean, which is what the arrival
     # streams of every later step are made of.
@@ -148,7 +148,7 @@ function build_model(::Type{PassiveSourceActiveSinkModel}, r::AResolvedParameter
 end
 
 function _build_pull_network(m)
-    network = Network(:PullSourceSink)
+    network = Network(:PullSourceSink; rules = queuing_rng_rules())
     source = add_module!(network, PassivePacketSourceModule(:source;
         packet = PacketTemplate(length = Bytes(m.packet_bytes)),
         seed = m.seed))

@@ -22,6 +22,7 @@ using OmnetppSimulator: SimTime, to_simtime, ZERO_DELAY, schedule_event!, schedu
     AbstractEngine, AbstractModel, LimitReached
 # Parameterization: a model declares its degrees of freedom, the lifecycle
 # resolves them and hands back a `ResolvedParameters`.
+using OmnetppSimulator.ConfigurationModule: configure, deep, PerSite, owner
 using OmnetppSimulator: Parameter, ParameterSpace, AResolvedParameters,
     StructuralDOF, StochasticDOF
 # The model interface itself — `import`, not `using`, because `QueuingModel`
@@ -93,7 +94,24 @@ include("QueuingModel.jl")              # the canonical chain as a model
 # forwarding proxy (omnetpp-julia plan/pending/observable-communication.md P3).
 include("QueuingCapture.jl")
 
+
+# ── The seed of every rng, as a rule ────────────────────────────────────────
+#
+# Each element declares a `seed::Int` parameter and used to seed its own rng
+# from it: `@stream rng::MersenneTwister = MersenneTwister(seed)`. The module
+# macro refuses that, and says why — "a module that fixed its own seed would
+# draw the same values in every replicate of a run" — so an rng's seed is a
+# parameter at `rng.seed` that a configuration answers.
+#
+# This says what the initialiser said, in the language that answers it: every
+# module's rng starts from that module's own `seed`. A network states it once
+# and every element it holds is seeded exactly as before.
+#
+# `omnetpp-julia plan/pending/random-number-generators.md` phase 7.
+queuing_rng_rules() = configure(net -> deep(net).rng.seed = PerSite(s -> owner(s).seed))
+
 export
+    queuing_rng_rules,
     # the four roles a module plays at a gate, and how packets move between them
     PacketProtocolModule,
     # what queuing elements share: recording, and the packets a source makes

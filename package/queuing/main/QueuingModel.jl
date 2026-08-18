@@ -73,7 +73,7 @@ function build_model(::Type{QueuingModel}, r::AResolvedParameters)
 end
 
 function _build_queuing_network(m)
-    network = Network(:Queuing)
+    network = Network(:Queuing; rules = queuing_rng_rules())
     source = add_module!(network, ActivePacketSourceModule(:source;
         production_interval = Volatile(exponential(1 / m.arrival_rate)),
         packet = PacketTemplate(length = Bytes(m.packet_bytes)),

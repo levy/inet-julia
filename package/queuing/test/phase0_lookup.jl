@@ -136,7 +136,7 @@ a_packet() = Packet(Filler(Bytes(100)))
 
 @testset "lookup and contract" begin
     @testset "finding a peer along a connection" begin
-        network = Network(:Net)
+        network = Network(:Net; rules = queuing_rng_rules())
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer))
         connect_gates!(producer.out, consumer.in)
@@ -161,7 +161,7 @@ a_packet() = Packet(Filler(Bytes(100)))
     end
 
     @testset "delay is accumulated on the way" begin
-        network = Network(:Net)
+        network = Network(:Net; rules = queuing_rng_rules())
         producer = add_module!(network, Producer(:producer))
         relay = add_module!(network, Relay(:relay))
         consumer = add_module!(network, Consumer(:consumer))
@@ -177,7 +177,7 @@ a_packet() = Packet(Filler(Bytes(100)))
     end
 
     @testset "forwarding depends on what is behind" begin
-        network = Network(:Net)
+        network = Network(:Net; rules = queuing_rng_rules())
         producer = add_module!(network, Producer(:producer))
         relay = add_module!(network, Relay(:relay))
         connect_gates!(producer.out, relay.in)
@@ -200,7 +200,7 @@ a_packet() = Packet(Filler(Bytes(100)))
     end
 
     @testset "answering in code beats claims, including a refusal" begin
-        network = Network(:Net)
+        network = Network(:Net; rules = queuing_rng_rules())
         producer = add_module!(network, Producer(:producer))
         chooser = add_module!(network, Chooser(:chooser, :own))
         connect_gates!(producer.out, chooser.in)
@@ -208,7 +208,7 @@ a_packet() = Packet(Filler(Bytes(100)))
 
         # Saying no ends the walk: a module that refuses is not deferring to
         # whatever lies behind it.
-        network2 = Network(:Net2)
+        network2 = Network(:Net2; rules = queuing_rng_rules())
         producer2 = add_module!(network2, Producer(:producer))
         refuser = add_module!(network2, Chooser(:refuser, :refuse))
         consumer2 = add_module!(network2, Consumer(:consumer))
@@ -220,7 +220,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         # Staying silent defers instead: the walk carries on wherever the
         # connections do. A module that neither claims nor speaks and passes
         # straight through is invisible to a lookup.
-        network3 = Network(:Net3)
+        network3 = Network(:Net3; rules = queuing_rng_rules())
         producer3 = add_module!(network3, Producer(:producer))
         quiet = add_module!(network3, Chooser(:quiet, :silent))
         consumer3 = add_module!(network3, Consumer(:consumer))
@@ -232,7 +232,7 @@ a_packet() = Packet(Filler(Bytes(100)))
 
         # Where the connections stop, so does the walk: a module that says
         # nothing and leads nowhere is simply the end of the chain.
-        network4 = Network(:Net4)
+        network4 = Network(:Net4; rules = queuing_rng_rules())
         producer4 = add_module!(network4, Producer(:producer))
         deadend = add_module!(network4, Chooser(:deadend, :silent))
         connect_gates!(producer4.out, deadend.in)
@@ -240,7 +240,7 @@ a_packet() = Packet(Filler(Bytes(100)))
     end
 
     @testset "resolve_interface stores an outcome" begin
-        network = Network(:Net)
+        network = Network(:Net; rules = queuing_rng_rules())
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer))
         connect_gates!(producer.out, consumer.in)
@@ -258,7 +258,7 @@ a_packet() = Packet(Filler(Bytes(100)))
     end
 
     @testset "finding a module by reference" begin
-        network = Network(:Net)
+        network = Network(:Net; rules = queuing_rng_rules())
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer))
         connect_gates!(producer.out, consumer.in)
@@ -283,7 +283,7 @@ a_packet() = Packet(Filler(Bytes(100)))
     end
 
     @testset "delivering a packet" begin
-        network = Network(:Net)
+        network = Network(:Net; rules = queuing_rng_rules())
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer))
         connect_gates!(producer.out, consumer.in)
@@ -304,7 +304,7 @@ a_packet() = Packet(Filler(Bytes(100)))
 
         # Over a connection with a delay it becomes a scheduled event instead,
         # and the packet arrives later.
-        network2 = Network(:Net2)
+        network2 = Network(:Net2; rules = queuing_rng_rules())
         producer2 = add_module!(network2, Producer(:producer))
         consumer2 = add_module!(network2, Consumer(:consumer))
         connect_gates!(producer2.out, consumer2.in; delay = to_simtime(0.5))
@@ -323,7 +323,7 @@ a_packet() = Packet(Filler(Bytes(100)))
     end
 
     @testset "flow control reaches the driver" begin
-        network = Network(:Net)
+        network = Network(:Net; rules = queuing_rng_rules())
         producer = add_module!(network, Producer(:producer))
         consumer = add_module!(network, Consumer(:consumer; accepts = false))
         connect_gates!(producer.out, consumer.in)
@@ -335,7 +335,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         @test producer.resumed == 1
 
         # The pull side works the same way, in the other direction.
-        network2 = Network(:Net2)
+        network2 = Network(:Net2; rules = queuing_rng_rules())
         provider = add_module!(network2, Provider(:provider))
         collector = add_module!(network2, Collector(:collector))
         connect_gates!(provider.out, collector.in)
@@ -363,7 +363,7 @@ a_packet() = Packet(Filler(Bytes(100)))
     end
 
     @testset "wiring is checked while the network is built" begin
-        good = Network(:Good)
+        good = Network(:Good; rules = queuing_rng_rules())
         producer = add_module!(good, Producer(:producer))
         consumer = add_module!(good, Consumer(:consumer))
         connect_gates!(producer.out, consumer.in)
@@ -371,7 +371,7 @@ a_packet() = Packet(Filler(Bytes(100)))
 
         # One end pushes, the other waits to be pulled from: no packet would
         # ever move, and the model would merely look idle.
-        crossed = Network(:Crossed)
+        crossed = Network(:Crossed; rules = queuing_rng_rules())
         producer2 = add_module!(crossed, Producer(:producer))
         collector = add_module!(crossed, Collector(:collector))
         connect_gates!(producer2.out, collector.in)
@@ -380,7 +380,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         @test occursin("producer.out", err.msg)
 
         # A pull is a call that returns a packet, so a delay has nowhere to go.
-        delayed = Network(:Delayed)
+        delayed = Network(:Delayed; rules = queuing_rng_rules())
         provider = add_module!(delayed, Provider(:provider))
         collector2 = add_module!(delayed, Collector(:collector))
         connect_gates!(provider.out, collector2.in; delay = to_simtime(0.001))
@@ -389,7 +389,7 @@ a_packet() = Packet(Filler(Bytes(100)))
         @test occursin("propagation delay", err2.msg)
 
         # A provider with nothing pulling from it is reported too.
-        idle = Network(:Idle)
+        idle = Network(:Idle; rules = queuing_rng_rules())
         provider2 = add_module!(idle, Provider(:provider))
         consumer3 = add_module!(idle, Consumer(:consumer))
         connect_gates!(provider2.out, consumer3.in)

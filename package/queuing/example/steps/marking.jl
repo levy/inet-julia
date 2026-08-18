@@ -54,7 +54,7 @@ function build_model(::Type{LabelerModel}, r::AResolvedParameters)
 end
 
 function _build_labeler_network(m)
-    network = Network(:Labeling)
+    network = Network(:Labeling; rules = queuing_rng_rules())
     # The source writes nothing — the packets are plain.
     source = _step_source(network, m)
     labeler = add_module!(network, PacketLabelerModule(:labeler;
@@ -133,7 +133,7 @@ function build_model(::Type{ClonerModel}, r::AResolvedParameters)
 end
 
 function _build_cloner_network(m)
-    network = Network(:Cloning)
+    network = Network(:Cloning; rules = queuing_rng_rules())
     source = _step_source(network, m)
     cloner = add_module!(network, PacketClonerModule(:cloner; outputs = m.branches))
     connect_gates!(source.out, cloner.in)
